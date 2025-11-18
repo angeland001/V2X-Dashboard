@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node --version)",
+      "Bash(git remote remove:*)",
+      "Bash(git remote rename:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
