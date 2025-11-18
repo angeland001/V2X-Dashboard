@@ -3,7 +3,8 @@
     "allow": [
       "Bash(node --version)",
       "Bash(git remote remove:*)",
-      "Bash(git remote rename:*)"
+      "Bash(git remote rename:*)",
+      "Bash(docker-compose build:*)"
     ],
     "deny": [],
     "ask": []

@@ -23,12 +23,34 @@ export default function App() {
 
 function Map() {
   const dispatch = useDispatch();
-  const { data } = useSwr("covid", async () => {
+  const { data } = useSwr("chattanooga-collisions", async () => {
     const response = await fetch(
-      "https://gist.githubusercontent.com/leighhalliday/a994915d8050e90d413515e97babd3b3/raw/a3eaaadcc784168e3845a98931780bd60afb362f/covid19.json"
+      "https://www.chattadata.org/resource/psep-yh23.json"
     );
-    const data = await response.json();
-    return data;
+    const rawData = await response.json();
+
+    // Transform the data to Kepler.gl format
+    const fields = [
+      { name: "latitude", type: "real" },
+      { name: "longitude", type: "real" },
+      { name: "collision_date", type: "timestamp" },
+      { name: "road_name", type: "string" },
+      { name: "injuries", type: "integer" },
+      { name: "fatalities", type: "integer" },
+      { name: "crash_type", type: "string" }
+    ];
+
+    const rows = rawData.map(record => [
+      parseFloat(record.latdecimalnmb),
+      parseFloat(record.longdecimalnmb),
+      record.collisiondatetxt,
+      record.rdwynametxt || "Unknown",
+      parseInt(record.nbrinjurednmb) || 0,
+      parseInt(record.nbrfatalitiesnmb) || 0,
+      record.crshtypecde || "Unknown"
+    ]);
+
+    return { fields, rows };
   });
 
   React.useEffect(() => {
@@ -37,16 +59,22 @@ function Map() {
         addDataToMap({
           datasets: {
             info: {
-              label: "COVID-19",
-              id: "covid19"
+              label: "Chattanooga Traffic Collisions",
+              id: "chattanooga-collisions"
             },
             data
           },
           option: {
-            centerMap: true,
+            centerMap: false,
             readOnly: false
           },
-          config: {}
+          config: {
+            mapState: {
+              latitude: 35.0456,
+              longitude: -85.3097,
+              zoom: 11
+            }
+          }
         })
       );
     }
@@ -54,7 +82,7 @@ function Map() {
 
   return (
     <KeplerGl
-      id="covid"
+      id="chattanooga"
       mapboxApiAccessToken={process.env.REACT_APP_MAPBOX_API}
       width={window.innerWidth}
       height={window.innerHeight}
