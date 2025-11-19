@@ -1,0 +1,193 @@
+/* Navigation Sidebar Styles */
+.navigation-sidebar {
+  position: fixed;
+  left: 0;
+  top: 0;
+  height: 100vh;
+  width: 280px;
+  background: linear-gradient(180deg, #1B1B1B 10%, #2C3034 100%);
+  display: flex;
+  flex-direction: column;
+  box-shadow: 4px 0 20px rgba(0, 0, 0, 0.3);
+  z-index: 1000;
+  font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  transition: transform 0.3s ease;
+}
+
+/* Navigation Header */
+.nav-header {
+  padding: 24px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.nav-logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.logo-icon {
+  font-size: 32px;
+  line-height: 1;
+}
+
+.nav-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: #FFF;
+  margin: 0;
+  letter-spacing: 0.5px;
+}
+
+/* Navigation Items Container */
+.nav-items {
+  flex: 1;
+  padding: 20px 12px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(253, 183, 54, 0.3) transparent;
+}
+
+.nav-items::-webkit-scrollbar {
+  width: 6px;
+}
+
+.nav-items::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.nav-items::-webkit-scrollbar-thumb {
+  background: rgba(253, 183, 54, 0.3);
+  border-radius: 3px;
+}
+
+.nav-items::-webkit-scrollbar-thumb:hover {
+  background: rgba(253, 183, 54, 0.5);
+}
+
+/* Navigation Item Button */
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 14px 18px;
+  margin-bottom: 6px;
+  background: transparent;
+  border: none;
+  border-radius: 10px;
+  color: #e3e3e3;
+  font-family: 'Poppins', sans-serif;
+  font-size: 15px;
+  font-weight: 400;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.nav-item::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  width: 4px;
+  background: #FDB736;
+  transform: translateX(-4px);
+  transition: transform 0.3s ease;
+}
+
+.nav-item:hover {
+  background: rgba(253, 183, 54, 0.1);
+  color: #FDB736;
+  transform: translateX(4px);
+}
+
+.nav-item:hover::before {
+  transform: translateX(0);
+}
+
+.nav-item.active {
+  background: linear-gradient(90deg, rgba(253, 183, 54, 0.2) 0%, rgba(253, 183, 54, 0.05) 100%);
+  color: #FDB736;
+  font-weight: 500;
+}
+
+.nav-item.active::before {
+  transform: translateX(0);
+}
+
+.nav-icon {
+  font-size: 20px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.nav-label {
+  flex: 1;
+  text-align: left;
+  white-space: nowrap;
+}
+
+/* Navigation Footer */
+.nav-footer {
+  padding: 16px 12px 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.profile-item:hover {
+  background: rgba(3, 169, 244, 0.1);
+  color: #03A9F4;
+}
+
+.logout-item:hover {
+  background: rgba(255, 68, 68, 0.1);
+  color: #ff4444;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .navigation-sidebar {
+    width: 70px;
+  }
+
+  .nav-title,
+  .nav-label {
+    display: none;
+  }
+
+  .nav-item {
+    justify-content: center;
+    padding: 14px;
+  }
+
+  .nav-logo {
+    justify-content: center;
+  }
+
+  .nav-icon {
+    font-size: 24px;
+  }
+}
+
+/* Hover Effects for Better UX */
+.nav-item:active {
+  transform: translateX(6px) scale(0.98);
+}
+
+/* Badge for Alerts */
+.nav-item[data-badge]::after {
+  content: attr(data-badge);
+  position: absolute;
+  top: 10px;
+  right: 18px;
+  background: #ff4444;
+  color: white;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 10px;
+  min-width: 18px;
+  text-align: center;
+}

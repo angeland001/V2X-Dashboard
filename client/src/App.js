@@ -8,12 +8,15 @@ import { addDataToMap } from "kepler.gl/actions";
 import useSwr from "swr";
 import { BrowserRouter as Router, Route, Switch } from "react-router-dom";
 import Login from "./auth/Login";
+import Navigation from "./components/Navigation";
+import { useState } from "react";
 
 const reducers = combineReducers({
   keplerGl: keplerGlReducer
 });
 
 const store = createStore(reducers, {}, applyMiddleware(taskMiddleware));
+
 
 export default function App() {
   return (
@@ -51,7 +54,7 @@ function Map() {
     const rows = rawData.map(record => [
       parseFloat(record.latdecimalnmb),
       parseFloat(record.longdecimalnmb),
-      record.collisiondatetxt,
+      record.collisiondte,
       record.rdwynametxt || "Unknown",
       parseInt(record.nbrinjurednmb) || 0,
       parseInt(record.nbrfatalitiesnmb) || 0,
@@ -81,6 +84,23 @@ function Map() {
               latitude: 35.0456,
               longitude: -85.3097,
               zoom: 11
+            },
+            visState: {
+              filters: [
+                {
+                  dataId: ["chattanooga-collisions"],
+                  id: "collision-timeline",
+                  name: ["collision_date"],
+                  type: "timeRange",
+                  enabled: true,
+                  animationWindow: "free",
+                  speed: 1
+                }
+              ],
+              animationConfig: {
+                isAnimating: false,
+                speed: 1
+              }
             }
           }
         })
@@ -92,7 +112,7 @@ function Map() {
 
   const infoBoxStyle = {
     position: "absolute",
-    bottom: '20px',
+    bottom: '180px',
     right: '20px',
     backgroundColor: isDark ? 'rgba(41, 41, 48, 0.95)' : 'rgba(255, 255, 255, 0.95)',
     color: isDark ? '#E8E8E8' : '#1F1F1F',
@@ -120,26 +140,101 @@ function Map() {
 
   return (
     <div style={{ position: "absolute", width: "100%", height: "100%" }}>
-      <KeplerGl
-        id="chattanooga"
-        mapboxApiAccessToken={process.env.REACT_APP_MAPBOX_API}
-        width={window.innerWidth}
-        height={window.innerHeight}
-      />
-      <div style={infoBoxStyle}>
-        <h3 style={{ margin: '0 0 10px 0', fontSize: '16px', color: isDark ? '#E8E8E8' : '#1F1F1F' }}>
-          Chattanooga Traffic Collisions
-        </h3>
-        <p style={textStyle}>
-          <strong>Total Records:</strong> {data?.rows?.length || 0}
-        </p>
-        <p style={textStyle}>
-          <strong>Source:</strong> Chattanooga Open Data
-        </p>
-        <p style={mutedTextStyle}>
-          Data includes collision location, date, injuries, and fatalities
-        </p>
+      <Navigation />
+      <div style={{ position: "absolute", left: "280px", top: 0, width: "calc(100% - 280px)", height: "100%" }}>
+        <KeplerGl
+          id="chattanooga"
+          mapboxApiAccessToken={process.env.REACT_APP_MAPBOX_API}
+          width={window.innerWidth - 280}
+          height={window.innerHeight}
+        />
+        <InfoBoxToggle data={data} isDark={isDark} />
       </div>
+    </div>
+  );
+}
+
+function InfoBoxToggle({ data, isDark }) {
+  const [open, setOpen] = useState(true);
+
+  const infoBoxStyle = {
+    background: isDark ? "#2a2a2a" : "#f5f5f5",
+    padding: "15px",
+    borderRadius: "10px",
+    boxShadow: isDark
+      ? "0 0 10px rgba(255,255,255,0.1)"
+      : "0 0 10px rgba(0,0,0,0.1)",
+    width: "260px",
+  };
+
+  const textStyle = {
+    margin: "5px 0",
+    color: isDark ? "#E8E8E8" : "#1F1F1F",
+    fontSize: "14px",
+  };
+
+  const mutedTextStyle = {
+    margin: "5px 0",
+    color: isDark ? "#C7C7C7" : "#555",
+    fontSize: "12px",
+  };
+
+  return (
+    <div style={{
+      position: "absolute",
+      bottom: "180px",
+      right: "20px",
+      zIndex: 1000
+    }}>
+      {/* Toggle Button */}
+      <button
+        onClick={() => setOpen(!open)}
+        style={{
+          padding: "8px 14px",
+          borderRadius: "8px",
+          border: "none",
+          cursor: "pointer",
+          background: isDark ? "#444" : "#ddd",
+          color: isDark ? "#E8E8E8" : "#1F1F1F",
+          marginBottom: "10px",
+          fontFamily: "'Poppins', sans-serif",
+          fontSize: "13px",
+          fontWeight: "500",
+          transition: "all 0.2s ease",
+          boxShadow: isDark
+            ? "0 2px 8px rgba(0, 0, 0, 0.6)"
+            : "0 2px 8px rgba(0, 0, 0, 0.15)",
+        }}
+      >
+        {open ? "Hide Info" : "Show Info"}
+      </button>
+
+      {/* Info Box */}
+      {open && (
+        <div style={infoBoxStyle}>
+          <h3
+            style={{
+              margin: "0 0 10px 0",
+              fontSize: "16px",
+              color: isDark ? "#E8E8E8" : "#1F1F1F",
+            }}
+          >
+            Chattanooga Traffic Collisions
+          </h3>
+
+          <p style={textStyle}>
+            <strong>Total Records:</strong> {data?.rows?.length || 0}
+          </p>
+
+          <p style={textStyle}>
+            <strong>Source:</strong> Chattanooga Open Data
+          </p>
+
+          <p style={mutedTextStyle}>
+            Data includes collision location, date, injuries, and fatalities
+          </p>
+        </div>
+      )}
     </div>
   );
 }
