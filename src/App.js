@@ -6,6 +6,8 @@ import { Provider, useDispatch, useSelector } from "react-redux";
 import KeplerGl from "kepler.gl";
 import { addDataToMap } from "kepler.gl/actions";
 import useSwr from "swr";
+import { BrowserRouter as Router, Route, Switch } from "react-router-dom";
+import Login from "./auth/Login";
 
 const reducers = combineReducers({
   keplerGl: keplerGlReducer
@@ -16,8 +18,12 @@ const store = createStore(reducers, {}, applyMiddleware(taskMiddleware));
 export default function App() {
   return (
     <Provider store={store}>
-      
-      <Map />
+      <Router>
+        <Switch>
+          <Route exact path="/" component={Login} />
+          <Route path="/map" component={Map} />
+        </Switch>
+      </Router>
     </Provider>
   );
 }

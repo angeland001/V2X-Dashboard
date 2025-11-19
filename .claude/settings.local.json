@@ -4,7 +4,9 @@
       "Bash(node --version)",
       "Bash(git remote remove:*)",
       "Bash(git remote rename:*)",
-      "Bash(docker-compose build:*)"
+      "Bash(docker-compose build:*)",
+      "Bash(npm install:*)",
+      "Bash(cat:*)"
     ],
     "deny": [],
     "ask": []

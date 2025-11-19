@@ -1,49 +1,78 @@
-import { useNavigate } from 'react-router-dom';
+import { useHistory } from 'react-router-dom';
 import React, { useState } from 'react';
+import '../style/auth/login.css';
 
 function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const navigate = useNavigate();
+  const history = useHistory();
 
 
   const handleSubmit = (event) => {
-    event.preventDefault(); // Prevent default form submission behavior
+    event.preventDefault();
     console.log('Login attempted with:', { email, password });
-    navigate('/Map'); // Navigate to the main application page after login
+    history.push('/map');
 };
 
   return (
-    <div style={{ padding: '20px', maxWidth: '400px', margin: 'auto', border: '1px solid #ccc', borderRadius: '8px' }}>
-      <h2>Login</h2>
-      <form onSubmit={handleSubmit}>
-        <div style={{ marginBottom: '15px' }}>
-          <label htmlFor="email" style={{ display: 'block', marginBottom: '5px' }}>Email:</label>
-          <input
-            type="email"
-            id="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            style={{ width: '100%', padding: '8px', boxSizing: 'border-box' }}
-          />
-        </div>
-        <div style={{ marginBottom: '15px' }}>
-          <label htmlFor="password" style={{ display: 'block', marginBottom: '5px' }}>Password:</label>
-          <input
-            type="password"
-            id="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            style={{ width: '100%', padding: '8px', boxSizing: 'border-box' }}
-          />
-        </div>
-        <button type="submit" style={{ width: '100%', padding: '10px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer' }}>
-          Login
-        </button>
-      </form>
+
+    <><div id="back">
+      <canvas id="canvas" class="canvas-back"></canvas>
+      <div class="backRight">
+      </div>
+      <div class="backLeft">
+      </div>
     </div>
+    <div id="slideBox">
+        <div class="topLayer">
+    <div class="left">
+      <div class="content">
+        <h2>Sign Up</h2>
+        <form id="form-signup" method="post" onsubmit="return false;">
+          <div class="form-element form-stack">
+            <label for="email" class="form-label">Email</label>
+            <input id="email" type="email" name="email"/>
+          </div>
+          <div class="form-element form-stack">
+            <label for="username-signup" class="form-label">Username</label>
+            <input id="username-signup" type="text" name="username"/>
+          </div>
+          <div class="form-element form-stack">
+            <label for="password-signup" class="form-label">Password</label>
+            <input id="password-signup" type="password" name="password"/>
+          </div>
+          <div class="form-element form-checkbox">
+            <input id="confirm-terms" type="checkbox" name="confirm" value="yes" class="checkbox"/>
+            <label for="confirm-terms">I agree to the <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a></label>
+          </div>
+          <div class="form-element form-submit">
+            <button id="signUp" class="signup" type="submit" name="signup">Sign up</button>
+            <button id="goLeft" class="signup off">Log In</button> 
+          </div>
+        </form>
+      </div>
+    </div>
+    <div class="right">
+      <div class="content">
+        <h2>Login</h2>
+        <form id="form-login" method="post" onsubmit="return false;">
+          <div class="form-element form-stack">
+            <label for="username-login" class="form-label">Username</label>
+            <input id="username-login" type="text" name="username"/>
+          </div>
+          <div class="form-element form-stack">
+            <label for="password-login" class="form-label">Password</label>
+            <input id="password-login" type="password" name="password"/>
+          </div>
+          <div class="form-element form-submit">
+            <button id="logIn" class="login" type="submit" name="login">Log In</button>
+            <button id="goRight" class="login off" name="signup">Sign Up</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+      </div></>
   );
 }
 
