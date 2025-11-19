@@ -2,40 +2,18 @@
   "name": "keplergl-deliverable",
   "version": "0.1.0",
   "private": true,
-  "dependencies": {
-    "@testing-library/jest-dom": "^4.2.4",
-    "@testing-library/react": "^9.3.2",
-    "@testing-library/user-event": "^7.1.2",
-    "kepler.gl": "^2.0.1",
-    "react": "^16.13.1",
-    "react-dom": "^16.13.1",
-    "react-palm": "^3.1.2",
-    "react-redux": "^7.2.0",
-    "react-router-dom": "^5.3.4",
-    "react-scripts": "3.4.1",
-    "redux": "^4.0.5",
-    "styled-components": "^5.0.1",
-    "swr": "^0.1.18"
-  },
   "scripts": {
-    "start": "set NODE_OPTIONS=--openssl-legacy-provider && react-scripts start",
-    "build": "set NODE_OPTIONS=--openssl-legacy-provider && react-scripts build",
-    "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "client": "cd client && npm start",
+    "server": "cd server && npm start",
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "install:client": "cd client && npm install",
+    "install:server": "cd server && npm install",
+    "install:all": "npm install && npm run install:client && npm run install:server"
   },
-  "eslintConfig": {
-    "extends": "react-app"
+  "devDependencies": {
+    "concurrently": "^7.0.0"
   },
-  "browserslist": {
-    "production": [
-      ">0.2%",
-      "not dead",
-      "not op_mini all"
-    ],
-    "development": [
-      "last 1 chrome version",
-      "last 1 firefox version",
-      "last 1 safari version"
-    ]
+  "dependencies": {
+    "paper": "^0.12.18"
   }
 }

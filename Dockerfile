@@ -4,14 +4,15 @@ FROM node:16-alpine
 # Set working directory
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
+# Copy client package files
+COPY client/package*.json ./client/
 
-# Install dependencies
+# Install client dependencies
+WORKDIR /app/client
 RUN npm install --legacy-peer-deps
 
-# Copy project files
-COPY . .
+# Copy client project files
+COPY client/ ./
 
 # Expose port 3000
 EXPOSE 3000

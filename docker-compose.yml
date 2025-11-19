@@ -6,8 +6,8 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      - .:/app
-      - /app/node_modules
+      - ./client:/app/client
+      - /app/client/node_modules
     environment:
       - REACT_APP_MAPBOX_API=${REACT_APP_MAPBOX_API}
       - BROWSER=none
