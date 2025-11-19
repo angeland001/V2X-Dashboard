@@ -24,7 +24,78 @@ function Login() {
     paper.setup(canvasRef.current);
 
     let shapeGroup = new paper.Group();
+    let dotsGroup = new paper.Group();
     let positionArray = [];
+
+    // Dot class for animation
+    class AnimatedDot {
+      constructor(path) {
+        this.path = path;
+        this.offset = Math.random();
+        this.speed = 0.0005 + Math.random() * 0.001;
+        this.pulseOffset = Math.random() * Math.PI * 2;
+        this.isColliding = false;
+
+        // Start at random position on path
+        const startPoint = path.getPointAt(this.offset * path.length);
+
+        this.circle = new paper.Path.Circle({
+          center: startPoint || path.position,
+          radius: 4,
+          fillColor: '#FDB736'
+        });
+
+        dotsGroup.addChild(this.circle);
+      }
+
+      update(frame) {
+        // Continue moving even when colliding (just marked for removal)
+        this.offset += this.speed;
+        if (this.offset > 1) this.offset = 0;
+
+        const point = this.path.getPointAt(this.offset * this.path.length);
+        if (point) {
+          this.circle.position = point;
+
+          // Pulse effect
+          const pulse = 6 + Math.sin(frame * 0.05 + this.pulseOffset) * 1.5;
+          this.circle.scale(pulse / this.circle.bounds.width);
+        }
+      }
+
+      collideWith(otherDot) {
+        if (this.isColliding || otherDot.isColliding) return false;
+
+        const distance = this.circle.position.getDistance(otherDot.circle.position);
+        if (distance < 8) {
+          this.isColliding = true;
+          otherDot.isColliding = true;
+
+          // Create red collision effect
+          const collisionDot = new paper.Path.Circle({
+            center: this.circle.position,
+            radius: 6,
+            fillColor: '#ff4444'
+          });
+
+          // Animate collision dot
+          collisionDot.onFrame = function(event) {
+            this.scale(1.1);
+            this.opacity -= 0.05;
+            if (this.opacity <= 0) {
+              this.remove();
+            }
+          };
+
+          return true;
+        }
+        return false;
+      }
+
+      remove() {
+        this.circle.remove();
+      }
+    }
 
     const getCanvasBounds = () => {
       const canvasWidth = paper.view.size.width;
@@ -46,6 +117,8 @@ function Login() {
       return { canvasWidth };
     };
 
+    let dots = [];
+
     const initializeShapes = () => {
       const { canvasWidth } = getCanvasBounds();
 
@@ -62,13 +135,19 @@ function Login() {
 
       shapePathData.forEach((pathData, i) => {
         const shape = new paper.Path({
-          strokeColor: 'rgba(255, 255, 255, 0.5)',
-          strokeWidth: 2,
+          strokeColor: '#FDB736',
+          strokeWidth: 1.8,
           pathData: pathData
         });
         shape.scale(2);
         shape.position = positionArray[i];
         shapeGroup.addChild(shape);
+
+        // Create 3-5 dots per shape
+        const numDots = Math.floor(Math.random() * 3) + 3;
+        for (let j = 0; j < numDots; j++) {
+          dots.push(new AnimatedDot(shape));
+        }
       });
 
       if (canvasWidth < 700) {
@@ -81,6 +160,7 @@ function Login() {
     initializeShapes();
 
     paper.view.onFrame = (event) => {
+      // Rotate shapes
       if (event.count % 4 === 0) {
         shapeGroup.children.forEach((child, i) => {
           if (i % 2 === 0) {
@@ -89,6 +169,50 @@ function Login() {
             child.rotate(0.1);
           }
         });
+      }
+
+      // Update dots
+      dots.forEach(dot => dot.update(event.count));
+
+      // Check for collisions
+      const dotsToRemove = new Set();
+
+      for (let i = 0; i < dots.length; i++) {
+        if (!dots[i] || dotsToRemove.has(i)) continue;
+
+        if (dots[i].isColliding) {
+          dotsToRemove.add(i);
+          continue;
+        }
+
+        for (let j = i + 1; j < dots.length; j++) {
+          if (!dots[j] || dotsToRemove.has(j)) continue;
+
+          if (dots[i].collideWith(dots[j])) {
+            dotsToRemove.add(i);
+            dotsToRemove.add(j);
+            break;
+          }
+        }
+      }
+
+      // Remove collided dots
+      if (dotsToRemove.size > 0) {
+        const indices = Array.from(dotsToRemove).sort((a, b) => b - a);
+        indices.forEach(index => {
+          if (dots[index]) {
+            dots[index].remove();
+            dots.splice(index, 1);
+          }
+        });
+      }
+
+      // Randomly spawn new dots if count is low
+      if (dots.length < 25 && Math.random() < 0.05) {
+        const randomShape = shapeGroup.children[Math.floor(Math.random() * shapeGroup.children.length)];
+        if (randomShape && randomShape.opacity > 0) {
+          dots.push(new AnimatedDot(randomShape));
+        }
       }
     };
 
@@ -111,6 +235,7 @@ function Login() {
     };
 
     return () => {
+      dots.forEach(dot => dot.remove());
       if (paper.project) {
         paper.project.remove();
       }
@@ -201,19 +326,7 @@ function Login() {
                     required
                   />
                 </div>
-                <div className="form-element form-checkbox">
-                  <input
-                    id="confirm-terms"
-                    type="checkbox"
-                    name="confirm"
-                    value="yes"
-                    className="checkbox"
-                    checked={signupTerms}
-                    onChange={(e) => setSignupTerms(e.target.checked)}
-                    required
-                  />
-                  <label htmlFor="confirm-terms">I agree to the <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a></label>
-                </div>
+                
                 <div className="form-element form-submit">
                   <button id="signUp" className="signup" type="submit">Sign up</button>
                   <button id="goLeft" className="signup off" type="button" onClick={goToLogin}>Log In</button>
@@ -223,7 +336,9 @@ function Login() {
           </div>
           <div className="right">
             <div className="content">
-              <h2>Login</h2>
+              <h1 style={{color: '#00416A'}}>Login</h1>
+              <h2>V2X Dashboard Demo</h2>
+              
               <form id="form-login" onSubmit={handleLoginSubmit}>
                 <div className="form-element form-stack">
                   <label htmlFor="username-login" className="form-label">Username</label>
