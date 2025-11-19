@@ -6,7 +6,6 @@ body {
     overflow: hidden;
     width: 100% !important;
     box-sizing: border-box;
-    font-family: "Roboto", sans-serif;
 }
 
 .backRight {
@@ -71,6 +70,7 @@ input {
   font-size: 1em;
   padding: 8px 1px;
   margin-top: 0.1em;
+  width: 65%;
 }
 
 .left {
@@ -132,7 +132,7 @@ input {
   position: relative;
 }
 
-.content h2 {
+.content h1 h2 {
   font-weight: 300;
   font-size: 2.6em;
   margin: 0.2em 0 0.1em;
@@ -143,7 +143,7 @@ input {
 }
 
 .right .content h2 {
-  color: #673AB7;
+  color: 	#0070FF;
 }
 
 .form-element {
@@ -159,7 +159,7 @@ input {
 }
 
 .checkbox {
-  
+
   outline: none;
   background-color: #e3e3e3;
   border: 1px solid #e3e3e3;
@@ -221,7 +221,7 @@ button.signup {
   background: #03A9F4;
 }
 button.login {
-  background: #673AB7;
+  background: #0070FF;
 }
 button.off {
   background: none;
@@ -232,7 +232,7 @@ button.off.signup {
   color: #03A9F4;
 }
 button.off.login {
-  color: #673AB7;
+  color: #0070FF;
 }
 
 button:focus, button:active, button:hover {
@@ -242,7 +242,7 @@ button:focus.signup, button:active.signup, button:hover.signup {
   background: #0288D1;
 }
 button:focus.login, button:active.login, button:hover.login {
-  background: #512DA8;
+  background: #002FA7;
 }
 button:focus.off, button:active.off, button:hover.off {
   box-shadow: none;
@@ -252,7 +252,7 @@ button:focus.off.signup, button:active.off.signup, button:hover.off.signup {
   background: #212121;
 }
 button:focus.off.login, button:active.off.login, button:hover.off.login {
-  color: #512DA8;
+  color: #002FA7;
   background: #e3e3e3;
 }
 

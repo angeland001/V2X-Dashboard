@@ -6,7 +6,12 @@
       "Bash(git remote rename:*)",
       "Bash(docker-compose build:*)",
       "Bash(npm install:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(mkdir:*)",
+      "Bash(rm:*)",
+      "Bash(git add:*)",
+      "Bash(git restore:*)",
+      "Bash(git check-ignore:*)"
     ],
     "deny": [],
     "ask": []
