@@ -122,6 +122,21 @@ input {
   -webkit-text-fill-color: #212121;
 }
 
+
+.icon {
+  position: fixed;
+  width: 70px;
+  height: 70px;
+  border-radius: 50%;
+  background-image: url('/V2XLogo.png');
+  right: 20px;
+  bottom: 20px;
+  background-size: contain;
+  background-position: center;
+  background-repeat: no-repeat;
+  z-index: 1;
+}
+
 .content {
   display: flex;
   flex-direction: column;
