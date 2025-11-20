@@ -368,6 +368,9 @@ function Login() {
                 </div>
               </form>
             </div>
+            
+                <div className="icon"></div>
+              
           </div>
         </div>
       </div>

@@ -34,7 +34,10 @@ export default function App() {
 function Map() {
   const dispatch = useDispatch();
   const theme = useSelector(state => state.keplerGl.chattanooga?.uiState?.theme || 'dark');
-  const { data } = useSwr("chattanooga-collisions", async () => {
+  const [activeDataset, setActiveDataset] = useState('collisions');
+
+  // Fetch collisions data
+  const { data: collisionsData } = useSwr("chattanooga-collisions", async () => {
     const response = await fetch(
       "https://www.chattadata.org/resource/psep-yh23.json"
     );
@@ -64,19 +67,66 @@ function Map() {
     return { fields, rows };
   });
 
+  // Fetch neighborhood boundaries data
+  const { data: neighborhoodsData } = useSwr("neighborhood-boundaries", async () => {
+    const response = await fetch(
+      "https://www.chattadata.org/resource/dxzz-idjy.json"
+    );
+    const rawData = await response.json();
+
+    // Transform the data to Kepler.gl format
+    const fields = [
+      { name: "name", type: "string" },
+      { name: "description", type: "string" },
+      { name: "geometry", type: "geojson" }
+    ];
+
+    const rows = rawData.map(record => [
+      record.name || "Unknown",
+      record.description || "",
+      record.boundary
+    ]);
+
+    return { fields, rows, rawData };
+  });
+
+  const data = activeDataset === 'collisions' ? collisionsData : neighborhoodsData;
+
   React.useEffect(() => {
     if (data) {
+      const datasetConfig = activeDataset === 'collisions'
+        ? {
+            label: "Chattanooga Traffic Collisions",
+            id: "chattanooga-collisions",
+            filters: [
+              {
+                dataId: ["chattanooga-collisions"],
+                id: "collision-timeline",
+                name: ["collision_date"],
+                type: "timeRange",
+                enabled: true,
+                animationWindow: "free",
+                speed: 1
+              }
+            ]
+          }
+        : {
+            label: "Neighborhood Association Boundaries",
+            id: "neighborhood-boundaries",
+            filters: []
+          };
+
       dispatch(
         addDataToMap({
           datasets: {
             info: {
-              label: "Chattanooga Traffic Collisions",
-              id: "chattanooga-collisions"
+              label: datasetConfig.label,
+              id: datasetConfig.id
             },
             data
           },
           option: {
-            centerMap: false,
+            centerMap: true,
             readOnly: false
           },
           config: {
@@ -86,17 +136,7 @@ function Map() {
               zoom: 11
             },
             visState: {
-              filters: [
-                {
-                  dataId: ["chattanooga-collisions"],
-                  id: "collision-timeline",
-                  name: ["collision_date"],
-                  type: "timeRange",
-                  enabled: true,
-                  animationWindow: "free",
-                  speed: 1
-                }
-              ],
+              filters: datasetConfig.filters,
               animationConfig: {
                 isAnimating: false,
                 speed: 1
@@ -106,7 +146,7 @@ function Map() {
         })
       );
     }
-  }, [dispatch, data]);
+  }, [dispatch, data, activeDataset]);
 
   const isDark = theme === 'dark';
 
@@ -148,13 +188,18 @@ function Map() {
           width={window.innerWidth - 280}
           height={window.innerHeight}
         />
-        <InfoBoxToggle data={data} isDark={isDark} />
+        <InfoBoxToggle
+          data={data}
+          isDark={isDark}
+          activeDataset={activeDataset}
+          setActiveDataset={setActiveDataset}
+        />
       </div>
     </div>
   );
 }
 
-function InfoBoxToggle({ data, isDark }) {
+function InfoBoxToggle({ data, isDark, activeDataset, setActiveDataset }) {
   const [open, setOpen] = useState(true);
 
   const infoBoxStyle = {
@@ -179,31 +224,62 @@ function InfoBoxToggle({ data, isDark }) {
     fontSize: "12px",
   };
 
+  const buttonStyle = {
+    padding: "8px 14px",
+    borderRadius: "8px",
+    border: "none",
+    cursor: "pointer",
+    background: isDark ? "#444" : "#ddd",
+    color: isDark ? "#E8E8E8" : "#1F1F1F",
+    marginBottom: "10px",
+    marginRight: "10px",
+    fontFamily: "'Poppins', sans-serif",
+    fontSize: "13px",
+    fontWeight: "500",
+    transition: "all 0.2s ease",
+    boxShadow: isDark
+      ? "0 2px 8px rgba(0, 0, 0, 0.6)"
+      : "0 2px 8px rgba(0, 0, 0, 0.15)",
+  };
+
+  const activeButtonStyle = {
+    ...buttonStyle,
+    background: isDark ? "#5a5a5a" : "#bbb",
+    fontWeight: "600",
+  };
+
+  const isCollisions = activeDataset === 'collisions';
+
   return (
     <div style={{
       position: "absolute",
-      bottom: "180px",
+      bottom: "200px",
       right: "20px",
       zIndex: 1000
     }}>
-      {/* Toggle Button */}
+      {/* Button Group */}
+      <div style={{ display: "flex", marginBottom: "15px" }}>
+        <button
+          onClick={() => setActiveDataset('collisions')}
+          style={isCollisions ? activeButtonStyle : buttonStyle}
+        >
+          Traffic Collisions
+        </button>
+        <button
+          onClick={() => setActiveDataset('neighborhoods')}
+          style={!isCollisions ? activeButtonStyle : buttonStyle}
+        >
+          Neighborhoods
+        </button>
+      </div>
+
+      {/* Toggle Info Box Button */}
       <button
         onClick={() => setOpen(!open)}
         style={{
-          padding: "8px 14px",
-          borderRadius: "8px",
-          border: "none",
-          cursor: "pointer",
-          background: isDark ? "#444" : "#ddd",
-          color: isDark ? "#E8E8E8" : "#1F1F1F",
-          marginBottom: "10px",
-          fontFamily: "'Poppins', sans-serif",
-          fontSize: "13px",
-          fontWeight: "500",
-          transition: "all 0.2s ease",
-          boxShadow: isDark
-            ? "0 2px 8px rgba(0, 0, 0, 0.6)"
-            : "0 2px 8px rgba(0, 0, 0, 0.15)",
+          ...buttonStyle,
+          marginRight: "0px",
+          width: "100%",
         }}
       >
         {open ? "Hide Info" : "Show Info"}
@@ -219,7 +295,9 @@ function InfoBoxToggle({ data, isDark }) {
               color: isDark ? "#E8E8E8" : "#1F1F1F",
             }}
           >
-            Chattanooga Traffic Collisions
+            {isCollisions
+              ? "Chattanooga Traffic Collisions"
+              : "Neighborhood Association Boundaries"}
           </h3>
 
           <p style={textStyle}>
@@ -231,7 +309,9 @@ function InfoBoxToggle({ data, isDark }) {
           </p>
 
           <p style={mutedTextStyle}>
-            Data includes collision location, date, injuries, and fatalities
+            {isCollisions
+              ? "Data includes collision location, date, injuries, and fatalities"
+              : "Data includes neighborhood boundaries and association information"}
           </p>
         </div>
       )}
