@@ -3,11 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
-    "@kepler.gl/ai-assistant": "^3.2.1",
     "@testing-library/jest-dom": "^4.2.4",
     "@testing-library/react": "^9.3.2",
     "@testing-library/user-event": "^7.1.2",
-    "kepler.gl": "^3.2.1",
+    "kepler.gl": "^2.5.5",
     "paper": "^0.12.18",
     "react": "^16.13.1",
     "react-dom": "^16.13.1",

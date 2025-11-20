@@ -5,9 +5,10 @@ services:
     build: .
     ports:
       - "3000:3000"
-    volumes:
-      - ./client:/app/client
-      - /app/client/node_modules
+    # Commented out volume mounts to avoid Windows symlink/permission issues
+    # volumes:
+    #   - ./client:/app/client
+    #   - /app/client/node_modules
     environment:
       - REACT_APP_MAPBOX_API=${REACT_APP_MAPBOX_API}
       - BROWSER=none
