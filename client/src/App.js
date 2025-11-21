@@ -105,8 +105,17 @@ function Map() {
                 name: ["collision_date"],
                 type: "timeRange",
                 enabled: true,
-                animationWindow: "free",
-                speed: 1
+                // Animation window: 'free', 'incremental', or 'point'
+                animationWindow: "incremental",
+                speed: 1,
+                // View type: 'side' (compact), 'enlarged' (large), 'minified' (minimal)
+                view: "side",
+                // Plot type: 'histogram', 'lineChart'
+                plotType: "lineChart",
+                // Time format (e.g., 'L', 'L LT', 'L LTS')
+                timeFormat: "L LTS",
+                // Y-axis configuration (null for default)
+                yAxis: null
               }
             ]
           }
@@ -139,7 +148,9 @@ function Map() {
               filters: datasetConfig.filters,
               animationConfig: {
                 isAnimating: false,
-                speed: 1
+                speed: 1,
+                // Hide timeline controls (set to true to hide)
+                
               }
             }
           }
@@ -149,6 +160,8 @@ function Map() {
   }, [dispatch, data, activeDataset]);
 
   const isDark = theme === 'dark';
+
+  
 
   return (
     <div style={{ position: "absolute", width: "100%", height: "100%" }}>
@@ -225,8 +238,9 @@ function InfoBoxToggle({ data, isDark, activeDataset, setActiveDataset }) {
   return (
     <div style={{
       position: "absolute",
-      bottom: "200px",
-      right: "20px",
+      bottom: "260px",
+
+      right: "8px",
       zIndex: 1000
     }}>
       {/* Button Group */}

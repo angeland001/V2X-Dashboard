@@ -47,5 +47,8 @@
   },
   "devDependencies": {
     "react-app-rewired": "^2.2.1"
+  },
+  "resolutions": {
+    "styled-components": "^6.1.8"
   }
 }
