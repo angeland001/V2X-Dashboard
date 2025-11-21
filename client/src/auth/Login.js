@@ -1,18 +1,18 @@
-import { useHistory } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import React, { useState, useEffect, useRef } from 'react';
 import paper from 'paper';
 import '../styles/auth/login.css';
 
 function Login() {
-  const [isSignUp, setIsSignUp] = useState(false);
+  const [, setIsSignUp] = useState(false);
   const [signupEmail, setSignupEmail] = useState('');
   const [signupUsername, setSignupUsername] = useState('');
   const [signupPassword, setSignupPassword] = useState('');
-  const [signupTerms, setSignupTerms] = useState(false);
+  const [, setSignupTerms] = useState(false);
   const [loginUsername, setLoginUsername] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
 
-  const history = useHistory();
+  const navigate = useNavigate();
   const canvasRef = useRef(null);
   const slideBoxRef = useRef(null);
   const topLayerRef = useRef(null);
@@ -277,7 +277,7 @@ function Login() {
   const handleLoginSubmit = (event) => {
     event.preventDefault();
     console.log('Login attempted with:', { loginUsername, loginPassword });
-    history.push('/map');
+    navigate('/map');
   };
 
   return (

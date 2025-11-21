@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { useHistory } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import '../styles/navigation.css';
 
 const Navigation = () => {
   const [activeTab, setActiveTab] = useState('map');
-  const history = useHistory();
+  const navigate = useNavigate();
 
   const navigationItems = [
     {
@@ -62,7 +62,7 @@ const Navigation = () => {
         <button className="nav-item profile-item">
           <span className="nav-label">Profile</span>
         </button>
-        <button className="nav-item logout-item" onClick={() => history.push('/')}>
+        <button className="nav-item logout-item" onClick={() => navigate('/')}>
           <span className="nav-label">Logout</span>
         </button>
       </div>
