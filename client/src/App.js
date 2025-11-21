@@ -186,6 +186,45 @@ function Map() {
 
 function InfoBoxToggle({ data, isDark, activeDataset, setActiveDataset }) {
   const [open, setOpen] = useState(true);
+  const [position, setPosition] = useState({ x: window.innerWidth - 288, y: window.innerHeight - 520 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+
+  const handleMouseDown = (e) => {
+    if (e.target.tagName === 'BUTTON') return; // Don't drag when clicking buttons
+    setIsDragging(true);
+    setDragOffset({
+      x: e.clientX - position.x,
+      y: e.clientY - position.y
+    });
+  };
+
+  const handleMouseMove = (e) => {
+    if (isDragging) {
+      setPosition({
+        x: e.clientX - dragOffset.x,
+        y: e.clientY - dragOffset.y
+      });
+    }
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  React.useEffect(() => {
+    if (isDragging) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+    } else {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    }
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDragging, dragOffset]);
 
   const infoBoxStyle = {
     background: isDark ? "#2a2a2a" : "#f5f5f5",
@@ -236,13 +275,17 @@ function InfoBoxToggle({ data, isDark, activeDataset, setActiveDataset }) {
   const isCollisions = activeDataset === 'collisions';
 
   return (
-    <div style={{
-      position: "absolute",
-      bottom: "260px",
-
-      right: "8px",
-      zIndex: 1000
-    }}>
+    <div
+      onMouseDown={handleMouseDown}
+      style={{
+        position: "absolute",
+        left: `${position.x}px`,
+        top: `${position.y}px`,
+        zIndex: 1000,
+        cursor: isDragging ? 'grabbing' : 'grab',
+        userSelect: 'none'
+      }}
+    >
       {/* Button Group */}
       <div style={{ display: "flex", marginBottom: "15px" }}>
         <button
