@@ -1,12 +1,12 @@
 import React from "react";
-import keplerGlReducer from "kepler.gl/reducers";
+import keplerGlReducer from "@kepler.gl/reducers";
 import { createStore, combineReducers, applyMiddleware } from "redux";
 import { taskMiddleware } from "react-palm/tasks";
 import { Provider, useDispatch, useSelector } from "react-redux";
-import KeplerGl from "kepler.gl";
-import { addDataToMap } from "kepler.gl/actions";
+import KeplerGl from "@kepler.gl/components";
+import { addDataToMap } from "@kepler.gl/actions";
 import useSwr from "swr";
-import { BrowserRouter as Router, Route, Switch } from "react-router-dom";
+import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
 import Login from "./auth/Login";
 import Navigation from "./components/Navigation";
 import { useState } from "react";
@@ -22,10 +22,10 @@ export default function App() {
   return (
     <Provider store={store}>
       <Router>
-        <Switch>
-          <Route exact path="/" component={Login} />
-          <Route path="/map" component={Map} />
-        </Switch>
+        <Routes>
+          <Route path="/" element={<Login />} />
+          <Route path="/map" element={<Map />} />
+        </Routes>
       </Router>
     </Provider>
   );
@@ -149,34 +149,6 @@ function Map() {
   }, [dispatch, data, activeDataset]);
 
   const isDark = theme === 'dark';
-
-  const infoBoxStyle = {
-    position: "absolute",
-    bottom: '180px',
-    right: '20px',
-    backgroundColor: isDark ? 'rgba(41, 41, 48, 0.95)' : 'rgba(255, 255, 255, 0.95)',
-    color: isDark ? '#E8E8E8' : '#1F1F1F',
-    padding: '15px',
-    borderRadius: '8px',
-    boxShadow: isDark
-      ? '0 2px 8px rgba(0, 0, 0, 0.6)'
-      : '0 2px 8px rgba(0, 0, 0, 0.15)',
-    border: isDark ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid rgba(0, 0, 0, 0.1)',
-    maxWidth: '300px',
-    zIndex: 1000
-  };
-
-  const textStyle = {
-    margin: '5px 0',
-    fontSize: '14px',
-    color: isDark ? '#E8E8E8' : '#1F1F1F'
-  };
-
-  const mutedTextStyle = {
-    margin: '5px 0',
-    fontSize: '12px',
-    color: isDark ? '#A0A0A0' : '#666'
-  };
 
   return (
     <div style={{ position: "absolute", width: "100%", height: "100%" }}>
