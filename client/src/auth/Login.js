@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
+import paper from 'paper';
 import Dither from './Dither';
 import '../styles/auth/login.css';
 
@@ -15,6 +16,115 @@ function Login() {
   const navigate = useNavigate();
   const slideBoxRef = useRef(null);
   const topLayerRef = useRef(null);
+  const rightCanvasRef = useRef(null);
+
+  // Simplified Paper.js animation for right side
+  useEffect(() => {
+    if (!rightCanvasRef.current) return;
+
+    paper.setup(rightCanvasRef.current);
+
+    let shapeGroup = new paper.Group();
+    let dotsGroup = new paper.Group();
+
+    // Dot class for animation
+    class AnimatedDot {
+      constructor(path) {
+        this.path = path;
+        this.offset = Math.random();
+        this.speed = 0.0005 + Math.random() * 0.001;
+        this.pulseOffset = Math.random() * Math.PI * 2;
+
+        const startPoint = path.getPointAt(this.offset * path.length);
+
+        this.circle = new paper.Path.Circle({
+          center: startPoint || path.position,
+          radius: 3,
+          fillColor: '#0070FF'
+        });
+
+        dotsGroup.addChild(this.circle);
+      }
+
+      update(frame) {
+        this.offset += this.speed;
+        if (this.offset > 1) this.offset = 0;
+
+        const point = this.path.getPointAt(this.offset * this.path.length);
+        if (point) {
+          this.circle.position = point;
+          const pulse = 5 + Math.sin(frame * 0.05 + this.pulseOffset) * 1;
+          this.circle.scale(pulse / this.circle.bounds.width);
+        }
+      }
+
+      remove() {
+        this.circle.remove();
+      }
+    }
+
+    let dots = [];
+
+    const initializeShapes = () => {
+      const canvasWidth = paper.view.size.width;
+      const canvasHeight = paper.view.size.height;
+
+      // Just 3 simple shapes - positioned on the right side
+      const positions = [
+        { x: canvasWidth - 120, y: 80 },
+        { x: canvasWidth - 140, y: canvasHeight / 2 },
+        { x: canvasWidth - 100, y: canvasHeight - 80 }
+      ];
+
+      const shapePathData = [
+        'M 50 100 L 200 120 L 180 50 Z',
+        'M0,0l64,100L29,150l200,15L180,20l-80,2L0,0z',
+        'M 80 50 L 150 80 L 120 30 Z'
+      ];
+
+      shapePathData.forEach((pathData, i) => {
+        const shape = new paper.Path({
+          strokeColor: '#0070FF',
+          strokeWidth: 1.5,
+          pathData: pathData
+        });
+        shape.scale(1.2);
+        shape.position = positions[i];
+        shapeGroup.addChild(shape);
+
+        // Create 2-3 dots per shape
+        const numDots = Math.floor(Math.random() * 2) + 2;
+        for (let j = 0; j < numDots; j++) {
+          dots.push(new AnimatedDot(shape));
+        }
+      });
+    };
+
+    initializeShapes();
+
+    paper.view.onFrame = (event) => {
+      // Rotate shapes slowly
+      if (event.count % 4 === 0) {
+        shapeGroup.children.forEach((child, i) => {
+          if (i % 2 === 0) {
+            child.rotate(-0.08);
+          } else {
+            child.rotate(0.08);
+          }
+        });
+      }
+
+      // Update dots
+      dots.forEach(dot => dot.update(event.count));
+    };
+
+    return () => {
+      dots.forEach(dot => dot.remove());
+      if (paper.project) {
+        paper.project.remove();
+      }
+    };
+  }, []);
 
   // Toggle animation between signup and login
   const goToSignUp = () => {
@@ -121,6 +231,7 @@ function Login() {
             </div>
           </div>
           <div className="right">
+            <canvas ref={rightCanvasRef} className="right-canvas"></canvas>
             <div className="content">
               <h1 style={{color: '#00416A'}}>Login</h1>
               <h2>V2X Dashboard</h2>
