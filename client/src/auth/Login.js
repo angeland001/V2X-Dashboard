@@ -154,9 +154,9 @@ function Login() {
                 </div>
               </form>
             </div>
-            
-                <div className="icon"></div>
-              
+
+                <div className="icon" style={{backgroundImage: 'url(/V2XLogo.png)'}}></div>
+
           </div>
         </div>
       </div>
