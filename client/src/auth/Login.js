@@ -1,18 +1,111 @@
 import { useNavigate } from 'react-router-dom';
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback, memo } from 'react';
 import paper from 'paper';
 import Dither from './Dither';
 import FaultyTerminal from './FaultyTerminal';
 import '../styles/auth/login.css';
 
-function Login() {
-  const [, setIsSignUp] = useState(false);
+// Memoize heavy animation components to prevent re-renders
+const MemoizedFaultyTerminal = memo(FaultyTerminal);
+const MemoizedDither = memo(Dither);
+
+// Separate form component to isolate re-renders from animations
+const SignupForm = memo(({ onSubmit, goToLogin }) => {
   const [signupEmail, setSignupEmail] = useState('');
   const [signupUsername, setSignupUsername] = useState('');
   const [signupPassword, setSignupPassword] = useState('');
-  const [signupTerms, setSignupTerms] = useState(false);
+
+  const handleSubmit = useCallback((e) => {
+    e.preventDefault();
+    onSubmit({ signupEmail, signupUsername, signupPassword });
+  }, [signupEmail, signupUsername, signupPassword, onSubmit]);
+
+  return (
+    <form id="form-signup" onSubmit={handleSubmit}>
+      <div className="form-element form-stack">
+        <label htmlFor="email" className="form-label">Email</label>
+        <input
+          id="email"
+          type="email"
+          name="email"
+          value={signupEmail}
+          onChange={(e) => setSignupEmail(e.target.value)}
+          required
+        />
+      </div>
+      <div className="form-element form-stack">
+        <label htmlFor="username-signup" className="form-label">Username</label>
+        <input
+          id="username-signup"
+          type="text"
+          name="username"
+          value={signupUsername}
+          onChange={(e) => setSignupUsername(e.target.value)}
+          required
+        />
+      </div>
+      <div className="form-element form-stack">
+        <label htmlFor="password-signup" className="form-label">Password</label>
+        <input
+          id="password-signup"
+          type="password"
+          name="password"
+          value={signupPassword}
+          onChange={(e) => setSignupPassword(e.target.value)}
+          required
+        />
+      </div>
+      <div className="form-element form-submit">
+        <button id="signUp" className="signup" type="submit">Sign up</button>
+        <button id="goLeft" className="signup off" type="button" onClick={goToLogin}>Log In</button>
+      </div>
+    </form>
+  );
+});
+
+const LoginForm = memo(({ onSubmit, goToSignUp }) => {
   const [loginUsername, setLoginUsername] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
+
+  const handleSubmit = useCallback((e) => {
+    e.preventDefault();
+    onSubmit({ loginUsername, loginPassword });
+  }, [loginUsername, loginPassword, onSubmit]);
+
+  return (
+    <form id="form-login" onSubmit={handleSubmit}>
+      <div className="form-element form-stack">
+        <label htmlFor="username-login" className="form-label">Username</label>
+        <input
+          id="username-login"
+          type="text"
+          name="username"
+          value={loginUsername}
+          onChange={(e) => setLoginUsername(e.target.value)}
+          required
+        />
+      </div>
+      <div className="form-element form-stack">
+        <label htmlFor="password-login" className="form-label">Password</label>
+        <input
+          id="password-login"
+          type="password"
+          name="password"
+          value={loginPassword}
+          onChange={(e) => setLoginPassword(e.target.value)}
+          required
+        />
+      </div>
+      <div className="form-element form-submit">
+        <button id="logIn" className="login" type="submit">Log In</button>
+        <button id="goRight" className="login off" type="button" onClick={goToSignUp}>Sign Up</button>
+      </div>
+    </form>
+  );
+});
+
+function Login() {
+  const [, setIsSignUp] = useState(false);
   const [activeUI, setActiveUI] = useState('terminal'); // 'terminal', 'dithering', or 'paperjs'
 
   const navigate = useNavigate();
@@ -380,24 +473,22 @@ function Login() {
     }
   };
 
-  const handleSignupSubmit = (event) => {
-    event.preventDefault();
-    console.log('Signup attempted with:', { signupEmail, signupUsername, signupPassword, signupTerms });
+  const handleSignupSubmit = useCallback((data) => {
+    console.log('Signup attempted with:', data);
     // Add signup logic here
-  };
+  }, []);
 
-  const handleLoginSubmit = (event) => {
-    event.preventDefault();
-    console.log('Login attempted with:', { loginUsername, loginPassword });
+  const handleLoginSubmit = useCallback((data) => {
+    console.log('Login attempted with:', data);
     navigate('/map');
-  };
+  }, [navigate]);
 
   return (
     <>
       <div id="back">
         <div className="canvas-back">
           {activeUI === 'terminal' && (
-            <FaultyTerminal
+            <MemoizedFaultyTerminal
               scale={1.5}
               gridMul={[2, 1]}
               digitSize={1.2}
@@ -418,7 +509,7 @@ function Login() {
             />
           )}
           {activeUI === 'dithering' && (
-            <Dither
+            <MemoizedDither
               waveColor={[0.2, 0.4, 0.9]}
               waveColor2={[0.99, 0.85, 0.2]}
               disableAnimation={false}
@@ -466,46 +557,7 @@ function Login() {
           <div className="left">
             <div className="content">
               <h2>Sign Up</h2>
-              <form id="form-signup" onSubmit={handleSignupSubmit}>
-                <div className="form-element form-stack">
-                  <label htmlFor="email" className="form-label">Email</label>
-                  <input
-                    id="email"
-                    type="email"
-                    name="email"
-                    value={signupEmail}
-                    onChange={(e) => setSignupEmail(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="form-element form-stack">
-                  <label htmlFor="username-signup" className="form-label">Username</label>
-                  <input
-                    id="username-signup"
-                    type="text"
-                    name="username"
-                    value={signupUsername}
-                    onChange={(e) => setSignupUsername(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="form-element form-stack">
-                  <label htmlFor="password-signup" className="form-label">Password</label>
-                  <input
-                    id="password-signup"
-                    type="password"
-                    name="password"
-                    value={signupPassword}
-                    onChange={(e) => setSignupPassword(e.target.value)}
-                    required
-                  />
-                </div>
-                
-                <div className="form-element form-submit">
-                  <button id="signUp" className="signup" type="submit">Sign up</button>
-                  <button id="goLeft" className="signup off" type="button" onClick={goToLogin}>Log In</button>
-                </div>
-              </form>
+              <SignupForm onSubmit={handleSignupSubmit} goToLogin={goToLogin} />
             </div>
           </div>
           <div className="right">
@@ -513,35 +565,7 @@ function Login() {
             <div className="content">
               <h1 style={{color: '#00416A'}}>Login</h1>
               <h2>V2X Dashboard</h2>
-              
-              <form id="form-login" onSubmit={handleLoginSubmit}>
-                <div className="form-element form-stack">
-                  <label htmlFor="username-login" className="form-label">Username</label>
-                  <input
-                    id="username-login"
-                    type="text"
-                    name="username"
-                    value={loginUsername}
-                    onChange={(e) => setLoginUsername(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="form-element form-stack">
-                  <label htmlFor="password-login" className="form-label">Password</label>
-                  <input
-                    id="password-login"
-                    type="password"
-                    name="password"
-                    value={loginPassword}
-                    onChange={(e) => setLoginPassword(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="form-element form-submit">
-                  <button id="logIn" className="login" type="submit">Log In</button>
-                  <button id="goRight" className="login off" type="button" onClick={goToSignUp}>Sign Up</button>
-                </div>
-              </form>
+              <LoginForm onSubmit={handleLoginSubmit} goToSignUp={goToSignUp} />
             </div>
 
                 <div className="icon" style={{backgroundImage: 'url(/V2XLogo.png)'}}></div>

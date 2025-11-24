@@ -6,10 +6,10 @@ import { Provider, useDispatch, useSelector } from "react-redux";
 import KeplerGl from "@kepler.gl/components";
 import { addDataToMap } from "@kepler.gl/actions";
 import useSwr from "swr";
-import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
+import { BrowserRouter as Router, Route, Routes, useNavigate } from "react-router-dom";
 import Login from "./auth/Login";
-import Navigation from "./components/Navigation";
 import { useState } from "react";
+import { Sidebar, Menu, MenuItem, SubMenu } from 'react-pro-sidebar';
 
 const reducers = combineReducers({
   keplerGl: keplerGlReducer
@@ -33,8 +33,10 @@ export default function App() {
 
 function Map() {
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const theme = useSelector(state => state.keplerGl.chattanooga?.uiState?.theme || 'dark');
   const [activeDataset, setActiveDataset] = useState('collisions');
+  const [collapsed, setCollapsed] = useState(false);
 
   // Fetch collisions data
   const { data: collisionsData } = useSwr("chattanooga-collisions", async () => {
@@ -107,7 +109,7 @@ function Map() {
                 enabled: true,
                 // Animation window: 'free', 'incremental', or 'point'
                 animationWindow: "incremental",
-                speed: 1,
+                speed: 0.5,
                 // View type: 'side' (compact), 'enlarged' (large), 'minified' (minimal)
                 view: "side",
                 // Plot type: 'histogram', 'lineChart'
@@ -163,14 +165,134 @@ function Map() {
 
   
 
+  const sidebarWidth = collapsed ? 80 : 280;
+
   return (
-    <div style={{ position: "absolute", width: "100%", height: "100%" }}>
-      <Navigation />
-      <div style={{ position: "absolute", left: "280px", top: 0, width: "calc(100% - 280px)", height: "100%" }}>
+    <div style={{ position: "absolute", width: "100%", height: "100%", display: "flex" }}>
+      <div style={{
+        position: "relative",
+        height: "100vh",
+        width: collapsed ? "80px" : "280px",
+        transition: "width 0.3s",
+        zIndex: 1000
+      }}>
+        <Sidebar
+          collapsed={collapsed}
+          backgroundColor="#1a1a1a"
+          width="280px"
+          collapsedWidth="80px"
+          style={{
+            height: "100vh",
+            borderRight: "1px solid #333",
+            position: "fixed",
+            top: 0,
+            left: 0
+          }}
+        >
+          <Menu
+            menuItemStyles={{
+              button: {
+                backgroundColor: '#1a1a1a',
+                color: '#e0e0e0',
+                padding: '10px 20px',
+                '&:hover': {
+                  backgroundColor: '#2a2a2a',
+                  color: '#ffffff',
+                },
+                '&.active': {
+                  backgroundColor: '#0070FF',
+                  color: '#ffffff',
+                },
+              },
+              subMenuContent: {
+                backgroundColor: '#2a2a2a',
+              },
+              label: {
+                fontWeight: 500,
+              },
+            }}
+          >
+          <MenuItem
+            onClick={() => setCollapsed(!collapsed)}
+            style={{
+              textAlign: 'center',
+              fontWeight: 'bold',
+              fontSize: '18px',
+              borderBottom: '1px solid #333',
+              paddingTop: '20px',
+              paddingBottom: '20px',
+            }}
+          >
+            {collapsed ? '☰' : 'V2X Dashboard'}
+          </MenuItem>
+
+          <SubMenu label="Data Layers">
+            <MenuItem
+              onClick={() => setActiveDataset('collisions')}
+              className={activeDataset === 'collisions' ? 'active' : ''}
+            >
+              Traffic Collisions
+            </MenuItem>
+            <MenuItem
+              onClick={() => setActiveDataset('neighborhoods')}
+              className={activeDataset === 'neighborhoods' ? 'active' : ''}
+            >
+              Neighborhoods
+            </MenuItem>
+          </SubMenu>
+
+          <SubMenu label="Analysis">
+            <MenuItem>Heatmaps</MenuItem>
+            <MenuItem>Statistics</MenuItem>
+            <MenuItem>Timeline</MenuItem>
+          </SubMenu>
+
+          <MenuItem>
+            Map Settings
+          </MenuItem>
+
+          <MenuItem>
+            Export Data
+          </MenuItem>
+        </Menu>
+
+        {/* Logout button pinned to bottom */}
+        <div style={{
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          width: '100%',
+          borderTop: '2px solid #333',
+          backgroundColor: '#1a1a1a'
+        }}>
+          <Menu
+            menuItemStyles={{
+              button: {
+                backgroundColor: '#1a1a1a',
+                color: '#e0e0e0',
+                padding: '15px 20px',
+                '&:hover': {
+                  backgroundColor: '#c62828',
+                  color: '#ffffff',
+                },
+              },
+            }}
+          >
+            <MenuItem
+              onClick={() => navigate('/')}
+            >
+              {collapsed ? '→' : 'Logout'}
+            </MenuItem>
+          </Menu>
+        </div>
+      </Sidebar>
+      </div>
+
+      <div style={{ flex: 1, position: "relative", marginLeft: 0 }}>
         <KeplerGl
           id="chattanooga"
           mapboxApiAccessToken={process.env.REACT_APP_MAPBOX_API}
-          width={window.innerWidth - 280}
+          width={window.innerWidth - sidebarWidth}
           height={window.innerHeight}
         />
         <InfoBoxToggle
