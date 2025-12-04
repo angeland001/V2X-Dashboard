@@ -23,6 +23,7 @@ function DashboardLayout({ children }) {
   const [collapsed, setCollapsed] = useState(false);
 
   const isActive = (path) => location.pathname === path;
+  const sidebarWidth = collapsed ? 80 : 280;
 
   return (
     <div style={{ position: "absolute", width: "100%", height: "100%", display: "flex" }}>
@@ -167,16 +168,14 @@ function DashboardLayout({ children }) {
       </div>
 
       <div style={{ flex: 1, position: "relative", marginLeft: 0 }}>
-        {children}
+        {React.cloneElement(children, { sidebarWidth })}
       </div>
     </div>
   );
 }
 
-function GeoFencingMap() {
+function GeoFencingMap({ sidebarWidth = 280 }) {
   const dispatch = useDispatch();
-  const [collapsed] = useState(false);
-  const sidebarWidth = collapsed ? 80 : 280;
 
   React.useEffect(() => {
     // Initialize with empty data but centered on Chattanooga, TN
@@ -238,11 +237,10 @@ export default function App() {
   );
 }
 
-function MapContent() {
+function MapContent({ sidebarWidth = 280 }) {
   const dispatch = useDispatch();
   const theme = useSelector(state => state.keplerGl.chattanooga?.uiState?.theme || 'dark');
   const [activeDataset, setActiveDataset] = useState('collisions');
-  const [collapsed] = useState(false);
 
   // Fetch collisions data
   const { data: collisionsData } = useSwr("chattanooga-collisions", async () => {
@@ -372,10 +370,6 @@ function MapContent() {
   }, [dispatch, data, activeDataset]);
 
   const isDark = theme === 'dark';
-
-  
-
-  const sidebarWidth = collapsed ? 80 : 280;
 
   return (
     <>
