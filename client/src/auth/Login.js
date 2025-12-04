@@ -1,13 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import React, { useState, useRef, useEffect, useCallback, memo } from 'react';
 import paper from 'paper';
-import Dither from './Dither';
-import FaultyTerminal from './FaultyTerminal';
 import '../styles/auth/login.css';
-
-// Memoize heavy animation components to prevent re-renders
-const MemoizedFaultyTerminal = memo(FaultyTerminal);
-const MemoizedDither = memo(Dither);
 
 // Separate form component to isolate re-renders from animations
 const SignupForm = memo(({ onSubmit, goToLogin }) => {
@@ -106,7 +100,6 @@ const LoginForm = memo(({ onSubmit, goToSignUp }) => {
 
 function Login() {
   const [, setIsSignUp] = useState(false);
-  const [activeUI, setActiveUI] = useState('terminal'); // 'terminal', 'dithering', or 'paperjs'
 
   const navigate = useNavigate();
   const slideBoxRef = useRef(null);
@@ -224,7 +217,7 @@ function Login() {
 
   // Paper.js animation for left side with collision detection
   useEffect(() => {
-    if (!leftCanvasRef.current || activeUI !== 'paperjs') return;
+    if (!leftCanvasRef.current) return;
 
     paper.setup(leftCanvasRef.current);
 
@@ -445,7 +438,7 @@ function Login() {
         paper.project.remove();
       }
     };
-  }, [activeUI]);
+  }, []);
 
   // Toggle animation between signup and login
   const goToSignUp = () => {
@@ -480,77 +473,17 @@ function Login() {
 
   const handleLoginSubmit = useCallback((data) => {
     console.log('Login attempted with:', data);
-    navigate('/map');
+    navigate('/geofencing');
   }, [navigate]);
 
   return (
     <>
       <div id="back">
         <div className="canvas-back">
-          {activeUI === 'terminal' && (
-            <MemoizedFaultyTerminal
-              scale={1.5}
-              gridMul={[2, 1]}
-              digitSize={1.2}
-              timeScale={1}
-              pause={false}
-              scanlineIntensity={1}
-              glitchAmount={1}
-              flickerAmount={1}
-              noiseAmp={1}
-              chromaticAberration={0}
-              dither={0}
-              curvature={0}
-              tint="#03A9F4"
-              mouseReact={true}
-              mouseStrength={0.5}
-              pageLoadAnimation={false}
-              brightness={1}
-            />
-          )}
-          {activeUI === 'dithering' && (
-            <MemoizedDither
-              waveColor={[0.2, 0.4, 0.9]}
-              waveColor2={[0.99, 0.85, 0.2]}
-              disableAnimation={false}
-              enableMouseInteraction={true}
-              mouseRadius={0.1}
-              colorNum={4}
-              waveAmplitude={0.3}
-              waveFrequency={3}
-              waveSpeed={0.05}
-            />
-          )}
-          {activeUI === 'paperjs' && (
-            <canvas ref={leftCanvasRef} className="left-canvas"></canvas>
-          )}
+          <canvas ref={leftCanvasRef} className="left-canvas"></canvas>
         </div>
         <div className="backRight"></div>
-        <div className="backLeft">
-          <div className="ui-toggle-buttons">
-            <button
-              className={`ui-toggle-btn ${activeUI === 'terminal' ? 'active' : ''}`}
-              onClick={() => setActiveUI('terminal')}
-              title="Terminal UI"
-            >
-              T
-            </button>
-            <button
-              className={`ui-toggle-btn ${activeUI === 'dithering' ? 'active' : ''}`}
-              onClick={() => setActiveUI('dithering')}
-              title="Dithering UI"
-            >
-              D
-            </button>
-            <button
-              className={`ui-toggle-btn ${activeUI === 'paperjs' ? 'active' : ''}`}
-              onClick={() => setActiveUI('paperjs')}
-              title="Lines & Dots UI"
-            >
-              L
-            </button>
-          </div>
-        </div>
+        <div className="backLeft"></div>
       </div>
       <div id="slideBox" ref={slideBoxRef}>
         <div className="topLayer" ref={topLayerRef}>
@@ -564,11 +497,11 @@ function Login() {
             <canvas ref={rightCanvasRef} className="right-canvas"></canvas>
             <div className="content">
               <h1 style={{color: '#00416A'}}>Login</h1>
-              <h2>V2X Dashboard</h2>
+              <h2>Prism Dashboard</h2>
               <LoginForm onSubmit={handleLoginSubmit} goToSignUp={goToSignUp} />
             </div>
 
-                <div className="icon" style={{backgroundImage: 'url(/V2XLogo.png)'}}></div>
+                <div className="icon" style={{backgroundImage: 'url(/PrismLogo.png)'}}></div>
 
           </div>
         </div>
