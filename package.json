@@ -14,6 +14,9 @@
     "concurrently": "^7.0.0"
   },
   "dependencies": {
-    "paper": "^0.12.18"
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "paper": "^0.12.18",
+    "pg": "^8.16.3"
   }
 }
