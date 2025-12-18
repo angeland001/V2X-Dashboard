@@ -5,12 +5,12 @@ import { taskMiddleware } from "react-palm/tasks";
 import { Provider } from "react-redux";
 import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
 import Login from "./auth/Login";
-import DashboardLayout from "./components/DashboardLayout";
+import DashboardLayout from "./components/dashboard/DashboardLayout";
 import GeoFencingMap from "./components/maps/GeoFencingMap";
 import DataLayersMap from "./components/maps/DataLayersMap";
 
 const reducers = combineReducers({
-  keplerGl: keplerGlReducer
+  keplerGl: keplerGlReducer,
 });
 
 const store = createStore(reducers, {}, applyMiddleware(taskMiddleware));
@@ -21,11 +21,24 @@ export default function App() {
       <Router>
         <Routes>
           <Route path="/" element={<Login />} />
-          <Route path="/geofencing" element={<DashboardLayout><GeoFencingMap /></DashboardLayout>} />
-          <Route path="/data-layers" element={<DashboardLayout><DataLayersMap /></DashboardLayout>} />
+          <Route
+            path="/geofencing"
+            element={
+              <DashboardLayout>
+                <GeoFencingMap />
+              </DashboardLayout>
+            }
+          />
+          <Route
+            path="/data-layers"
+            element={
+              <DashboardLayout>
+                <DataLayersMap />
+              </DashboardLayout>
+            }
+          />
         </Routes>
       </Router>
     </Provider>
   );
 }
-
