@@ -89,7 +89,7 @@ export function DashboardNav() {
         <NavigationMenuList className="flex-wrap">
           <NavigationMenuItem>
             <Link to="/dashboard">
-              <NavigationMenuTrigger>Home</NavigationMenuTrigger>
+              <NavigationMenuTrigger>Overview</NavigationMenuTrigger>
             </Link>
           </NavigationMenuItem>
           <NavigationMenuItem>

@@ -13,9 +13,9 @@ function DashboardLayout({ children }) {
   return (
     <div
       style={{
-        position: "absolute",
+        position: "relative",
         width: "100%",
-        height: "100%",
+        minHeight: "100vh",
         display: "flex",
       }}
     >
@@ -225,7 +225,7 @@ function DashboardLayout({ children }) {
         </Sidebar>
       </div>
 
-      <div style={{ flex: 1, position: "relative", marginLeft: 0 }}>
+      <div style={{ flex: 1, position: "relative", marginLeft: 0, overflowY: "auto", maxHeight: "100vh" }}>
         {React.cloneElement(children, { sidebarWidth })}
       </div>
     </div>
