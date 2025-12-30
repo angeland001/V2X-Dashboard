@@ -10,6 +10,14 @@ import { addDataToMap } from "@kepler.gl/actions";
 function DataLayersMap({ sidebarWidth = 280 }) {
   const dispatch = useDispatch();
 
+  // Hide scrollbars for this page
+  React.useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = 'auto';
+    };
+  }, []);
+
   React.useEffect(() => {
     // Initialize Data Layers map centered on Chattanooga
     dispatch(
@@ -47,12 +55,23 @@ function DataLayersMap({ sidebarWidth = 280 }) {
   }, [dispatch]);
 
   return (
-    <KeplerGl
-      id="data-layers"
-      mapboxApiAccessToken={process.env.REACT_APP_MAPBOX_API}
-      width={window.innerWidth - sidebarWidth}
-      height={window.innerHeight}
-    />
+    <div style={{
+      width: '100%',
+      height: '100vh',
+      overflow: 'hidden',
+      position: 'fixed',
+      top: 0,
+      left: sidebarWidth,
+      right: 0,
+      bottom: 0
+    }}>
+      <KeplerGl
+        id="data-layers"
+        mapboxApiAccessToken={process.env.REACT_APP_MAPBOX_API}
+        width={window.innerWidth - sidebarWidth}
+        height={window.innerHeight}
+      />
+    </div>
   );
 }
 
