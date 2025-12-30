@@ -16,8 +16,32 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { Button } from "@/components/ui/button"
+import { ButtonGroup } from "@/components/ui/button-group"
+import { Badge } from "@/components/ui/badge"
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
+  ArchiveIcon,
+  MoreHorizontalIcon,
+  MailCheckIcon,
+  ChevronDownIcon,
+} from "lucide-react"
 
 export function TrafficDataTable({ data, location }) {
+  const [columnVisibility, setColumnVisibility] = React.useState({
+    date: true,
+    time: true,
+    vehicles: true,
+    pedestrians: true,
+    total: true,
+    status: true,
+  })
+
   const getTrafficStatus = (vehicles, pedestrians) => {
     const total = vehicles + pedestrians
     if (total > 2200) return "High Traffic"
@@ -47,39 +71,124 @@ export function TrafficDataTable({ data, location }) {
           Last 7 days of traffic records for {location}
         </CardDescription>
       </CardHeader>
+
+      {/* Toolbar with Button Group and Columns Dropdown */}
+      <div className="flex items-center justify-between px-6 pb-4">
+        <ButtonGroup>
+          <Button variant="outline" className="text-gray-300 border-gray-700 hover:bg-gray-800 hover:text-white">
+            Archive
+          </Button>
+          <Button variant="outline" className="text-gray-300 border-gray-700 hover:bg-gray-800 hover:text-white">
+            Report
+          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="icon" aria-label="More Options" className="text-gray-300 border-gray-700 hover:bg-gray-800 hover:text-white">
+                <MoreHorizontalIcon />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-52 bg-gray-900 border-gray-700">
+              <DropdownMenuCheckboxItem className="text-gray-300 focus:bg-gray-800 focus:text-white">
+                <MailCheckIcon />
+                Mark as Read
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem className="text-gray-300 focus:bg-gray-800 focus:text-white">
+                <ArchiveIcon />
+                Archive
+              </DropdownMenuCheckboxItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </ButtonGroup>
+
+        {/* Columns Dropdown */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" className="ml-auto text-gray-300 border-gray-700 hover:bg-gray-800 hover:text-white">
+              Columns <ChevronDownIcon className="ml-2 h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="bg-gray-900 border-gray-700">
+            <DropdownMenuCheckboxItem
+              checked={columnVisibility.date}
+              onCheckedChange={(value) => setColumnVisibility({ ...columnVisibility, date: value })}
+              className="text-gray-300 focus:bg-gray-800 focus:text-white"
+            >
+              Date
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem
+              checked={columnVisibility.time}
+              onCheckedChange={(value) => setColumnVisibility({ ...columnVisibility, time: value })}
+              className="text-gray-300 focus:bg-gray-800 focus:text-white"
+            >
+              Time
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem
+              checked={columnVisibility.vehicles}
+              onCheckedChange={(value) => setColumnVisibility({ ...columnVisibility, vehicles: value })}
+              className="text-gray-300 focus:bg-gray-800 focus:text-white"
+            >
+              Vehicles
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem
+              checked={columnVisibility.pedestrians}
+              onCheckedChange={(value) => setColumnVisibility({ ...columnVisibility, pedestrians: value })}
+              className="text-gray-300 focus:bg-gray-800 focus:text-white"
+            >
+              Pedestrians
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem
+              checked={columnVisibility.total}
+              onCheckedChange={(value) => setColumnVisibility({ ...columnVisibility, total: value })}
+              className="text-gray-300 focus:bg-gray-800 focus:text-white"
+            >
+              Total
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem
+              checked={columnVisibility.status}
+              onCheckedChange={(value) => setColumnVisibility({ ...columnVisibility, status: value })}
+              className="text-gray-300 focus:bg-gray-800 focus:text-white"
+            >
+              Status
+            </DropdownMenuCheckboxItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+
       <CardContent>
         <Table>
           <TableHeader>
-            <TableRow className="border-neutral-800 hover:bg-neutral-900">
-              <TableHead className="text-gray-300">Date</TableHead>
-              <TableHead className="text-gray-300">Time</TableHead>
-              <TableHead className="text-right text-gray-300">Vehicles</TableHead>
-              <TableHead className="text-right text-gray-300">Pedestrians</TableHead>
-              <TableHead className="text-right text-gray-300">Total</TableHead>
-              <TableHead className="text-gray-300">Status</TableHead>
+            <TableRow className="border-neutral-800 bg-gray-800 hover:bg-gray-800">
+              {columnVisibility.date && <TableHead className="text-gray-300">Date</TableHead>}
+              {columnVisibility.time && <TableHead className="text-gray-300">Time</TableHead>}
+              {columnVisibility.vehicles && <TableHead className="text-right text-gray-300">Vehicles</TableHead>}
+              {columnVisibility.pedestrians && <TableHead className="text-right text-gray-300">Pedestrians</TableHead>}
+              {columnVisibility.total && <TableHead className="text-right text-gray-300">Total</TableHead>}
+              {columnVisibility.status && <TableHead className="text-gray-300">Status</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
             {recentData.map((row, index) => (
               <TableRow key={index} className="border-neutral-800 hover:bg-neutral-900">
-                <TableCell className="font-medium text-white">{row.date}</TableCell>
-                <TableCell className="text-gray-300">{row.time}</TableCell>
-                <TableCell className="text-right text-white">{row.vehicles.toLocaleString()}</TableCell>
-                <TableCell className="text-right text-white">{row.pedestrians.toLocaleString()}</TableCell>
-                <TableCell className="text-right font-medium text-white">{row.total.toLocaleString()}</TableCell>
-                <TableCell>
-                  <span
-                    className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
-                      row.status === "High Traffic"
-                        ? "bg-gray-900 text-white"
-                        : row.status === "Low Traffic"
-                        ? "bg-gray-300 text-gray-800"
-                        : "bg-gray-600 text-white"
-                    }`}
-                  >
-                    {row.status}
-                  </span>
-                </TableCell>
+                {columnVisibility.date && <TableCell className="font-medium text-white">{row.date}</TableCell>}
+                {columnVisibility.time && <TableCell className="text-gray-300">{row.time}</TableCell>}
+                {columnVisibility.vehicles && <TableCell className="text-right text-white">{row.vehicles.toLocaleString()}</TableCell>}
+                {columnVisibility.pedestrians && <TableCell className="text-right text-white">{row.pedestrians.toLocaleString()}</TableCell>}
+                {columnVisibility.total && <TableCell className="text-right font-medium text-white">{row.total.toLocaleString()}</TableCell>}
+                {columnVisibility.status && (
+                  <TableCell>
+                    <Badge
+                      variant={
+                        row.status === "High Traffic"
+                          ? "destructive"
+                          : row.status === "Low Traffic"
+                          ? "secondary"
+                          : "default"
+                      }
+                    >
+                      {row.status}
+                    </Badge>
+                  </TableCell>
+                )}
               </TableRow>
             ))}
           </TableBody>
