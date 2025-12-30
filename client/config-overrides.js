@@ -1,4 +1,5 @@
 const webpack = require('webpack');
+const path = require('path');
 
 module.exports = function override(config) {
   const fallback = config.resolve.fallback || {};
@@ -13,6 +14,12 @@ module.exports = function override(config) {
     path: false,
   });
   config.resolve.fallback = fallback;
+
+  // Add path aliases
+  config.resolve.alias = {
+    ...config.resolve.alias,
+    '@': path.resolve(__dirname, 'src'),
+  };
 
   config.plugins = (config.plugins || []).concat([
     new webpack.ProvidePlugin({

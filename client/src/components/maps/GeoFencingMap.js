@@ -10,6 +10,15 @@ import { useEffect } from "react";
  */
 function GeoFencingMap({ sidebarWidth = 280 }) {
   const dispatch = useDispatch();
+
+  // Hide scrollbars for this page
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = 'auto';
+    };
+  }, []);
+
   try {
     useEffect(() => {
       // Fetch data from PostGIS
@@ -44,12 +53,23 @@ function GeoFencingMap({ sidebarWidth = 280 }) {
   }
 
   return (
-    <KeplerGl
-      id="geofencing"
-      mapboxApiAccessToken={process.env.REACT_APP_MAPBOX_API}
-      width={window.innerWidth - sidebarWidth}
-      height={window.innerHeight}
-    />
+    <div style={{
+      width: '100%',
+      height: '100vh',
+      overflow: 'hidden',
+      position: 'fixed',
+      top: 0,
+      left: sidebarWidth,
+      right: 0,
+      bottom: 0
+    }}>
+      <KeplerGl
+        id="geofencing"
+        mapboxApiAccessToken={process.env.REACT_APP_MAPBOX_API}
+        width={window.innerWidth - sidebarWidth}
+        height={window.innerHeight}
+      />
+    </div>
   );
 }
 
