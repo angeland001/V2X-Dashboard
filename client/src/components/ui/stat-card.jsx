@@ -12,7 +12,7 @@ export function StatCard({ title, value, trend, primaryDescription, secondaryDes
   const isPositive = parseFloat(trend) >= 0
 
   return (
-    <Card className="bg-black border-neutral-800 shadow-[0_4px_6px_rgba(255,255,255,0.1)]">
+    <Card className="bg-black border-neutral-800 shadow-[0_4px_6px_rgba(255,255,255,0.3)]">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-sm font-medium text-white">{title}</CardTitle>
         <div className="flex items-center gap-1 text-xs font-medium px-2 py-1 rounded text-white">

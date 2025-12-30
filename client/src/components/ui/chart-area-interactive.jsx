@@ -291,7 +291,7 @@ const locationData = {
 
 const LOCATIONS = ["Georgia Ave", "Houston St", "E MLK BLVD"]
 
-export function ChartAreaInteractive() {
+export function TrafficOverview() {
   const [timeRange, setTimeRange] = React.useState("90d")
   const [location, setLocation] = React.useState("Georgia Ave")
 

@@ -2,14 +2,19 @@ import React from "react";
 import { useDispatch } from "react-redux";
 import KeplerGl from "@kepler.gl/components";
 import { addDataToMap } from "@kepler.gl/actions";
-import { useEffect } from "react";
+import { useEffect, useState, useRef } from "react";
 
 /**
  * GeoFencing Map - For creating and managing geofences
  * Use this map to draw boundaries, set up alerts, and monitor geographic regions
  */
-function GeoFencingMap({ sidebarWidth = 280 }) {
+function GeoFencingMap() {
   const dispatch = useDispatch();
+  const containerRef = useRef(null);
+  const [dimensions, setDimensions] = useState({
+    width: window.innerWidth,
+    height: window.innerHeight
+  });
 
   // Hide scrollbars for this page
   useEffect(() => {
@@ -17,6 +22,23 @@ function GeoFencingMap({ sidebarWidth = 280 }) {
     return () => {
       document.body.style.overflow = 'auto';
     };
+  }, []);
+
+  // Update dimensions based on container size
+  useEffect(() => {
+    const updateDimensions = () => {
+      if (containerRef.current) {
+        const { clientWidth, clientHeight } = containerRef.current;
+        setDimensions({
+          width: clientWidth,
+          height: clientHeight
+        });
+      }
+    };
+
+    updateDimensions();
+    window.addEventListener('resize', updateDimensions);
+    return () => window.removeEventListener('resize', updateDimensions);
   }, []);
 
   try {
@@ -53,21 +75,20 @@ function GeoFencingMap({ sidebarWidth = 280 }) {
   }
 
   return (
-    <div style={{
-      width: '100%',
-      height: '100vh',
-      overflow: 'hidden',
-      position: 'fixed',
-      top: 0,
-      left: sidebarWidth,
-      right: 0,
-      bottom: 0
-    }}>
+    <div
+      ref={containerRef}
+      style={{
+        width: '100%',
+        height: '100vh',
+        overflow: 'hidden',
+        position: 'relative'
+      }}
+    >
       <KeplerGl
         id="geofencing"
         mapboxApiAccessToken={process.env.REACT_APP_MAPBOX_API}
-        width={window.innerWidth - sidebarWidth}
-        height={window.innerHeight}
+        width={dimensions.width}
+        height={dimensions.height}
       />
     </div>
   );
