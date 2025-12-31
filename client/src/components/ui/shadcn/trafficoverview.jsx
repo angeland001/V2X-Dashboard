@@ -1,9 +1,9 @@
 "use client"
 
 import * as React from "react"
-import { StatCard } from "@/components/ui/stat-card"
-import { TrafficChart } from "@/components/ui/traffic-chart"
-import { TrafficDataTable } from "@/components/ui/traffic-data-table"
+import { StatCard } from "@/components/ui/shadcn/stat-card"
+import { TrafficChart } from "@/components/ui/shadcn/traffic-chart"
+import { TrafficDataTable } from "@/components/ui/shadcn/traffic-data-table"
 
 export const description = "Traffic patterns showing pedestrians and vehicles over time"
 

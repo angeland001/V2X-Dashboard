@@ -6,7 +6,7 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card"
+} from "@/components/ui/shadcn/card"
 
 export function StatCard({ title, value, trend, primaryDescription, secondaryDescription }) {
   const isPositive = parseFloat(trend) >= 0

@@ -7,7 +7,7 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card"
+} from "@/components/ui/shadcn/card"
 import {
   Table,
   TableBody,
@@ -15,16 +15,16 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table"
-import { Button } from "@/components/ui/button"
-import { ButtonGroup } from "@/components/ui/button-group"
-import { Badge } from "@/components/ui/badge"
+} from "@/components/ui/shadcn/table"
+import { Button } from "@/components/ui/shadcn/button"
+import { ButtonGroup } from "@/components/ui/shadcn/button-group"
+import { Badge } from "@/components/ui/shadcn/badge"
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+} from "@/components/ui/shadcn/dropdown-menu"
 import {
   ArchiveIcon,
   MoreHorizontalIcon,

@@ -1,5 +1,5 @@
 import React from "react"
-import { TrafficOverview } from "@/components/ui/chart-area-interactive"
+import { TrafficOverview } from "@/components/ui/shadcn/trafficoverview"
 
 export function HomeView() {
   return (
