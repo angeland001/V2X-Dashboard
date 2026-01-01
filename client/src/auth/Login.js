@@ -26,8 +26,18 @@ const LoginForm = memo(({ onSubmit }) => {
       <div className="login-header">
         <div className="logo">
           <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
-            <rect width="48" height="48" rx="8" fill="#0070FF"/>
-            <text x="24" y="32" textAnchor="middle" fill="white" fontSize="20" fontWeight="700" fontFamily="Arial, sans-serif">V2X</text>
+            <rect width="48" height="48" rx="8" fill="#0070FF" />
+            <text
+              x="24"
+              y="32"
+              textAnchor="middle"
+              fill="white"
+              fontSize="20"
+              fontWeight="700"
+              fontFamily="Arial, sans-serif"
+            >
+              V2X
+            </text>
           </svg>
         </div>
         <h1>Prism Dashboard</h1>
@@ -156,6 +166,7 @@ const LoginForm = memo(({ onSubmit }) => {
 function Login() {
   const navigate = useNavigate();
   const leftCanvasRef = useRef(null);
+  const [darkMode, setDarkMode] = useState(true);
 
   // Paper.js animation for left side with collision detection
   useEffect(() => {
@@ -4687,7 +4698,7 @@ function Login() {
         this.circle = new paper.Path.Circle({
           center: startPoint || path.position,
           radius: this.baseRadius,
-          fillColor: "#1560BD",
+          fillColor: "#87CEEB",
         });
 
         dotsGroup.addChild(this.circle);
@@ -4752,7 +4763,7 @@ function Login() {
       // Use Chattanooga street paths
       chattanoogaStreetPaths.forEach((pathData, i) => {
         const shape = new paper.Path({
-          strokeColor: "#FFBA00",
+          strokeColor: "#0F52BA",
           strokeWidth: 2,
           pathData: pathData,
         });
@@ -4820,14 +4831,14 @@ function Login() {
   const handleLoginSubmit = useCallback(
     (data) => {
       console.log("Login attempted with:", data);
-      navigate("/geofencing");
+      navigate("/dashboard");
     },
     [navigate]
   );
 
   return (
     <>
-      <div id="back">
+      <div id="back" className={darkMode ? "dark-mode" : "light-mode"}>
         <div
           className="canvas-back"
           style={{
@@ -4853,8 +4864,39 @@ function Login() {
         <div className="backRight"></div>
         <div className="backLeft"></div>
       </div>
-      <div id="slideBox">
+      <div id="slideBox" className={darkMode ? "dark-mode" : "light-mode"}>
         <div className="right">
+          {/* Dark Mode Toggle */}
+          <button
+            className="theme-toggle"
+            onClick={() => setDarkMode(!darkMode)}
+            aria-label="Toggle dark mode"
+          >
+            {darkMode ? (
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
+              </svg>
+            ) : (
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            )}
+          </button>
+
           <div className="content">
             <LoginForm onSubmit={handleLoginSubmit} />
           </div>

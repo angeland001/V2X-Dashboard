@@ -8,7 +8,8 @@ body {
     box-sizing: border-box;
 }
 
-.backRight {
+/* Light Mode (Default) */
+.light-mode .backRight {
     position: absolute;
     right: 0;
     width: 50%;
@@ -16,12 +17,30 @@ body {
     background: #FFF;
 }
 
-.backLeft {
+.light-mode .backLeft {
     position: absolute;
     left: 0;
     width: 50%;
     height: 100%;
     background: #112E51;
+    position: relative;
+}
+
+/* Dark Mode */
+.dark-mode .backRight {
+    position: absolute;
+    right: 0;
+    width: 50%;
+    height: 100%;
+    background: #0f0f0f;
+}
+
+.dark-mode .backLeft {
+    position: absolute;
+    left: 0;
+    width: 50%;
+    height: 100%;
+    background: #0a0a0a;
     position: relative;
 }
 
@@ -93,6 +112,24 @@ body {
   z-index: 10;
 }
 
+.canvas-back::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-image: inherit;
+  background-size: inherit;
+  background-position: inherit;
+  background-repeat: inherit;
+  z-index: -1;
+}
+
+.dark-mode .canvas-back::before {
+  filter: invert(1) hue-rotate(180deg) brightness(1.2);
+}
+
 #slideBox {
   width: 50%;
   max-height: 100%;
@@ -157,8 +194,11 @@ input {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background: #f9f9f9;
   position: relative;
+}
+
+.dark-mode .right {
+  background: #0f0f0f;
 }
 
 .right-canvas {
@@ -180,8 +220,8 @@ input {
   border-color: #673AB7;
 }
 .right input:-webkit-autofill {
-  -webkit-box-shadow: 0 0 0 30px #f9f9f9 inset;
-  -webkit-text-fill-color: #212121;
+  -webkit-box-shadow: 0 0 0 30px #0f0f0f inset;
+  -webkit-text-fill-color: #e3e3e3;
 }
 
 
@@ -196,8 +236,12 @@ input {
   background-position: center;
   background-repeat: no-repeat;
   z-index: 1;
-  background-color: white;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.dark-mode .icon {
+  background-color: #1a1a1a;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+  filter: brightness(1.5) contrast(1.2);
 }
 
 .content {
@@ -372,10 +416,13 @@ button:focus.off.login, button:active.off.login, button:hover.off.login {
   width: 100%;
   margin: 0 auto;
   padding: 48px 40px;
-  background: #fff;
   border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02), 0 8px 16px rgba(0, 0, 0, 0.06);
-  border: 1px solid #e3e8ee;
+}
+
+.dark-mode .login-card {
+  background: #1a1a1a;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4), 0 8px 16px rgba(0, 0, 0, 0.6);
+  border: 1px solid #2a2a2a;
 }
 
 .login-header {
@@ -392,9 +439,12 @@ button:focus.off.login, button:active.off.login, button:hover.off.login {
 .login-header h1 {
   font-size: 1.75rem;
   font-weight: 600;
-  color: #1a1f36;
   margin: 0 0 8px 0;
   text-align: center;
+}
+
+.dark-mode .login-header h1 {
+  color: #e3e3e3;
 }
 
 .login-header p {
@@ -419,17 +469,20 @@ button:focus.off.login, button:active.off.login, button:hover.off.login {
   width: 100%;
   padding: 12px 16px;
   font-size: 0.875rem;
-  border: 1px solid #e3e8ee;
   border-radius: 6px;
   outline: none;
-  background-color: #fff;
   transition: all 0.2s ease;
-  color: #1a1f36;
 }
 
-.input-group input:focus {
+.dark-mode .input-group input {
+  border: 1px solid #2a2a2a;
+  background-color: #0f0f0f;
+  color: #e3e3e3;
+}
+
+.dark-mode .input-group input:focus {
   border-color: #0070FF;
-  box-shadow: 0 0 0 3px rgba(0, 112, 255, 0.1);
+  box-shadow: 0 0 0 3px rgba(0, 112, 255, 0.2);
 }
 
 .input-group label {
@@ -441,9 +494,12 @@ button:focus.off.login, button:active.off.login, button:hover.off.login {
   color: #8792a2;
   transition: all 0.2s ease;
   pointer-events: none;
-  background-color: #fff;
   padding: 0 4px;
   text-transform: none;
+}
+
+.dark-mode .input-group label {
+  background-color: #1a1a1a;
 }
 
 .input-group input:focus + label,
@@ -507,7 +563,6 @@ button:focus.off.login, button:active.off.login, button:hover.off.login {
   align-items: center;
   cursor: pointer;
   font-size: 0.875rem;
-  color: #1a1f36;
   text-transform: none;
   user-select: none;
   margin: 0;
@@ -530,11 +585,15 @@ button:focus.off.login, button:active.off.login, button:hover.off.login {
   justify-content: center;
   width: 18px;
   height: 18px;
-  border: 1.5px solid #e3e8ee;
   border-radius: 4px;
   margin-right: 8px;
   transition: all 0.2s;
   flex-shrink: 0;
+}
+
+.dark-mode .checkmark {
+  border: 1.5px solid #2a2a2a;
+  background-color: #0f0f0f;
 }
 
 .checkbox-container input:checked ~ .checkmark {
@@ -623,15 +682,21 @@ button:focus.off.login, button:active.off.login, button:hover.off.login {
   left: 0;
   right: 0;
   height: 1px;
-  background-color: #e3e8ee;
+}
+
+.dark-mode .divider::before {
+  background-color: #2a2a2a;
 }
 
 .divider span {
   position: relative;
-  background-color: #fff;
   padding: 0 12px;
   font-size: 0.875rem;
   color: #8792a2;
+}
+
+.dark-mode .divider span {
+  background-color: #1a1a1a;
 }
 
 /* Social Buttons */
@@ -647,11 +712,8 @@ button:focus.off.login, button:active.off.login, button:hover.off.login {
   justify-content: center;
   gap: 8px;
   padding: 12px;
-  background-color: #fff;
-  border: 1px solid #e3e8ee;
   border-radius: 6px;
   font-size: 0.875rem;
-  color: #1a1f36;
   cursor: pointer;
   transition: all 0.2s;
   font-weight: 500;
@@ -662,10 +724,16 @@ button:focus.off.login, button:active.off.login, button:hover.off.login {
   width: auto;
 }
 
-.social-btn:hover {
-  background-color: #f9f9f9;
-  border-color: #d1d5db;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+.dark-mode .social-btn {
+  background-color: #0f0f0f;
+  border: 1px solid #2a2a2a;
+  color: #e3e3e3;
+}
+
+.dark-mode .social-btn:hover {
+  background-color: #1a1a1a;
+  border-color: #3a3a3a;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
   transform: translateY(0);
 }
 
@@ -706,7 +774,10 @@ button:focus.off.login, button:active.off.login, button:hover.off.login {
 
 .input-group.error input {
   border-color: #f56565;
-  background-color: #fef5f5;
+}
+
+.dark-mode .input-group.error input {
+  background-color: #2a1a1a;
 }
 
 .input-group.error .error-message {
@@ -744,4 +815,118 @@ button:focus.off.login, button:active.off.login, button:hover.off.login {
   .social-btn {
     width: 100%;
   }
+}
+
+/* Theme Toggle Button */
+.theme-toggle {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  z-index: 1000;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  padding: 0;
+  margin: 0;
+}
+
+.dark-mode .theme-toggle {
+  background: rgba(255, 255, 255, 0.15);
+  color: #FFD700;
+}
+
+.light-mode .theme-toggle {
+  background: rgba(0, 0, 0, 0.1);
+  color: #FFA500;
+}
+
+.theme-toggle:hover {
+  transform: scale(1.1);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+}
+
+.theme-toggle svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* Light Mode Overrides */
+.light-mode .right {
+  background: #f9f9f9;
+}
+
+.light-mode .login-card {
+  background: #fff;
+  border: 1px solid #e3e8ee;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02), 0 8px 16px rgba(0, 0, 0, 0.06);
+}
+
+.light-mode .login-header h1 {
+  color: #1a1f36;
+}
+
+.light-mode .input-group input {
+  background-color: #fff;
+  border: 1px solid #e3e8ee;
+  color: #1a1f36;
+}
+
+.light-mode .input-group label {
+  background-color: #fff;
+}
+
+.light-mode .checkbox-container {
+  color: #1a1f36;
+}
+
+.light-mode .checkmark {
+  border: 1.5px solid #e3e8ee;
+  background-color: #fff;
+}
+
+.light-mode .divider span {
+  background-color: #fff;
+}
+
+.light-mode .divider::before {
+  background-color: #e3e8ee;
+}
+
+.light-mode .social-btn {
+  background-color: #fff;
+  border: 1px solid #e3e8ee;
+  color: #1a1f36;
+}
+
+.light-mode .social-btn:hover {
+  background-color: #f9f9f9;
+  border-color: #d1d5db;
+}
+
+.light-mode .input-group.error input {
+  background-color: #fef5f5;
+}
+
+.light-mode .icon {
+  background-color: white;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  filter: none;
+}
+
+.light-mode .canvas-back::before {
+  filter: none;
+}
+
+/* Dark Mode - Remember Me Text */
+.dark-mode .checkbox-container {
+  color: #ffffff;
 }
