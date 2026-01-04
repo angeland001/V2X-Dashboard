@@ -4688,7 +4688,7 @@ function Login() {
         this.path = path;
         this.pathLength = path.length; // Cache path length
         this.offset = Math.random();
-        this.speed = 0.0015 + Math.random() * 0.0025; // Speed: 0.0015-0.004
+        this.speed = 0.008 + Math.random() * 0.008; // Speed: 0.008-0.016 (faster movement)
         this.pulseOffset = Math.random() * Math.PI * 2;
         this.baseRadius = 4;
 
@@ -4698,7 +4698,7 @@ function Login() {
         this.circle = new paper.Path.Circle({
           center: startPoint || path.position,
           radius: this.baseRadius,
-          fillColor: "#87CEEB",
+          fillColor: "#B9D9EB",
         });
 
         dotsGroup.addChild(this.circle);
@@ -4744,12 +4744,150 @@ function Login() {
       }
     }
 
+    class PulseEffect {
+      constructor(position) {
+        this.maxRadius = 50;
+        this.currentRadius = 5;
+        this.opacity = 1;
+        this.speed = 1.5;
+        this.fadeSpeed = 0.018;
+        this.completed = false;
+
+        this.circle = new paper.Path.Circle({
+          center: position,
+          radius: 5,
+          fillColor: new paper.Color(1, 0.9, 0, 0.7),
+          strokeColor: new paper.Color(1, 1, 0, 1),
+          strokeWidth: 3,
+        });
+
+        dotsGroup.addChild(this.circle);
+      }
+
+      update() {
+        if (this.completed) return;
+
+        this.currentRadius += this.speed;
+        this.opacity -= this.fadeSpeed;
+
+        if (this.opacity <= 0 || this.currentRadius >= this.maxRadius) {
+          this.completed = true;
+          this.remove();
+          return;
+        }
+
+        this.circle.radius = this.currentRadius;
+        this.circle.fillColor.alpha = this.opacity * 0.7;
+        this.circle.strokeColor.alpha = this.opacity;
+      }
+
+      remove() {
+        this.circle.remove();
+      }
+    }
+
     const getCanvasBounds = () => {
       const canvasWidth = paper.view.size.width;
       return { canvasWidth };
     };
 
     let dots = [];
+    let pulseEffects = [];
+
+    // Spatial hash grid for O(n) collision detection
+    const CELL_SIZE = 20; // Adjust based on max dot radius * 2
+
+    const getSpatialKey = (x, y) => {
+      const cellX = Math.floor(x / CELL_SIZE);
+      const cellY = Math.floor(y / CELL_SIZE);
+      return `${cellX},${cellY}`;
+    };
+
+    const checkCollision = (dot1, dot2) => {
+      const dx = dot1.circle.position.x - dot2.circle.position.x;
+      const dy = dot1.circle.position.y - dot2.circle.position.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      // Use minimum pulse size (baseRadius - 1.5) for tighter collision detection
+      // This ensures dots only trigger when truly overlapping
+      const minDistance = dot1.baseRadius - 1.5 + (dot2.baseRadius - 1.5);
+      return distance < minDistance;
+    };
+
+    const detectCollisions = () => {
+      const spatialGrid = new Map();
+      const collidedPairs = new Set();
+
+      // Build spatial grid - O(n)
+      dots.forEach((dot, index) => {
+        const x = dot.circle.position.x;
+        const y = dot.circle.position.y;
+        const key = getSpatialKey(x, y);
+
+        if (!spatialGrid.has(key)) {
+          spatialGrid.set(key, []);
+        }
+        spatialGrid.get(key).push({ dot, index });
+      });
+
+      // Check collisions only within same and adjacent cells - O(n) on average
+      spatialGrid.forEach((dotsInCell) => {
+        for (let i = 0; i < dotsInCell.length; i++) {
+          for (let j = i + 1; j < dotsInCell.length; j++) {
+            const { dot: dot1, index: idx1 } = dotsInCell[i];
+            const { dot: dot2, index: idx2 } = dotsInCell[j];
+
+            if (checkCollision(dot1, dot2)) {
+              // Store both indices to mark for removal
+              const pairKey =
+                idx1 < idx2 ? `${idx1},${idx2}` : `${idx2},${idx1}`;
+              if (!collidedPairs.has(pairKey)) {
+                collidedPairs.add(pairKey);
+
+                // Create pulse effect at collision point
+                const collisionX =
+                  (dot1.circle.position.x + dot2.circle.position.x) / 2;
+                const collisionY =
+                  (dot1.circle.position.y + dot2.circle.position.y) / 2;
+                pulseEffects.push(
+                  new PulseEffect(new paper.Point(collisionX, collisionY))
+                );
+              }
+            }
+          }
+        }
+      });
+
+      // Remove collided dots and respawn new ones
+      if (collidedPairs.size > 0) {
+        const indicesToRemove = new Set();
+        collidedPairs.forEach((pair) => {
+          const [idx1, idx2] = pair.split(",").map(Number);
+          indicesToRemove.add(idx1);
+          indicesToRemove.add(idx2);
+        });
+
+        const numDotsToRespawn = indicesToRemove.size;
+
+        // Sort indices in descending order to remove from end first
+        const sortedIndices = Array.from(indicesToRemove).sort((a, b) => b - a);
+        sortedIndices.forEach((index) => {
+          dots[index].remove();
+          dots.splice(index, 1);
+        });
+
+        // Respawn new dots on random paths
+        for (let i = 0; i < numDotsToRespawn; i++) {
+          const availablePaths = shapeGroup.children.filter(
+            (path) => path.opacity > 0
+          );
+          if (availablePaths.length > 0) {
+            const randomPath =
+              availablePaths[Math.floor(Math.random() * availablePaths.length)];
+            dots.push(new AnimatedDot(randomPath));
+          }
+        }
+      }
+    };
 
     const initializeShapes = () => {
       const { canvasWidth } = getCanvasBounds();
@@ -4787,12 +4925,9 @@ function Login() {
 
         shapeGroup.addChild(shape);
 
-        // Only add dots to 60% of paths for better performance
-        if (Math.random() < 0.34) {
-          const numDots = Math.floor(Math.random() * 2) + 1; // 1-2 dots
-          for (let j = 0; j < numDots; j++) {
-            dots.push(new AnimatedDot(shape));
-          }
+        // Add dots with reduced density
+        if (Math.random() < 0.07) {
+          dots.push(new AnimatedDot(shape));
         }
       });
 
@@ -4806,14 +4941,25 @@ function Login() {
     initializeShapes();
 
     paper.view.onFrame = (event) => {
-      // Simply update all dots - no collision detection needed
+      // Update all dots
       dots.forEach((dot) => dot.update(event.count));
+
+      // Detect and handle collisions
+      detectCollisions();
+
+      // Update pulse effects
+      pulseEffects = pulseEffects.filter((pulse) => {
+        pulse.update();
+        return !pulse.completed;
+      });
     };
 
     paper.view.onResize = () => {
-      // Clear existing shapes and dots
+      // Clear existing shapes, dots, and pulse effects
       dots.forEach((dot) => dot.remove());
       dots = [];
+      pulseEffects.forEach((pulse) => pulse.remove());
+      pulseEffects = [];
       shapeGroup.removeChildren();
 
       // Reinitialize shapes with new canvas size
@@ -4822,6 +4968,7 @@ function Login() {
 
     return () => {
       dots.forEach((dot) => dot.remove());
+      pulseEffects.forEach((pulse) => pulse.remove());
       if (paper.project) {
         paper.project.remove();
       }
@@ -4901,10 +5048,9 @@ function Login() {
             <LoginForm onSubmit={handleLoginSubmit} />
           </div>
 
-          <div
-            className="icon"
-            style={{ backgroundImage: "url(/PrismLogo.png)" }}
-          ></div>
+          <div className="icon">
+            <img src="/PrismLogo.png" alt="Prism Logo" className="icon-logo" />
+          </div>
         </div>
       </div>
     </>

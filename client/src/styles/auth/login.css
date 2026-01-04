@@ -232,16 +232,26 @@ input {
   border-radius: 50%;
   right: 20px;
   bottom: 20px;
-  background-size: contain;
-  background-position: center;
-  background-repeat: no-repeat;
   z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.icon-logo {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 
 .dark-mode .icon {
   background-color: #1a1a1a;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
-  filter: brightness(1.5) contrast(1.2);
+}
+
+.dark-mode .icon-logo {
+  filter: invert(1) brightness(2);
 }
 
 .content {
@@ -919,7 +929,10 @@ button:focus.off.login, button:active.off.login, button:hover.off.login {
 .light-mode .icon {
   background-color: white;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-  filter: none;
+}
+
+.light-mode .icon-logo {
+  filter: brightness(0);
 }
 
 .light-mode .canvas-back::before {
