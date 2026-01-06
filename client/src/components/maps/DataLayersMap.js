@@ -13,14 +13,14 @@ function DataLayersMap() {
   const containerRef = useRef(null);
   const [dimensions, setDimensions] = useState({
     width: window.innerWidth,
-    height: window.innerHeight
+    height: window.innerHeight,
   });
 
   // Hide scrollbars for this page
   useEffect(() => {
-    document.body.style.overflow = 'hidden';
+    document.body.style.overflow = "hidden";
     return () => {
-      document.body.style.overflow = 'auto';
+      document.body.style.overflow = "auto";
     };
   }, []);
 
@@ -31,14 +31,14 @@ function DataLayersMap() {
         const { clientWidth, clientHeight } = containerRef.current;
         setDimensions({
           width: clientWidth,
-          height: clientHeight
+          height: clientHeight,
         });
       }
     };
 
     updateDimensions();
-    window.addEventListener('resize', updateDimensions);
-    return () => window.removeEventListener('resize', updateDimensions);
+    window.addEventListener("resize", updateDimensions);
+    return () => window.removeEventListener("resize", updateDimensions);
   }, []);
 
   useEffect(() => {
@@ -48,31 +48,29 @@ function DataLayersMap() {
         datasets: {
           info: {
             label: "Data Layers",
-            id: "data-layers"
+            id: "data-layers",
           },
           data: {
             fields: [],
-            rows: []
-          }
+            rows: [],
+          },
         },
         option: {
           centerMap: true,
-          readOnly: false
+          readOnly: false,
         },
         config: {
           mapState: {
             latitude: 35.0456,
             longitude: -85.3097,
-            zoom: 11
+            zoom: 11,
           },
-          visState: {
-            layers: []
-          },
+
           uiState: {
             currentModal: null,
-            activeSidePanel: null
-          }
-        }
+            activeSidePanel: null,
+          },
+        },
       })
     );
   }, [dispatch]);
@@ -81,10 +79,10 @@ function DataLayersMap() {
     <div
       ref={containerRef}
       style={{
-        width: '100%',
-        height: '100vh',
-        overflow: 'hidden',
-        position: 'relative'
+        width: "100%",
+        height: "100vh",
+        overflow: "hidden",
+        position: "relative",
       }}
     >
       <KeplerGl
