@@ -3,8 +3,8 @@ import React, { useState, useRef, useEffect, useCallback, memo } from "react";
 import paper from "paper";
 import "../styles/auth/login.css";
 
-const LoginForm = memo(({ onSubmit }) => {
-  const [loginEmail, setLoginEmail] = useState("");
+const LoginForm = memo(({ onSubmit, errorMessage }) => {
+  const [loginUsername, setLoginUsername] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
@@ -12,9 +12,9 @@ const LoginForm = memo(({ onSubmit }) => {
   const handleSubmit = useCallback(
     (e) => {
       e.preventDefault();
-      onSubmit({ loginUsername: loginEmail, loginPassword });
+      onSubmit({ loginUsername, loginPassword });
     },
-    [loginEmail, loginPassword, onSubmit]
+    [loginUsername, loginPassword, onSubmit]
   );
 
   const togglePassword = useCallback(() => {
@@ -52,18 +52,18 @@ const LoginForm = memo(({ onSubmit }) => {
       >
         <div className="input-group">
           <input
-            type="email"
-            id="email"
-            name="email"
+            type="text"
+            id="username"
+            name="username"
             required
-            autoComplete="email"
+            autoComplete="username"
             placeholder=" "
-            value={loginEmail}
-            onChange={(e) => setLoginEmail(e.target.value)}
+            value={loginUsername}
+            onChange={(e) => setLoginUsername(e.target.value)}
           />
-          <label htmlFor="email">Email address</label>
+          <label htmlFor="username">Username</label>
           <span className="input-border"></span>
-          <span className="error-message" id="emailError"></span>
+          <span className="error-message" id="usernameError"></span>
         </div>
 
         <div className="input-group">
@@ -129,6 +129,12 @@ const LoginForm = memo(({ onSubmit }) => {
           </a>
         </div>
 
+        {errorMessage && (
+          <div style={{ color: '#ef4444', fontSize: '0.875rem', marginTop: '8px', marginBottom: '8px' }}>
+            {errorMessage}
+          </div>
+        )}
+
         <button type="submit" className="submit-btn">
           <span className="btn-text">Sign in</span>
           <div className="btn-loader">
@@ -167,6 +173,7 @@ function Login() {
   const navigate = useNavigate();
   const leftCanvasRef = useRef(null);
   const [darkMode, setDarkMode] = useState(true);
+  const [errorMessage, setErrorMessage] = useState("");
 
   // Paper.js animation for left side with collision detection
   useEffect(() => {
@@ -4976,9 +4983,46 @@ function Login() {
   }, []);
 
   const handleLoginSubmit = useCallback(
-    (data) => {
-      console.log("Login attempted with:", data);
-      navigate("/dashboard");
+    async (data) => {
+      try {
+        console.log("Login attempted with:", data);
+
+        const API_URL = process.env.REACT_APP_API_URL || "http://localhost:3001";
+
+        const response = await fetch(`${API_URL}/api/auth/login`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            username: data.loginUsername,
+            password: data.loginPassword,
+          }),
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+          // Login failed
+          const errorMsg = result.error || 'Login failed';
+          setErrorMessage(errorMsg);
+          return;
+        }
+
+        // Login successful
+        console.log('Login successful:', result);
+
+        // Store the JWT token in localStorage
+        localStorage.setItem('authToken', result.token);
+        localStorage.setItem('user', JSON.stringify(result.user));
+
+        // Navigate to dashboard
+        navigate("/dashboard");
+
+      } catch (error) {
+        console.error('Login request failed:', error);
+        setErrorMessage('Network error. Please check your connection and try again.');
+      }
     },
     [navigate]
   );
@@ -5045,7 +5089,7 @@ function Login() {
           </button>
 
           <div className="content">
-            <LoginForm onSubmit={handleLoginSubmit} />
+            <LoginForm onSubmit={handleLoginSubmit} errorMessage={errorMessage} />
           </div>
 
           <div className="icon">

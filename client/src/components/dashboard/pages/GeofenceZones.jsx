@@ -12,6 +12,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import {
+  Empty,
+  EmptyIcon,
+  EmptyTitle,
+  EmptyDescription,
+  EmptyAction,
+} from "@/components/ui/shadcn/empty"
+import { MapPin } from "lucide-react"
 
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:3001"
 const MAPBOX_TOKEN = process.env.REACT_APP_MAPBOX_API
@@ -296,10 +304,18 @@ export function GeofenceZones() {
 
       {/* Empty State */}
       {!loading && !error && geofences.length === 0 && (
-        <div className="bg-card border border-border rounded-lg p-12 text-center">
-          <p className="text-muted-foreground mb-4">No geofences found</p>
-          <Button onClick={handleCreateNew}>Create Your First Zone</Button>
-        </div>
+        <Empty className="bg-black border-neutral-800">
+          <EmptyIcon className="bg-neutral-900">
+            <MapPin className="h-6 w-6 text-muted-foreground" />
+          </EmptyIcon>
+          <EmptyTitle className="text-white">No geofences found</EmptyTitle>
+          <EmptyDescription>
+            Get started by creating your first geofence zone to monitor geographic boundaries.
+          </EmptyDescription>
+          <EmptyAction>
+            <Button onClick={handleCreateNew}>Create Your First Zone</Button>
+          </EmptyAction>
+        </Empty>
       )}
 
       {/* Geofence Grid */}

@@ -8,8 +8,8 @@ console.log("Environment variables loaded:");
 console.log("POSTGIS_HOST:", process.env.POSTGIS_HOST);
 console.log("POSTGIS_PORT:", process.env.POSTGIS_PORT);
 
-const spatialRoutes = require("./routes/spatial");
 const geofenceRoutes = require("./routes/geofences");
+const authRoutes = require("./routes/auth");
 const db = require("./database/postgis");
 
 const app = express();
@@ -18,10 +18,10 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Mount spatial routes
-app.use("/api/spatial", spatialRoutes);
 // Mount geofence routes
 app.use("/api/geofences", geofenceRoutes);
+// Mount auth routes
+app.use("/api/auth", authRoutes);
 
 // Health check endpoint
 app.get("/health", (req, res) => {
@@ -46,5 +46,6 @@ const PORT = process.env.PORT || 3001;
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
-  console.log(`API available at http://localhost:${PORT}/api/spatial/data`);
+  console.log(`Geofence API: http://localhost:${PORT}/api/geofences`);
+  console.log(`Auth API: http://localhost:${PORT}/api/auth`);
 });
