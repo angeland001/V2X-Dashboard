@@ -151,6 +151,12 @@ router.post('/', async (req, res) => {
       });
     }
 
+    // Ensure coordinates are included in metadata for easy access
+    const enrichedMetadata = {
+      ...metadata,
+      coordinates: geometry.coordinates
+    };
+
     // Convert GeoJSON to PostGIS geometry
     const result = await db.query(`
       INSERT INTO geofences (
@@ -184,7 +190,7 @@ router.post('/', async (req, res) => {
       description,
       geofence_type,
       JSON.stringify(geometry),
-      JSON.stringify(metadata)
+      JSON.stringify(enrichedMetadata)
     ]);
 
     const row = result.rows[0];
@@ -251,10 +257,20 @@ router.put('/:id', async (req, res) => {
     if (geometry !== undefined) {
       updates.push(`geometry = ST_SetSRID(ST_GeomFromGeoJSON($${paramCount++}), 4326)`);
       values.push(JSON.stringify(geometry));
+
+      // If geometry is updated, also update coordinates in metadata
+      // Use JSONB merge operator to preserve other metadata fields
+      updates.push(`metadata = metadata || $${paramCount++}::jsonb`);
+      values.push(JSON.stringify({ coordinates: geometry.coordinates }));
     }
+
     if (metadata !== undefined) {
+      // If metadata is explicitly provided, merge it with coordinates if geometry exists
+      const enrichedMetadata = geometry !== undefined
+        ? { ...metadata, coordinates: geometry.coordinates }
+        : metadata;
       updates.push(`metadata = $${paramCount++}`);
-      values.push(JSON.stringify(metadata));
+      values.push(JSON.stringify(enrichedMetadata));
     }
     if (status !== undefined) {
       updates.push(`status = $${paramCount++}`);
@@ -318,32 +334,15 @@ router.put('/:id', async (req, res) => {
 
 /**
  * DELETE /api/geofences/:id
- * Delete a geofence (soft delete by setting status to 'archived')
+ * Delete a geofence (hard delete - permanently removes from database)
+ * Use ?soft=true query parameter to archive instead
  */
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { hard = false } = req.query;
+    const { soft = false } = req.query;
 
-    if (hard === 'true') {
-      // Hard delete - permanently remove from database
-      const result = await db.query(`
-        DELETE FROM geofences
-        WHERE id = $1
-        RETURNING id, name;
-      `, [id]);
-
-      if (result.rows.length === 0) {
-        return res.status(404).json({ error: 'Geofence not found' });
-      }
-
-      console.log(`✓ Permanently deleted geofence: ${result.rows[0].name} (ID: ${id})`);
-      res.json({
-        message: 'Geofence permanently deleted',
-        id: result.rows[0].id,
-        name: result.rows[0].name
-      });
-    } else {
+    if (soft === 'true') {
       // Soft delete - set status to archived
       const result = await db.query(`
         UPDATE geofences
@@ -359,6 +358,24 @@ router.delete('/:id', async (req, res) => {
       console.log(`✓ Archived geofence: ${result.rows[0].name} (ID: ${id})`);
       res.json({
         message: 'Geofence archived',
+        id: result.rows[0].id,
+        name: result.rows[0].name
+      });
+    } else {
+      // Hard delete - permanently remove from database
+      const result = await db.query(`
+        DELETE FROM geofences
+        WHERE id = $1
+        RETURNING id, name;
+      `, [id]);
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: 'Geofence not found' });
+      }
+
+      console.log(`✓ Permanently deleted geofence: ${result.rows[0].name} (ID: ${id})`);
+      res.json({
+        message: 'Geofence deleted',
         id: result.rows[0].id,
         name: result.rows[0].name
       });

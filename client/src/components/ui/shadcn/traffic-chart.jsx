@@ -35,11 +35,11 @@ import {
 const chartConfig = {
   pedestrians: {
     label: "Pedestrians",
-    color: "hsl(175,100%,60%)",
+    color: "hsl(57 86.4% 47.3%)",
   },
   vehicles: {
     label: "Vehicles",
-    color: "hsl(65,100%,60%)",
+    color: "hsl(18 72.4% 44.1%)",
   },
 }
 

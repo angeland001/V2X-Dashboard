@@ -181,9 +181,9 @@ function GeoFencingMap() {
         geofence_type: "zone",
         geometry: feature.geometry,
         metadata: {
-          color: `rgb(${GEOFENCE_COLOR[0]}, ${GEOFENCE_COLOR[1]}, ${GEOFENCE_COLOR[2]})`,
           created_by: "kepler_gl",
           isClosed: true,
+          coordinates: feature.geometry.coordinates,
         },
       };
 
