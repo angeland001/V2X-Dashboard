@@ -10,36 +10,36 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card"
+} from "@/components/ui/shadcn/card"
 import {
   ChartContainer,
   ChartLegend,
   ChartLegendContent,
   ChartTooltip,
   ChartTooltipContent,
-} from "@/components/ui/chart"
+} from "@/components/ui/shadcn/chart"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"
+} from "@/components/ui/shadcn/select"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+} from "@/components/ui/shadcn/dropdown-menu"
 
 const chartConfig = {
   pedestrians: {
     label: "Pedestrians",
-    color: "hsl(58, 93%, 80%)",
+    color: "hsl(57 86.4% 47.3%)",
   },
   vehicles: {
     label: "Vehicles",
-    color: "hsl(181, 93%, 80%)",
+    color: "hsl(18 72.4% 44.1%)",
   },
 }
 

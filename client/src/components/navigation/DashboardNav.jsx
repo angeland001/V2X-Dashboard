@@ -9,7 +9,7 @@ import {
   NavigationMenuLink,
   NavigationMenuList,
   NavigationMenuTrigger,
-} from "@/components/ui/navigation-menu"
+} from "@/components/ui/shadcn/navigation-menu"
 
 const geofenceFeatures = [
   {
@@ -57,12 +57,7 @@ const analyticsFeatures = [
     description:
       "Analyze common routes and travel paths between locations.",
   },
-  {
-    title: "Reports",
-    href: "/dashboard/analytics/reports",
-    description:
-      "Generate detailed reports on traffic data and location events.",
-  },
+ 
 ]
 
 function ListItem({ title, children, href, ...props }) {

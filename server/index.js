@@ -9,6 +9,7 @@ console.log("POSTGIS_HOST:", process.env.POSTGIS_HOST);
 console.log("POSTGIS_PORT:", process.env.POSTGIS_PORT);
 
 const spatialRoutes = require("./routes/spatial");
+const geofenceRoutes = require("./routes/geofences");
 const db = require("./database/postgis");
 
 const app = express();
@@ -19,6 +20,8 @@ app.use(express.json());
 
 // Mount spatial routes
 app.use("/api/spatial", spatialRoutes);
+// Mount geofence routes
+app.use("/api/geofences", geofenceRoutes);
 
 // Health check endpoint
 app.get("/health", (req, res) => {

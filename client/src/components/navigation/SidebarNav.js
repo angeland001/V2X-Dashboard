@@ -17,7 +17,7 @@ import {
   SidebarProvider,
   SidebarInset,
   SidebarSeparator,
-} from "@/components/ui/sidebar";
+} from "@/components/ui/shadcn/sidebar";
 import {
   LayoutDashboard,
   MapPin,
@@ -33,13 +33,13 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@radix-ui/react-collapsible";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/shadcn/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+} from "@/components/ui/shadcn/dropdown-menu";
 
 function AppSidebar() {
   const navigate = useNavigate();
@@ -64,8 +64,8 @@ function AppSidebar() {
                 />
               </div>
               <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-semibold">Prism</span>
-                <span className="truncate text-xs">Dashboard</span>
+                <span className="truncate font-semibold normal-case">Prism</span>
+                <span className="truncate text-xs normal-case">Dashboard</span>
               </div>
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -84,7 +84,7 @@ function AppSidebar() {
                   tooltip="Dashboard"
                 >
                   <LayoutDashboard className="h-4 w-4" />
-                  <span>Dashboard</span>
+                  <span className="normal-case">Dashboard</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
 
@@ -95,7 +95,7 @@ function AppSidebar() {
                   tooltip="GeoFencing"
                 >
                   <MapPin className="h-4 w-4" />
-                  <span>GeoFencing</span>
+                  <span className="normal-case">GeoFencing</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
 
@@ -105,7 +105,7 @@ function AppSidebar() {
                   <CollapsibleTrigger asChild>
                     <SidebarMenuButton tooltip="Data Layers">
                       <Layers className="h-4 w-4" />
-                      <span>Data Layers</span>
+                      <span className="normal-case">Data Layers</span>
                       <ChevronDown className="ml-auto h-4 w-4 transition-transform group-data-[state=open]/collapsible:rotate-180" />
                     </SidebarMenuButton>
                   </CollapsibleTrigger>
@@ -116,7 +116,7 @@ function AppSidebar() {
                           onClick={() => navigate("/data-layers")}
                           isActive={isActive("/data-layers")}
                         >
-                          <span>View Layers</span>
+                          <span className="normal-case">View Layers</span>
                         </SidebarMenuSubButton>
                       </SidebarMenuSubItem>
                     </SidebarMenuSub>
@@ -137,7 +137,7 @@ function AppSidebar() {
               <SidebarMenuItem>
                 <SidebarMenuButton tooltip="Reports">
                   <FileText className="h-4 w-4" />
-                  <span>Reports</span>
+                  <span className="normal-case">Reports</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>
@@ -150,13 +150,13 @@ function AppSidebar() {
           <SidebarMenuItem>
             <SidebarMenuButton tooltip="Settings">
               <Settings className="h-4 w-4" />
-              <span>Settings</span>
+              <span className="normal-case">Settings</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton tooltip="Get Help">
               <HelpCircle className="h-4 w-4" />
-              <span>Get Help</span>
+              <span className="normal-case">Get Help</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

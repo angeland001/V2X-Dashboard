@@ -19,6 +19,11 @@ const reducers = combineReducers({
 
 const store = createStore(reducers, {}, applyMiddleware(taskMiddleware));
 
+// Expose store for debugging
+if (typeof window !== 'undefined') {
+  window.store = store;
+}
+
 export default function App() {
   return (
     <Provider store={store}>
