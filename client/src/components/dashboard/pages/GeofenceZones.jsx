@@ -370,8 +370,12 @@ export function GeofenceZones() {
                       <span className="font-medium text-white">{coordinateCount} points</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Created:</span>
-                      <span className="font-medium text-white">{formatDate(props.created_at)}</span>
+                      <span className="text-muted-foreground">Created by:</span>
+                      <span className="font-medium text-white">
+                        {props.created_by_first_name
+                          ? `${props.created_by_first_name} ${props.created_by_last_name || ''}`
+                          : props.created_by_username || 'Unknown'}
+                      </span>
                     </div>
                   </div>
 

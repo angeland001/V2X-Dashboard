@@ -29,11 +29,15 @@ async function setupAuth() {
     console.log('👤 Creating default admin user...');
     const username = 'admin';
     const password = 'admin123';
+    const first_name = 'Admin';
+    const last_name = 'User';
+    const email = 'admin@example.com';
+    const role = 'admin';
 
     // Check if admin user already exists
     const existing = await db.query(
-      'SELECT id FROM users WHERE username = $1',
-      [username]
+      'SELECT id FROM users WHERE username = $1 OR email = $2',
+      [username, email]
     );
 
     if (existing.rows.length > 0) {
@@ -45,16 +49,19 @@ async function setupAuth() {
 
       // Insert admin user
       const result = await db.query(
-        `INSERT INTO users (username, password_hash)
-         VALUES ($1, $2)
-         RETURNING id, username, created_at`,
-        [username, password_hash]
+        `INSERT INTO users (username, password_hash, first_name, last_name, email, role)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         RETURNING id, username, first_name, last_name, email, role, created_at`,
+        [username, password_hash, first_name, last_name, email, role]
       );
 
       const user = result.rows[0];
       console.log(`✓ Admin user created successfully`);
       console.log(`   Username: ${user.username}`);
       console.log(`   Password: ${password}`);
+      console.log(`   Name: ${user.first_name} ${user.last_name}`);
+      console.log(`   Email: ${user.email}`);
+      console.log(`   Role: ${user.role}`);
       console.log(`   ID: ${user.id}`);
       console.log(`   Created: ${user.created_at}\n`);
     }

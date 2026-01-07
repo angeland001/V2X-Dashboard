@@ -19,12 +19,20 @@ const JWT_EXPIRES_IN = '24h';
  */
 router.post('/signup', async (req, res) => {
   try {
-    const { username, password } = req.body;
+    const { username, password, first_name, last_name, email, date_of_birth, role } = req.body;
 
     // Validate input
-    if (!username || !password) {
+    if (!username || !password || !first_name || !last_name || !email) {
       return res.status(400).json({
-        error: 'Username and password are required'
+        error: 'Username, password, first name, last name, and email are required'
+      });
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({
+        error: 'Invalid email format'
       });
     }
 
@@ -43,16 +51,24 @@ router.post('/signup', async (req, res) => {
       });
     }
 
-    // Check if username already exists
+    // Check if username or email already exists
     const existingUser = await db.query(
-      'SELECT id FROM users WHERE username = $1',
-      [username]
+      'SELECT id, username, email FROM users WHERE username = $1 OR email = $2',
+      [username, email]
     );
 
     if (existingUser.rows.length > 0) {
-      return res.status(409).json({
-        error: 'Username already exists'
-      });
+      const existing = existingUser.rows[0];
+      if (existing.username === username) {
+        return res.status(409).json({
+          error: 'Username already exists'
+        });
+      }
+      if (existing.email === email) {
+        return res.status(409).json({
+          error: 'Email already exists'
+        });
+      }
     }
 
     // Hash the password
@@ -61,17 +77,17 @@ router.post('/signup', async (req, res) => {
 
     // Insert new user
     const result = await db.query(
-      `INSERT INTO users (username, password_hash)
-       VALUES ($1, $2)
-       RETURNING id, username, created_at`,
-      [username, password_hash]
+      `INSERT INTO users (username, password_hash, first_name, last_name, email, date_of_birth, role)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING id, username, first_name, last_name, email, date_of_birth, role, created_at`,
+      [username, password_hash, first_name, last_name, email, date_of_birth || null, role || 'user']
     );
 
     const user = result.rows[0];
 
     // Generate JWT token
     const token = jwt.sign(
-      { userId: user.id, username: user.username },
+      { userId: user.id, username: user.username, firstName: user.first_name, lastName: user.last_name },
       JWT_SECRET,
       { expiresIn: JWT_EXPIRES_IN }
     );
@@ -84,6 +100,11 @@ router.post('/signup', async (req, res) => {
       user: {
         id: user.id,
         username: user.username,
+        first_name: user.first_name,
+        last_name: user.last_name,
+        email: user.email,
+        date_of_birth: user.date_of_birth,
+        role: user.role,
         created_at: user.created_at
       }
     });
@@ -114,7 +135,7 @@ router.post('/login', async (req, res) => {
 
     // Find user by username
     const result = await db.query(
-      'SELECT id, username, password_hash, last_login FROM users WHERE username = $1',
+      'SELECT id, username, password_hash, first_name, last_name, email, date_of_birth, role, last_login FROM users WHERE username = $1',
       [username]
     );
 
@@ -143,7 +164,7 @@ router.post('/login', async (req, res) => {
 
     // Generate JWT token
     const token = jwt.sign(
-      { userId: user.id, username: user.username },
+      { userId: user.id, username: user.username, firstName: user.first_name, lastName: user.last_name },
       JWT_SECRET,
       { expiresIn: JWT_EXPIRES_IN }
     );
@@ -156,6 +177,11 @@ router.post('/login', async (req, res) => {
       user: {
         id: user.id,
         username: user.username,
+        first_name: user.first_name,
+        last_name: user.last_name,
+        email: user.email,
+        date_of_birth: user.date_of_birth,
+        role: user.role,
         last_login: user.last_login
       }
     });
@@ -190,7 +216,7 @@ router.get('/verify', async (req, res) => {
 
     // Optional: Check if user still exists
     const result = await db.query(
-      'SELECT id, username, created_at, last_login FROM users WHERE id = $1',
+      'SELECT id, username, first_name, last_name, email, date_of_birth, role, created_at, last_login FROM users WHERE id = $1',
       [decoded.userId]
     );
 
