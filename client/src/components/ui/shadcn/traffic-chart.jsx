@@ -19,18 +19,13 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/shadcn/chart"
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/shadcn/select"
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/shadcn/dropdown-menu"
+import { Button } from "@/components/ui/shadcn/button"
+import { ButtonGroup } from "@/components/ui/shadcn/button-group"
 
 const chartConfig = {
   pedestrians: {
@@ -79,22 +74,29 @@ export function TrafficChart({
             Showing pedestrians and vehicles for the last 3 months
           </CardDescription>
         </div>
-        <Select value={timeRange} onValueChange={setTimeRange}>
-          <SelectTrigger className="hidden w-[160px] rounded-lg sm:ml-auto sm:flex bg-neutral-900 border-neutral-800 text-white">
-            <SelectValue placeholder="Last 3 months" />
-          </SelectTrigger>
-          <SelectContent className="rounded-xl bg-neutral-900 border-neutral-800">
-            <SelectItem value="90d" className="rounded-lg text-white hover:bg-neutral-800 focus:bg-neutral-800">
-              Last 3 months
-            </SelectItem>
-            <SelectItem value="30d" className="rounded-lg text-white hover:bg-neutral-800 focus:bg-neutral-800">
-              Last 30 days
-            </SelectItem>
-            <SelectItem value="7d" className="rounded-lg text-white hover:bg-neutral-800 focus:bg-neutral-800">
-              Last 7 days
-            </SelectItem>
-          </SelectContent>
-        </Select>
+        <div className="sm:ml-auto flex items-center">
+          <Button
+            variant={timeRange === "90d" ? "default" : "outline"}
+            onClick={() => setTimeRange("90d")}
+            className={`!rounded-r-none !rounded-l-md normal-case ${timeRange === "90d" ? "bg-white text-black hover:bg-gray-200" : "text-gray-300 border-gray-700 hover:bg-gray-800 hover:text-white"}`}
+          >
+            Last 3 months
+          </Button>
+          <Button
+            variant={timeRange === "30d" ? "default" : "outline"}
+            onClick={() => setTimeRange("30d")}
+            className={`!rounded-none !border-l-0 -ml-px normal-case ${timeRange === "30d" ? "bg-white text-black hover:bg-gray-200" : "text-gray-300 border-gray-700 hover:bg-gray-800 hover:text-white"}`}
+          >
+            Last 30 days
+          </Button>
+          <Button
+            variant={timeRange === "7d" ? "default" : "outline"}
+            onClick={() => setTimeRange("7d")}
+            className={`!rounded-l-none !rounded-r-md !border-l-0 -ml-px normal-case ${timeRange === "7d" ? "bg-white text-black hover:bg-gray-200" : "text-gray-300 border-gray-700 hover:bg-gray-800 hover:text-white"}`}
+          >
+            Last 7 days
+          </Button>
+        </div>
       </CardHeader>
       <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6 bg-black">
         <ChartContainer

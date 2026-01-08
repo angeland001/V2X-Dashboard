@@ -7,8 +7,8 @@ module.exports = {
   theme: {
   	extend: {
   		fontFamily: {
-  			sans: ['Geist Sans', 'system-ui', 'sans-serif'],
-  			mono: ['Geist Mono', 'monospace']
+  			sans: ['Avenir', 'Avenir Next', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Helvetica Neue', 'sans-serif'],
+  			mono: ['Monaco', 'Menlo', 'Courier New', 'monospace']
   		},
   		borderRadius: {
   			lg: 'var(--radius)',

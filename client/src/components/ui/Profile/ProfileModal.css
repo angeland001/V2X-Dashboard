@@ -134,11 +134,3 @@
   animation-delay: 1.4s;
 }
 
-/* Camera overlay animation */
-.camera-overlay {
-  transition: opacity 0.2s ease-in-out;
-}
-
-.camera-overlay:hover {
-  opacity: 1 !important;
-}
