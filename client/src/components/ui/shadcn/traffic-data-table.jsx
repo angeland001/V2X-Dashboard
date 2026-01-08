@@ -67,7 +67,7 @@ export function TrafficDataTable({ data, location }) {
     <Card className="bg-black border-neutral-800 shadow-[0_4px_6px_rgba(255,255,255,0.1)]">
       <CardHeader>
         <CardTitle className="text-white">Recent Traffic Data</CardTitle>
-        <CardDescription className="text-gray-400">
+        <CardDescription className="text-black-400">
           Last 7 days of traffic records for {location}
         </CardDescription>
       </CardHeader>
@@ -75,24 +75,24 @@ export function TrafficDataTable({ data, location }) {
       {/* Toolbar with Button Group and Columns Dropdown */}
       <div className="flex items-center justify-between px-6 pb-4">
         <ButtonGroup>
-          <Button variant="outline" className="text-gray-300 border-gray-700 hover:bg-gray-800 hover:text-white">
+          <Button variant="outline" className="text-black-300 border-black-700 hover:bg-gray-800 hover:text-white">
             Archive
           </Button>
-          <Button variant="outline" className="text-gray-300 border-gray-700 hover:bg-gray-800 hover:text-white">
+          <Button variant="outline" className="text-black-300 border-black-700 hover:bg-gray-800 hover:text-white">
             Report
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="icon" aria-label="More Options" className="text-gray-300 border-gray-700 hover:bg-gray-800 hover:text-white">
+              <Button variant="outline" size="icon" aria-label="More Options" className="text-black-300 border-black-700 hover:bg-gray-800 hover:text-white">
                 <MoreHorizontalIcon />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-52 bg-gray-900 border-gray-700">
-              <DropdownMenuCheckboxItem className="text-gray-300 focus:bg-gray-800 focus:text-white">
+            <DropdownMenuContent align="end" className="w-52 bg-black-900 border-black-700">
+              <DropdownMenuCheckboxItem className="text-black-300 focus:bg-black-800 focus:text-white">
                 <MailCheckIcon />
                 Mark as Read
               </DropdownMenuCheckboxItem>
-              <DropdownMenuCheckboxItem className="text-gray-300 focus:bg-gray-800 focus:text-white">
+              <DropdownMenuCheckboxItem className="text-black-300 focus:bg-black-800 focus:text-white">
                 <ArchiveIcon />
                 Archive
               </DropdownMenuCheckboxItem>
@@ -103,50 +103,50 @@ export function TrafficDataTable({ data, location }) {
         {/* Columns Dropdown */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" className="ml-auto text-gray-300 border-gray-700 hover:bg-gray-800 hover:text-white">
+            <Button variant="outline" className="ml-auto text-black-300 border-black-700 hover:bg-gray-800 hover:text-white">
               Columns <ChevronDownIcon className="ml-2 h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="bg-gray-900 border-gray-700">
+          <DropdownMenuContent align="end" className="bg-black-900 border-black-700">
             <DropdownMenuCheckboxItem
               checked={columnVisibility.date}
               onCheckedChange={(value) => setColumnVisibility({ ...columnVisibility, date: value })}
-              className="text-gray-300 focus:bg-gray-800 focus:text-white"
+              className="text-black-300 focus:bg-black-800 focus:text-white"
             >
               Date
             </DropdownMenuCheckboxItem>
             <DropdownMenuCheckboxItem
               checked={columnVisibility.time}
               onCheckedChange={(value) => setColumnVisibility({ ...columnVisibility, time: value })}
-              className="text-gray-300 focus:bg-gray-800 focus:text-white"
+              className="text-black-300 focus:bg-black-800 focus:text-white"
             >
               Time
             </DropdownMenuCheckboxItem>
             <DropdownMenuCheckboxItem
               checked={columnVisibility.vehicles}
               onCheckedChange={(value) => setColumnVisibility({ ...columnVisibility, vehicles: value })}
-              className="text-gray-300 focus:bg-gray-800 focus:text-white"
+              className="text-black-300 focus:bg-black-800 focus:text-white"
             >
               Vehicles
             </DropdownMenuCheckboxItem>
             <DropdownMenuCheckboxItem
               checked={columnVisibility.pedestrians}
               onCheckedChange={(value) => setColumnVisibility({ ...columnVisibility, pedestrians: value })}
-              className="text-gray-300 focus:bg-gray-800 focus:text-white"
+              className="text-black-300 focus:bg-black-800 focus:text-white"
             >
               Pedestrians
             </DropdownMenuCheckboxItem>
             <DropdownMenuCheckboxItem
               checked={columnVisibility.total}
               onCheckedChange={(value) => setColumnVisibility({ ...columnVisibility, total: value })}
-              className="text-gray-300 focus:bg-gray-800 focus:text-white"
+              className="text-black-300 focus:bg-black-800 focus:text-white"
             >
               Total
             </DropdownMenuCheckboxItem>
             <DropdownMenuCheckboxItem
               checked={columnVisibility.status}
               onCheckedChange={(value) => setColumnVisibility({ ...columnVisibility, status: value })}
-              className="text-gray-300 focus:bg-gray-800 focus:text-white"
+              className="text-black-300 focus:bg-black-800 focus:text-white"
             >
               Status
             </DropdownMenuCheckboxItem>
@@ -157,20 +157,20 @@ export function TrafficDataTable({ data, location }) {
       <CardContent>
         <Table>
           <TableHeader>
-            <TableRow className="border-neutral-800 bg-gray-800 hover:bg-gray-800">
-              {columnVisibility.date && <TableHead className="text-gray-300">Date</TableHead>}
-              {columnVisibility.time && <TableHead className="text-gray-300">Time</TableHead>}
-              {columnVisibility.vehicles && <TableHead className="text-right text-gray-300">Vehicles</TableHead>}
-              {columnVisibility.pedestrians && <TableHead className="text-right text-gray-300">Pedestrians</TableHead>}
-              {columnVisibility.total && <TableHead className="text-right text-gray-300">Total</TableHead>}
-              {columnVisibility.status && <TableHead className="text-gray-300">Status</TableHead>}
+            <TableRow className="border-neutral-800 bg-black-800 hover:bg-black-800">
+              {columnVisibility.date && <TableHead className="text-black-300">Date</TableHead>}
+              {columnVisibility.time && <TableHead className="text-black-300">Time</TableHead>}
+              {columnVisibility.vehicles && <TableHead className="text-right text-black-300">Vehicles</TableHead>}
+              {columnVisibility.pedestrians && <TableHead className="text-right text-black-300">Pedestrians</TableHead>}
+              {columnVisibility.total && <TableHead className="text-right text-black-300">Total</TableHead>}
+              {columnVisibility.status && <TableHead className="text-black-300">Status</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
             {recentData.map((row, index) => (
               <TableRow key={index} className="border-neutral-800 hover:bg-neutral-900">
                 {columnVisibility.date && <TableCell className="font-medium text-white">{row.date}</TableCell>}
-                {columnVisibility.time && <TableCell className="text-gray-300">{row.time}</TableCell>}
+                {columnVisibility.time && <TableCell className="text-black-300">{row.time}</TableCell>}
                 {columnVisibility.vehicles && <TableCell className="text-right text-white">{row.vehicles.toLocaleString()}</TableCell>}
                 {columnVisibility.pedestrians && <TableCell className="text-right text-white">{row.pedestrians.toLocaleString()}</TableCell>}
                 {columnVisibility.total && <TableCell className="text-right font-medium text-white">{row.total.toLocaleString()}</TableCell>}

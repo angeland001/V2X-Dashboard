@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
   Sidebar,
@@ -18,6 +18,7 @@ import {
   SidebarInset,
   SidebarSeparator,
 } from "@/components/ui/shadcn/sidebar";
+import { ProfileModal } from "@/components/ui/Profile/ProfileModal";
 import {
   LayoutDashboard,
   MapPin,
@@ -33,7 +34,11 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@radix-ui/react-collapsible";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/shadcn/avatar";
+import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+} from "@/components/ui/shadcn/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -41,11 +46,47 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/shadcn/dropdown-menu";
 
+const API_URL = process.env.REACT_APP_API_URL || "http://localhost:3001";
+
 function AppSidebar() {
   const navigate = useNavigate();
   const location = useLocation();
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [user, setUser] = useState(null);
 
   const isActive = (path) => location.pathname === path;
+
+  // Load user data from localStorage
+  useEffect(() => {
+    loadUserData();
+  }, []);
+
+  // Reload user data when profile modal closes
+  useEffect(() => {
+    if (!isProfileOpen) {
+      loadUserData();
+    }
+  }, [isProfileOpen]);
+
+  const loadUserData = () => {
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      try {
+        const parsedUser = JSON.parse(storedUser);
+        setUser(parsedUser);
+      } catch (error) {
+        console.error('Error parsing user data:', error);
+      }
+    }
+  };
+
+  const getInitials = () => {
+    if (!user) return 'U';
+    if (user.first_name && user.last_name) {
+      return `${user.first_name[0]}${user.last_name[0]}`.toUpperCase();
+    }
+    return user.username ? user.username.substring(0, 2).toUpperCase() : 'U';
+  };
 
   return (
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
@@ -64,7 +105,9 @@ function AppSidebar() {
                 />
               </div>
               <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-semibold normal-case">Prism</span>
+                <span className="truncate font-semibold normal-case">
+                  Prism
+                </span>
                 <span className="truncate text-xs normal-case">Dashboard</span>
               </div>
             </SidebarMenuButton>
@@ -173,16 +216,20 @@ function AppSidebar() {
                   className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
                 >
                   <Avatar className="h-8 w-8 rounded-lg">
-                    <AvatarImage
-                      src="https://avatar.iran.liara.run/public/9"
-                      alt="User"
-                    />
-                    <AvatarFallback className="rounded-lg">CN</AvatarFallback>
+                    {user?.profile_picture ? (
+                      <AvatarImage
+                        src={`${API_URL}${user.profile_picture}`}
+                        alt={user.username || "User"}
+                      />
+                    ) : null}
+                    <AvatarFallback className="rounded-lg">{getInitials()}</AvatarFallback>
                   </Avatar>
                   <div className="grid flex-1 text-left text-sm leading-tight">
-                    <span className="truncate font-semibold">RVJ412</span>
+                    <span className="truncate font-semibold">
+                      {user?.username || 'User'}
+                    </span>
                     <span className="truncate text-xs text-gray-500">
-                      andres-angel@utc.edu
+                      {user?.email || 'No email'}
                     </span>
                   </div>
                   <MoreHorizontal className="ml-auto h-4 w-4" />
@@ -192,15 +239,15 @@ function AppSidebar() {
                 side="top"
                 className="w-[--radix-popper-anchor-width] bg-sidebar-accent border-sidebar-border"
               >
-                <DropdownMenuItem className="hover:bg-sidebar-primary focus:bg-sidebar-primary text-sidebar-foreground hover:text-white focus:text-white">
-                  <span>Account</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem className="hover:bg-sidebar-primary focus:bg-sidebar-primary text-sidebar-foreground hover:text-white focus:text-white">
-                  <span>Billing</span>
+                <DropdownMenuItem
+                  onClick={() => setIsProfileOpen(true)}
+                  className="hover:bg-sidebar-primary focus:bg-sidebar-primary text-sidebar-foreground hover:text-white focus:text-white cursor-pointer"
+                >
+                  <span>Profile</span>
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => navigate("/")}
-                  className="hover:bg-sidebar-primary focus:bg-sidebar-primary text-sidebar-foreground hover:text-white focus:text-white"
+                  className="hover:bg-sidebar-primary focus:bg-sidebar-primary text-sidebar-foreground hover:text-white focus:text-white cursor-pointer"
                 >
                   <span>Sign out</span>
                 </DropdownMenuItem>
@@ -209,6 +256,12 @@ function AppSidebar() {
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>
+
+      {/* Profile Modal */}
+      <ProfileModal
+        isOpen={isProfileOpen}
+        onClose={() => setIsProfileOpen(false)}
+      />
     </Sidebar>
   );
 }

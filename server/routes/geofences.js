@@ -154,7 +154,8 @@ router.post('/', async (req, res) => {
       description = '',
       geofence_type = 'zone',
       geometry,
-      metadata = {}
+      metadata = {},
+      created_by
     } = req.body;
 
     // Validate required fields
@@ -183,7 +184,8 @@ router.post('/', async (req, res) => {
         geofence_type,
         geometry,
         metadata,
-        status
+        status,
+        created_by
       )
       VALUES (
         $1,
@@ -191,7 +193,8 @@ router.post('/', async (req, res) => {
         $3,
         ST_SetSRID(ST_GeomFromGeoJSON($4), 4326),
         $5,
-        'active'
+        'active',
+        $6
       )
       RETURNING
         id,
@@ -200,6 +203,7 @@ router.post('/', async (req, res) => {
         geofence_type,
         status,
         metadata,
+        created_by,
         ST_AsGeoJSON(geometry)::json as geometry,
         created_at,
         updated_at;
@@ -208,7 +212,8 @@ router.post('/', async (req, res) => {
       description,
       geofence_type,
       JSON.stringify(geometry),
-      JSON.stringify(enrichedMetadata)
+      JSON.stringify(enrichedMetadata),
+      created_by || null
     ]);
 
     const row = result.rows[0];
