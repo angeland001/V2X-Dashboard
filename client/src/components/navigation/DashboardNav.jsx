@@ -179,7 +179,7 @@ export function DashboardNav() {
         onClick={() => setIsProfileOpen(true)}
         className="flex items-center gap-2 px-4 py-2 rounded-lg bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 hover:border-red-600 transition-all duration-200 group"
       >
-        <User className="w-4 h-4 text-neutral-400 group-hover:text-red-500 transition-colors" />
+        <User className="w-4 h-4 text-neutral-400 group-hover:text-gray-100 transition-colors" />
         <span className="text-sm font-medium text-neutral-300 group-hover:text-white transition-colors">
           Profile
         </span>

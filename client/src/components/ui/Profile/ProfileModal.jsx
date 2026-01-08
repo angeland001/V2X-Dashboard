@@ -123,7 +123,7 @@ export function ProfileModal({ isOpen, onClose }) {
           </button>
 
           {/* Header Banner */}
-          <div className="h-24 bg-gradient-to-r  from-red-500 via-orange-500 to-yellow-500 profile-banner" />
+          <div className="h-24 bg-gradient-to-r  from-blue-600 to-blue-700 profile-banner" />
 
           {/* Avatar */}
           <div className="flex justify-center -mt-12 mb-4 profile-avatar">
@@ -144,7 +144,7 @@ export function ProfileModal({ isOpen, onClose }) {
               {/* Camera Overlay */}
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="absolute inset-0 bg-black/60 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 camera-overlay cursor-pointer"
+                className="absolute top-0 left-0 w-24 h-24 bg-black/60 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer"
               >
                 <Camera className="w-6 h-6 text-white" />
               </button>
@@ -172,15 +172,15 @@ export function ProfileModal({ isOpen, onClose }) {
           {/* Stats */}
           <div className="grid grid-cols-3 gap-4 px-6 py-4 bg-neutral-800/50 profile-stats">
             <div className="text-center">
-              <p className="text-2xl font-bold text-orange-500">{stats.geofences}</p>
+              <p className="text-2xl font-bold text-sky-500">{stats.geofences}</p>
               <p className="text-xs text-neutral-400 uppercase tracking-wide">Geofences</p>
             </div>
             <div className="text-center">
-              <p className="text-2xl font-bold text-orange-500">{stats.alerts}</p>
+              <p className="text-2xl font-bold text-sky-500">{stats.alerts}</p>
               <p className="text-xs text-neutral-400 uppercase tracking-wide">Alerts</p>
             </div>
             <div className="text-center">
-              <p className="text-2xl font-bold text-orange-500">
+              <p className="text-2xl font-bold text-sky-500">
                 {user.created_at ? Math.floor((Date.now() - new Date(user.created_at)) / (1000 * 60 * 60 * 24)) : 0}
               </p>
               <p className="text-xs text-neutral-400 uppercase tracking-wide">Days</p>
@@ -227,7 +227,7 @@ export function ProfileModal({ isOpen, onClose }) {
                 </div>
                 <div className="h-1.5 bg-neutral-800 rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-gradient-to-r from-red-500 via-orange-500 to-yellow-500 rounded-full profile-progress-bar profile-progress-bar-1"
+                    className="h-full bg-gradient-to-r from-sky-500 to bg-red-400 rounded-full profile-progress-bar profile-progress-bar-1"
                     style={{ width: `${Math.min(100, stats.geofences * 10)}%` }}
                   />
                 </div>
@@ -240,7 +240,7 @@ export function ProfileModal({ isOpen, onClose }) {
                 </div>
                 <div className="h-1.5 bg-neutral-800 rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-gradient-to-r from-red-500 via-orange-500 to-yellow-500 rounded-full profile-progress-bar profile-progress-bar-2"
+                    className="h-full bg-gradient-to-r from-sky-500 to bg-red-400 rounded-full profile-progress-bar profile-progress-bar-2"
                     style={{ width: `${Math.min(100, stats.alerts * 20)}%` }}
                   />
                 </div>
@@ -253,7 +253,7 @@ export function ProfileModal({ isOpen, onClose }) {
                 </div>
                 <div className="h-1.5 bg-neutral-800 rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-gradient-to-r from-red-500 via-orange-500 to-yellow-500 rounded-full profile-progress-bar profile-progress-bar-3"
+                    className="h-full bg-gradient-to-r from-sky-500 to bg-red-400 rounded-full profile-progress-bar profile-progress-bar-3"
                     style={{ width: '85%' }}
                   />
                 </div>

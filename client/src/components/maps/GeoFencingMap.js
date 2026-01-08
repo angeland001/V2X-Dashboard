@@ -26,7 +26,7 @@ const CHATTANOOGA_CENTER = {
 };
 
 // Emerald Green color for all geofences
-const GEOFENCE_COLOR = [46, 204, 113];
+const GEOFENCE_COLOR = [75,138,255];
 
 /**
  * GeoFencing Map - For creating and managing geofences
@@ -129,6 +129,61 @@ function GeoFencingMap() {
                   latitude: CHATTANOOGA_CENTER.latitude,
                   longitude: CHATTANOOGA_CENTER.longitude,
                   zoom: CHATTANOOGA_CENTER.zoom,
+                  pitch: 45, // Tilt map for 3D view (0-60)
+                  bearing: 0, // Rotation (0-360)
+                },
+                mapStyle: {
+                  styleType: "dark",
+                  topLayerGroups: {},
+                  visibleLayerGroups: {
+                    label: true,
+                    road: true,
+                    border: false,
+                    building: true, // Enable 3D buildings
+                    water: true,
+                    land: true,
+                    "3d building": true, // Enable 3D building layer
+                  },
+                  threeDBuildingColor: [
+                    194.6103322548211, 191.81688250953655, 185.2988331038727,
+                  ],
+                  mapStyles: {
+                    satellite: {
+                      id: "satellite",
+                      label: "Satellite",
+                      url: "mapbox://styles/mapbox/satellite-v9",
+                      icon: `https://api.mapbox.com/styles/v1/mapbox/satellite-v9/static/-122.3997,37.7907,11.0,0,0/400x300?access_token=${MAPBOX_TOKEN}`,
+                      layerGroups: [],
+                    },
+                    "satellite-streets": {
+                      id: "satellite-streets",
+                      label: "Satellite Streets",
+                      url: "mapbox://styles/mapbox/satellite-streets-v12",
+                      icon: `https://api.mapbox.com/styles/v1/mapbox/satellite-streets-v12/static/-122.3997,37.7907,11.0,0,0/400x300?access_token=${MAPBOX_TOKEN}`,
+                      layerGroups: [],
+                    },
+                    dark: {
+                      id: "dark",
+                      label: "Dark",
+                      url: "mapbox://styles/mapbox/dark-v11",
+                      icon: `https://api.mapbox.com/styles/v1/mapbox/dark-v11/static/-122.3997,37.7907,11.0,0,0/400x300?access_token=${MAPBOX_TOKEN}`,
+                      layerGroups: [],
+                    },
+                    streets: {
+                      id: "streets",
+                      label: "Streets",
+                      url: "mapbox://styles/mapbox/streets-v12",
+                      icon: `https://api.mapbox.com/styles/v1/mapbox/streets-v12/static/-122.3997,37.7907,11.0,0,0/400x300?access_token=${MAPBOX_TOKEN}`,
+                      layerGroups: [],
+                    },
+                    light: {
+                      id: "light",
+                      label: "Light",
+                      url: "mapbox://styles/mapbox/light-v11",
+                      icon: `https://api.mapbox.com/styles/v1/mapbox/light-v11/static/-122.3997,37.7907,11.0,0,0/400x300?access_token=${MAPBOX_TOKEN}`,
+                      layerGroups: [],
+                    },
+                  },
                 },
               },
             },
