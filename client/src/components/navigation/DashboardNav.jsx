@@ -1,5 +1,6 @@
 import * as React from "react"
 import { Link } from "react-router-dom"
+import { User } from "lucide-react"
 
 import { useIsMobile } from "@/hooks/use-mobile"
 import {
@@ -10,6 +11,7 @@ import {
   NavigationMenuList,
   NavigationMenuTrigger,
 } from "@/components/ui/shadcn/navigation-menu"
+import { ProfileModal } from "@/components/ui/Profile/ProfileModal"
 
 const geofenceFeatures = [
   {
@@ -77,11 +79,13 @@ function ListItem({ title, children, href, ...props }) {
 
 export function DashboardNav() {
   const isMobile = useIsMobile()
+  const [isProfileOpen, setIsProfileOpen] = React.useState(false)
 
   return (
-    <div className="p-4">
-      <NavigationMenu viewport={isMobile}>
-        <NavigationMenuList className="flex-wrap">
+    <>
+      <div className="p-4 flex items-center justify-between">
+        <NavigationMenu viewport={isMobile}>
+          <NavigationMenuList className="flex-wrap">
           <NavigationMenuItem>
             <Link to="/dashboard">
               <NavigationMenuTrigger>Overview</NavigationMenuTrigger>
@@ -169,7 +173,22 @@ export function DashboardNav() {
           </NavigationMenuItem>
         </NavigationMenuList>
       </NavigationMenu>
+
+      {/* Profile Button */}
+      <button
+        onClick={() => setIsProfileOpen(true)}
+        className="flex items-center gap-2 px-4 py-2 rounded-lg bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 hover:border-red-600 transition-all duration-200 group"
+      >
+        <User className="w-4 h-4 text-neutral-400 group-hover:text-red-500 transition-colors" />
+        <span className="text-sm font-medium text-neutral-300 group-hover:text-white transition-colors">
+          Profile
+        </span>
+      </button>
     </div>
+
+    {/* Profile Modal */}
+    <ProfileModal isOpen={isProfileOpen} onClose={() => setIsProfileOpen(false)} />
+    </>
   )
 }
 

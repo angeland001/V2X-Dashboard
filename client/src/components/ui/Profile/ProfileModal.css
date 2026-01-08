@@ -1,0 +1,144 @@
+@keyframes fadeInMove {
+  0% {
+    opacity: 0;
+    transform: translateX(-300px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes fadeIn {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes fadeOut {
+  0% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes slideInFromTop {
+  0% {
+    transform: translateY(-100px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideInFromBottom {
+  0% {
+    transform: translateY(100px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes zoomIn {
+  0% {
+    transform: scale(0.8);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes zoomOut {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0.8);
+    opacity: 0;
+  }
+}
+
+@keyframes progressBar {
+  0% {
+    width: 0;
+  }
+}
+
+/* Animation classes */
+.profile-backdrop-enter {
+  animation: fadeIn 0.3s ease-in;
+}
+
+.profile-backdrop-exit {
+  animation: fadeOut 0.3s ease-out;
+}
+
+.profile-modal-enter {
+  animation: zoomIn 0.3s ease-out, slideInFromBottom 0.3s ease-out;
+}
+
+.profile-modal-exit {
+  animation: zoomOut 0.3s ease-in, slideInFromBottom 0.3s ease-in reverse;
+}
+
+.profile-banner {
+  animation: slideInFromTop 0.5s ease-out;
+}
+
+.profile-avatar {
+  animation: zoomIn 0.7s ease-out 0.15s backwards;
+}
+
+.profile-info {
+  animation: fadeIn 0.7s ease-in 0.3s backwards, slideInFromBottom 0.7s ease-out 0.3s backwards;
+}
+
+.profile-stats {
+  animation: fadeInMove 0.7s ease-out 0.5s backwards;
+}
+
+.profile-details {
+  animation: fadeIn 0.7s ease-in 0.7s backwards;
+}
+
+.profile-activity {
+  animation: fadeIn 0.7s ease-in 1s backwards, slideInFromBottom 0.7s ease-out 1s backwards;
+}
+
+.profile-progress-bar {
+  animation: progressBar 1s ease-out forwards;
+}
+
+.profile-progress-bar-1 {
+  animation-delay: 1s;
+}
+
+.profile-progress-bar-2 {
+  animation-delay: 1.2s;
+}
+
+.profile-progress-bar-3 {
+  animation-delay: 1.4s;
+}
+
+/* Camera overlay animation */
+.camera-overlay {
+  transition: opacity 0.2s ease-in-out;
+}
+
+.camera-overlay:hover {
+  opacity: 1 !important;
+}

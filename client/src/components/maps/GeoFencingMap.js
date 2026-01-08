@@ -13,7 +13,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "../ui/alert-dialog";
+} from "../ui/shadcn/alert-dialog";
 
 const MAPBOX_TOKEN = process.env.REACT_APP_MAPBOX_API;
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:3001";
@@ -112,9 +112,9 @@ function GeoFencingMap() {
                         isVisible: true,
                         visConfig: {
                           // Base opacity - you can change these values
-                          opacity: 0.6,        // Fill opacity (0-1)
-                          strokeOpacity: 0.9,  // Border opacity (0-1)
-                          thickness: 2.5,      // Border thickness in pixels
+                          opacity: 0.6, // Fill opacity (0-1)
+                          strokeOpacity: 0.9, // Border opacity (0-1)
+                          thickness: 2.5, // Border thickness in pixels
                           strokeColor: GEOFENCE_COLOR,
                           stroked: true,
                           filled: true,
@@ -175,6 +175,18 @@ function GeoFencingMap() {
 
       console.log("💾 Saving geofence to database...", feature);
 
+      // Get logged-in user ID from localStorage
+      let userId = null;
+      try {
+        const storedUser = localStorage.getItem("user");
+        if (storedUser) {
+          const user = JSON.parse(storedUser);
+          userId = user.id;
+        }
+      } catch (error) {
+        console.error("Error parsing user data:", error);
+      }
+
       const geofenceData = {
         name: `Geofence ${Date.now()}`,
         description: "Created via Kepler.gl",
@@ -185,6 +197,7 @@ function GeoFencingMap() {
           isClosed: true,
           coordinates: feature.geometry.coordinates,
         },
+        created_by: userId,
       };
 
       const response = await fetch(`${API_URL}/api/geofences`, {
@@ -495,8 +508,10 @@ function GeoFencingMap() {
               gap: "8px",
               transition: "background 0.15s",
             }}
-            onMouseEnter={(e) => e.target.style.background = "rgba(59, 130, 246, 0.1)"}
-            onMouseLeave={(e) => e.target.style.background = "transparent"}
+            onMouseEnter={(e) =>
+              (e.target.style.background = "rgba(59, 130, 246, 0.1)")
+            }
+            onMouseLeave={(e) => (e.target.style.background = "transparent")}
           >
             <span>✏️</span>
             Rename
@@ -519,8 +534,10 @@ function GeoFencingMap() {
               gap: "8px",
               transition: "background 0.15s",
             }}
-            onMouseEnter={(e) => e.target.style.background = "rgba(239, 68, 68, 0.1)"}
-            onMouseLeave={(e) => e.target.style.background = "transparent"}
+            onMouseEnter={(e) =>
+              (e.target.style.background = "rgba(239, 68, 68, 0.1)")
+            }
+            onMouseLeave={(e) => (e.target.style.background = "transparent")}
           >
             <span>🗑️</span>
             Delete
@@ -561,8 +578,8 @@ function GeoFencingMap() {
                 fontSize: "14px",
                 outline: "none",
               }}
-              onFocus={(e) => e.target.style.borderColor = "#3b82f6"}
-              onBlur={(e) => e.target.style.borderColor = "#3f3f46"}
+              onFocus={(e) => (e.target.style.borderColor = "#3b82f6")}
+              onBlur={(e) => (e.target.style.borderColor = "#3f3f46")}
             />
           </div>
           <AlertDialogFooter>

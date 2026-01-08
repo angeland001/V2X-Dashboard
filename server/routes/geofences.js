@@ -18,18 +18,23 @@ router.get('/', async (req, res) => {
   try {
     const result = await db.query(`
       SELECT
-        id,
-        name,
-        description,
-        geofence_type,
-        status,
-        metadata,
-        ST_AsGeoJSON(geometry)::json as geometry,
-        created_at,
-        updated_at
-      FROM geofences
-      WHERE status = 'active'
-      ORDER BY created_at DESC;
+        g.id,
+        g.name,
+        g.description,
+        g.geofence_type,
+        g.status,
+        g.metadata,
+        g.created_by,
+        u.username as created_by_username,
+        u.first_name as created_by_first_name,
+        u.last_name as created_by_last_name,
+        ST_AsGeoJSON(g.geometry)::json as geometry,
+        g.created_at,
+        g.updated_at
+      FROM geofences g
+      LEFT JOIN users u ON g.created_by = u.id
+      WHERE g.status = 'active'
+      ORDER BY g.created_at DESC;
     `);
 
     // Format as GeoJSON FeatureCollection for Kepler.gl
@@ -46,6 +51,10 @@ router.get('/', async (req, res) => {
           geofence_type: row.geofence_type,
           status: row.status,
           metadata: row.metadata,
+          created_by: row.created_by,
+          created_by_username: row.created_by_username,
+          created_by_first_name: row.created_by_first_name,
+          created_by_last_name: row.created_by_last_name,
           created_at: row.created_at,
           updated_at: row.updated_at
         }
@@ -72,17 +81,22 @@ router.get('/:id', async (req, res) => {
 
     const result = await db.query(`
       SELECT
-        id,
-        name,
-        description,
-        geofence_type,
-        status,
-        metadata,
-        ST_AsGeoJSON(geometry)::json as geometry,
-        created_at,
-        updated_at
-      FROM geofences
-      WHERE id = $1;
+        g.id,
+        g.name,
+        g.description,
+        g.geofence_type,
+        g.status,
+        g.metadata,
+        g.created_by,
+        u.username as created_by_username,
+        u.first_name as created_by_first_name,
+        u.last_name as created_by_last_name,
+        ST_AsGeoJSON(g.geometry)::json as geometry,
+        g.created_at,
+        g.updated_at
+      FROM geofences g
+      LEFT JOIN users u ON g.created_by = u.id
+      WHERE g.id = $1;
     `, [id]);
 
     if (result.rows.length === 0) {
@@ -101,6 +115,10 @@ router.get('/:id', async (req, res) => {
         geofence_type: row.geofence_type,
         status: row.status,
         metadata: row.metadata,
+        created_by: row.created_by,
+        created_by_username: row.created_by_username,
+        created_by_first_name: row.created_by_first_name,
+        created_by_last_name: row.created_by_last_name,
         created_at: row.created_at,
         updated_at: row.updated_at
       }
@@ -136,7 +154,8 @@ router.post('/', async (req, res) => {
       description = '',
       geofence_type = 'zone',
       geometry,
-      metadata = {}
+      metadata = {},
+      created_by
     } = req.body;
 
     // Validate required fields
@@ -165,7 +184,8 @@ router.post('/', async (req, res) => {
         geofence_type,
         geometry,
         metadata,
-        status
+        status,
+        created_by
       )
       VALUES (
         $1,
@@ -173,7 +193,8 @@ router.post('/', async (req, res) => {
         $3,
         ST_SetSRID(ST_GeomFromGeoJSON($4), 4326),
         $5,
-        'active'
+        'active',
+        $6
       )
       RETURNING
         id,
@@ -182,6 +203,7 @@ router.post('/', async (req, res) => {
         geofence_type,
         status,
         metadata,
+        created_by,
         ST_AsGeoJSON(geometry)::json as geometry,
         created_at,
         updated_at;
@@ -190,7 +212,8 @@ router.post('/', async (req, res) => {
       description,
       geofence_type,
       JSON.stringify(geometry),
-      JSON.stringify(enrichedMetadata)
+      JSON.stringify(enrichedMetadata),
+      created_by || null
     ]);
 
     const row = result.rows[0];
