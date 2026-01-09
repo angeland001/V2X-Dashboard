@@ -1,0 +1,231 @@
+/* Sonar animation for geofence zones */
+@keyframes sonarSweep {
+  0% {
+    left: -10%;
+  }
+  50% {
+    left: 110%;
+  }
+  50.1% {
+    left: 110%;
+  }
+  100% {
+    left: -10%;
+  }
+}
+
+/* Dot reveal animations - dots appear as sonar passes */
+@keyframes dotReveal1 {
+  0%, 10% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  12% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+  15% {
+    transform: scale(1);
+  }
+  45%, 100% {
+    opacity: 0.8;
+  }
+  50%, 60% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  62% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+  65% {
+    transform: scale(1);
+  }
+  95%, 100% {
+    opacity: 0.8;
+  }
+}
+
+@keyframes dotReveal2 {
+  0%, 15% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  17% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+  20% {
+    transform: scale(1);
+  }
+  45%, 100% {
+    opacity: 0.8;
+  }
+  50%, 55% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  57% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+  60% {
+    transform: scale(1);
+  }
+  95%, 100% {
+    opacity: 0.8;
+  }
+}
+
+@keyframes dotReveal3 {
+  0%, 20% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  22% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+  25% {
+    transform: scale(1);
+  }
+  45%, 100% {
+    opacity: 0.8;
+  }
+  50%, 50% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  52% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+  55% {
+    transform: scale(1);
+  }
+  95%, 100% {
+    opacity: 0.8;
+  }
+}
+
+@keyframes dotReveal4 {
+  0%, 25% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  27% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+  30% {
+    transform: scale(1);
+  }
+  45%, 100% {
+    opacity: 0.8;
+  }
+  50%, 45% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  47% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+  50% {
+    transform: scale(1);
+  }
+  95%, 100% {
+    opacity: 0.8;
+  }
+}
+
+@keyframes dotReveal5 {
+  0%, 30% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  32% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+  35% {
+    transform: scale(1);
+  }
+  45%, 100% {
+    opacity: 0.8;
+  }
+  50%, 40% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  42% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+  45% {
+    transform: scale(1);
+  }
+  95%, 100% {
+    opacity: 0.8;
+  }
+}
+
+@keyframes dotReveal6 {
+  0%, 35% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  37% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+  40% {
+    transform: scale(1);
+  }
+  45%, 100% {
+    opacity: 0.8;
+  }
+  50%, 35% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  37% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+  40% {
+    transform: scale(1);
+  }
+  95%, 100% {
+    opacity: 0.8;
+  }
+}
+
+/* Utility classes for sonar animations */
+.animate-sonar {
+  animation: sonarSweep var(--sonar-duration, 8s) linear infinite;
+}
+
+.animate-dotReveal1 {
+  animation: dotReveal1 var(--sonar-duration, 8s) ease-in-out infinite;
+}
+
+.animate-dotReveal2 {
+  animation: dotReveal2 var(--sonar-duration, 8s) ease-in-out infinite;
+}
+
+.animate-dotReveal3 {
+  animation: dotReveal3 var(--sonar-duration, 8s) ease-in-out infinite;
+}
+
+.animate-dotReveal4 {
+  animation: dotReveal4 var(--sonar-duration, 8s) ease-in-out infinite;
+}
+
+.animate-dotReveal5 {
+  animation: dotReveal5 var(--sonar-duration, 8s) ease-in-out infinite;
+}
+
+.animate-dotReveal6 {
+  animation: dotReveal6 var(--sonar-duration, 8s) ease-in-out infinite;
+}

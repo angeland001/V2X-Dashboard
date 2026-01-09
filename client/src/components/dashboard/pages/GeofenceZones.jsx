@@ -336,7 +336,12 @@ export function GeofenceZones() {
               >
                 {/* Snapshot Image */}
                 {snapshotUrl && (
-                  <div className="w-full h-48 bg-neutral-900 relative overflow-hidden">
+                  <div
+                    className="w-full h-48 bg-neutral-900 relative overflow-hidden"
+                    style={{
+                      '--sonar-duration': `${6 + Math.random() * 4}s`
+                    }}
+                  >
                     <img
                       src={snapshotUrl}
                       alt={`Map preview of ${props.name}`}
@@ -346,26 +351,38 @@ export function GeofenceZones() {
                         e.target.parentElement.innerHTML = '<div class="flex items-center justify-center h-full text-muted-foreground text-sm">Map preview unavailable</div>'
                       }}
                     />
-                    {/* Animated Dots Following Street Paths */}
+                    {/* Sonar Scanning Animation */}
                     <div className="absolute inset-0 pointer-events-none">
+                      {/* Red sonar sweep line */}
+                      <div
+                        className="absolute top-0 bottom-0 w-32 animate-sonar"
+                        style={{
+                          background: 'linear-gradient(to right, transparent, rgba(239, 68, 68, 0.6), transparent)',
+                          filter: 'blur(8px)',
+                          boxShadow: '0 0 30px rgba(239, 68, 68, 0.5)'
+                        }}
+                      />
+                      {/* Dots that appear as sonar passes */}
                       {[
-                        { path: 'animate-dotPath1', top: '25%', delay: '0s' },
-                        { path: 'animate-dotPath2', top: '45%', delay: '1s' },
-                        { path: 'animate-dotPath3', top: '35%', delay: '2s' },
-                        { path: 'animate-dotPath4', top: '55%', delay: '0.5s' },
-                        { path: 'animate-dotPath5', top: '65%', delay: '1.5s' },
-                        { path: 'animate-dotPath6', top: '20%', delay: '2.5s' },
-                        { path: 'animate-dotPath1', top: '75%', delay: '3s' },
-                        { path: 'animate-dotPath2', top: '40%', delay: '3.5s' },
+                        { animation: 'animate-dotReveal1', left: '20%', top: '25%' },
+                        { animation: 'animate-dotReveal2', left: '35%', top: '45%' },
+                        { animation: 'animate-dotReveal3', left: '50%', top: '35%' },
+                        { animation: 'animate-dotReveal4', left: '60%', top: '55%' },
+                        { animation: 'animate-dotReveal5', left: '75%', top: '65%' },
+                        { animation: 'animate-dotReveal6', left: '85%', top: '20%' },
+                        { animation: 'animate-dotReveal1', left: '15%', top: '75%' },
+                        { animation: 'animate-dotReveal2', left: '40%', top: '60%' },
+                        { animation: 'animate-dotReveal3', left: '65%', top: '40%' },
+                        { animation: 'animate-dotReveal4', left: '80%', top: '50%' },
                       ].map((dot, i) => (
                         <div
                           key={i}
-                          className={`absolute w-1.5 h-1.5 bg-blue-400 rounded-full ${dot.path}`}
+                          className={`absolute w-2 h-2 bg-blue-400 rounded-full ${dot.animation}`}
                           style={{
+                            left: dot.left,
                             top: dot.top,
-                            left: '0px',
-                            animationDelay: dot.delay,
-                            boxShadow: '0 0 6px rgba(59, 130, 246, 0.8), 0 0 3px rgba(59, 130, 246, 0.6)'
+                            opacity: 0,
+                            boxShadow: '0 0 8px rgba(59, 130, 246, 0.8), 0 0 4px rgba(59, 130, 246, 0.6)'
                           }}
                         />
                       ))}

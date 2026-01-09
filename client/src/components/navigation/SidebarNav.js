@@ -159,7 +159,7 @@ function AppSidebar() {
                           onClick={() => navigate("/data-layers")}
                           isActive={isActive("/data-layers")}
                         >
-                          <span className="normal-case">View Layers</span>
+                          <span className="normal-case">Traffic Routes</span>
                         </SidebarMenuSubButton>
                       </SidebarMenuSubItem>
                     </SidebarMenuSub>
