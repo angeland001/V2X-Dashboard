@@ -11,6 +11,7 @@ console.log("POSTGIS_PORT:", process.env.POSTGIS_PORT);
 const geofenceRoutes = require("./routes/geofences");
 const authRoutes = require("./routes/auth");
 const userRoutes = require("./routes/users");
+const sdsmRoutes = require("./routes/sdsm");
 const db = require("./database/postgis");
 
 const app = express();
@@ -28,6 +29,8 @@ app.use("/api/geofences", geofenceRoutes);
 app.use("/api/auth", authRoutes);
 // Mount user routes
 app.use("/api/users", userRoutes);
+// Mount SDSM routes
+app.use("/api/sdsm", sdsmRoutes);
 
 // Health check endpoint
 app.get("/health", (req, res) => {
@@ -55,4 +58,5 @@ app.listen(PORT, () => {
   console.log(`Geofence API: http://localhost:${PORT}/api/geofences`);
   console.log(`Auth API: http://localhost:${PORT}/api/auth`);
   console.log(`User API: http://localhost:${PORT}/api/users`);
+  console.log(`SDSM API: http://localhost:${PORT}/api/sdsm`);
 });

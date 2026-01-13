@@ -7,7 +7,8 @@ import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
 import Login from "./auth/Login";
 import DashboardLayout from "./components/navigation/SidebarNav";
 import GeoFencingMap from "./components/maps/GeoFencingMap";
-import DataLayersMap from "./components/maps/DataLayersMap";
+import DataLayersMap from "./components/maps/TrafficRoutes";
+import SDSMEventsMap from "./components/maps/SDSMEvents";
 import Dashboard from "./components/dashboard/dashboard";
 import HomeView from "./components/dashboard/pages/HomeView";
 import GeofenceZones from "./components/dashboard/pages/GeofenceZones";
@@ -60,6 +61,14 @@ export default function App() {
             element={
               <DashboardLayout>
                 <DataLayersMap />
+              </DashboardLayout>
+            }
+          />
+          <Route
+            path="/sdsm-events"
+            element={
+              <DashboardLayout>
+                <SDSMEventsMap />
               </DashboardLayout>
             }
           />

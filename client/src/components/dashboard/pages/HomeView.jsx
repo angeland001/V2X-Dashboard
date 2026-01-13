@@ -6,7 +6,7 @@ export function HomeView() {
 
   useEffect(() => {
     // Get user from localStorage
-    const storedUser = localStorage.getItem('name');
+    const storedUser = localStorage.getItem('user');
     if (storedUser) {
       try {
         const parsedUser = JSON.parse(storedUser);
