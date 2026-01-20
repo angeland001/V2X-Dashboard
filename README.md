@@ -1,6 +1,16 @@
 # How to Run
 - Clone the Repository
-- Run in terminal with Docker Desktop open: docker-compose up
+- Run in terminal first: 
+
+* cd server
+* npm start -c
+
+Then:
+
+* cd back to root of directory
+* cd client
+* npm start -c
+
 - Open http://localhost:3000
 
 # Kepler Demo
