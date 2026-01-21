@@ -13,6 +13,7 @@ import Dashboard from "./components/dashboard/dashboard";
 import HomeView from "./components/dashboard/pages/HomeView";
 import GeofenceZones from "./components/dashboard/pages/GeofenceZones";
 import AnalyticsTraffic from "./components/dashboard/pages/AnalyticsTraffic";
+import Settings from "./components/dashboard/pages/Settings";
 
 const reducers = combineReducers({
   keplerGl: keplerGlReducer,
@@ -44,6 +45,7 @@ export default function App() {
             <Route index element={<HomeView />} />
             <Route path="geofences/zones" element={<GeofenceZones />} />
             <Route path="analytics/traffic" element={<AnalyticsTraffic />} />
+            <Route path="/dashboard/settings/data" element={<Settings/>} />
             {/* Add more routes as needed */}
           </Route>
 

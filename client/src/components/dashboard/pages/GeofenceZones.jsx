@@ -176,13 +176,7 @@ export function GeofenceZones() {
     return labels[type] || type
   }
 
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric'
-    })
-  }
+  
 
   const getCoordinateCount = (geometry) => {
     if (geometry?.type === 'Polygon' && geometry.coordinates?.[0]) {
@@ -246,7 +240,7 @@ export function GeofenceZones() {
           },
           properties: {
             stroke: '#3b82f6',
-            'stroke-width': 2,
+            'stroke-width': 5,
             'stroke-opacity': 1,
             fill: '#3b82f6',
             'fill-opacity': 0.3
