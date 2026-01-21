@@ -4901,9 +4901,9 @@ function Login() {
       const canvasHeight = paper.view.size.height;
 
       // ALIGNMENT CONTROLS - Adjust these values to align paths with background map
-      const offsetX = 0; // Positive = move right, Negative = move left
+      const offsetX = 0.2; // Positive = move right, Negative = move left
       const offsetY = 0; // Positive = move down, Negative = move up
-      const scaleAdjust = 2; // Adjust overall size (1.0 = no change, 1.1 = 10% bigger, 0.9 = 10% smaller)
+      const scaleAdjust = 2.05; // Adjust overall size (1.0 = no change, 1.1 = 10% bigger, 0.9 = 10% smaller)
 
       // Use Chattanooga street paths
       chattanoogaStreetPaths.forEach((pathData, i) => {
