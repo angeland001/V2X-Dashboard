@@ -1,8 +1,10 @@
 # How to Run
+- REFER TO DOCUMENTATION FOR SETTING UP ENVIRONMENT (TBA...)
 - Clone the Repository
 - Run in terminal first: 
 
 * cd server
+* npm install --legacy-peer-deps (If needed)
 * npm start -c
 
 Then:
