@@ -11,6 +11,7 @@ Then:
 
 * cd back to root of directory
 * cd client
+* npm install --legacy-peer-deps (If needed)
 * npm start -c
 
 - Open http://localhost:3000
