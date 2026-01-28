@@ -1,3 +1,4 @@
+import "mapbox-gl/dist/mapbox-gl.css";
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Button } from "../ui/shadcn/button";
 import {
@@ -77,6 +78,7 @@ function GeoFencingMap() {
   const [showNewIntersection, setShowNewIntersection] = useState(false);
   const [newIntName, setNewIntName] = useState("");
   const [newIntId, setNewIntId] = useState("");
+  const [placingIntersection, setPlacingIntersection] = useState(null); // { name, intersection_id }
 
   const [lanes, setLanes] = useState([]);
   const [crosswalks, setCrosswalks] = useState([]);
@@ -534,8 +536,20 @@ function GeoFencingMap() {
   };
 
   // ── Create intersection ───────────────────────────────────────
-  const createIntersection = async () => {
+  const beginPlacingIntersection = () => {
     if (!newIntName.trim() || !newIntId) return;
+    setPlacingIntersection({
+      name: newIntName.trim(),
+      intersection_id: parseInt(newIntId),
+    });
+    setShowNewIntersection(false);
+    setNewIntName("");
+    setNewIntId("");
+    showMessage("Pan the map to position the intersection reference point, then click Confirm.");
+  };
+
+  const confirmPlacement = async () => {
+    if (!placingIntersection) return;
     try {
       const map = mapRef.current;
       const center = map ? map.getCenter() : { lng: CHATTANOOGA_CENTER[0], lat: CHATTANOOGA_CENTER[1] };
@@ -544,22 +558,24 @@ function GeoFencingMap() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: newIntName.trim(),
-          intersection_id: parseInt(newIntId),
+          name: placingIntersection.name,
+          intersection_id: placingIntersection.intersection_id,
           ref_point: refPoint,
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      setShowNewIntersection(false);
-      setNewIntName("");
-      setNewIntId("");
+      setPlacingIntersection(null);
       await loadIntersections();
       setActiveIntersection(data);
       showMessage("Intersection created. Draw lanes and crosswalks, then confirm.");
     } catch (err) {
       showMessage(`Error: ${err.message}`, "error");
     }
+  };
+
+  const cancelPlacement = () => {
+    setPlacingIntersection(null);
   };
 
   // ── Confirm intersection ──────────────────────────────────────
@@ -826,7 +842,7 @@ function GeoFencingMap() {
           <AlertDialogHeader>
             <AlertDialogTitle className="text-white">New Intersection</AlertDialogTitle>
             <AlertDialogDescription className="text-zinc-400">
-              The current map center will be used as the reference point.
+              After clicking Create, you will place the reference point on the map.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="space-y-3 py-2">
@@ -841,7 +857,7 @@ function GeoFencingMap() {
           </div>
           <AlertDialogFooter>
             <AlertDialogCancel className="bg-zinc-800 text-white border-zinc-700 hover:bg-zinc-700">Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={createIntersection} className="bg-blue-600 text-white hover:bg-blue-700" disabled={!newIntName.trim() || !newIntId}>Create</AlertDialogAction>
+            <AlertDialogAction onClick={beginPlacingIntersection} className="bg-blue-600 text-white hover:bg-blue-700" disabled={!newIntName.trim() || !newIntId}>Create</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -980,6 +996,53 @@ function GeoFencingMap() {
             </CardContent>
           </Card>
         </div>
+      )}
+
+      {/* ── Placement Mode Overlay ───────────────────────────── */}
+      {placingIntersection && (
+        <>
+          {/* Crosshair at map center */}
+          <div style={{
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            zIndex: 15,
+            pointerEvents: "none",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+          }}>
+            <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+              <line x1="24" y1="0" x2="24" y2="20" stroke="#FFC800" strokeWidth="2" />
+              <line x1="24" y1="28" x2="24" y2="48" stroke="#FFC800" strokeWidth="2" />
+              <line x1="0" y1="24" x2="20" y2="24" stroke="#FFC800" strokeWidth="2" />
+              <line x1="28" y1="24" x2="48" y2="24" stroke="#FFC800" strokeWidth="2" />
+              <circle cx="24" cy="24" r="6" stroke="#FFC800" strokeWidth="2" fill="none" />
+            </svg>
+          </div>
+          {/* Instruction bar + buttons */}
+          <div style={{
+            position: "absolute",
+            bottom: 32,
+            left: "50%",
+            transform: "translateX(-50%)",
+            zIndex: 20,
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+          }}>
+            <div className="px-4 py-2.5 rounded-lg text-sm border backdrop-blur bg-zinc-900/95 text-white border-zinc-600/50 flex items-center gap-3">
+              <span>Pan to position the reference point for <strong>{placingIntersection.name}</strong></span>
+              <Button size="sm" className="text-xs h-7 bg-green-600 hover:bg-green-700 text-white" onClick={confirmPlacement}>
+                Confirm Placement
+              </Button>
+              <Button size="sm" variant="outline" className="text-xs h-7 bg-zinc-800 text-white border-zinc-600 hover:bg-zinc-700" onClick={cancelPlacement}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </>
       )}
 
       {/* ── Toast ──────────────────────────────────────────────── */}

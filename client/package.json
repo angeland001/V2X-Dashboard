@@ -34,6 +34,7 @@
     "embla-carousel-react": "^8.6.0",
     "kepler.gl": "^3.2.5",
     "lucide-react": "^0.562.0",
+    "mapbox-gl": "^3.18.1",
     "paper": "^0.12.18",
     "process": "^0.11.10",
     "react": "^18.2.0",
