@@ -28,6 +28,9 @@ import {
   ChevronDown,
   MoreHorizontal,
   FileText,
+  Waypoints,
+  Route,
+  Footprints,
 } from "lucide-react";
 import {
   Collapsible,
@@ -135,12 +138,53 @@ function AppSidebar() {
                 <SidebarMenuButton
                   onClick={() => navigate("/geofencing")}
                   isActive={isActive("/geofencing")}
-                  tooltip="GeoFencing"
+                  tooltip="Map Editor"
                 >
                   <MapPin className="h-4 w-4" />
-                  <span className="normal-case">GeoFencing</span>
+                  <span className="normal-case">Map Editor</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
+
+              {/* V2X Config with Submenu */}
+              <Collapsible defaultOpen className="group/collapsible">
+                <SidebarMenuItem>
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton tooltip="V2X Config">
+                      <Waypoints className="h-4 w-4" />
+                      <span className="normal-case">V2X Config</span>
+                      <ChevronDown className="ml-auto h-4 w-4 transition-transform group-data-[state=open]/collapsible:rotate-180" />
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <SidebarMenuSub>
+                      <SidebarMenuSubItem>
+                        <SidebarMenuSubButton
+                          onClick={() => navigate("/dashboard/geofences/zones")}
+                          isActive={isActive("/dashboard/geofences/zones")}
+                        >
+                          <span className="normal-case">Intersections</span>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                      <SidebarMenuSubItem>
+                        <SidebarMenuSubButton
+                          onClick={() => navigate("/dashboard/lanes")}
+                          isActive={isActive("/dashboard/lanes")}
+                        >
+                          <span className="normal-case">Lanes</span>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                      <SidebarMenuSubItem>
+                        <SidebarMenuSubButton
+                          onClick={() => navigate("/dashboard/crosswalks")}
+                          isActive={isActive("/dashboard/crosswalks")}
+                        >
+                          <span className="normal-case">Crosswalks</span>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                    </SidebarMenuSub>
+                  </CollapsibleContent>
+                </SidebarMenuItem>
+              </Collapsible>
 
               {/* Data Layers with Submenu */}
               <Collapsible defaultOpen className="group/collapsible">

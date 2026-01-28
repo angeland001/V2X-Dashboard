@@ -19,438 +19,205 @@ import {
   EmptyDescription,
   EmptyAction,
 } from "@/components/ui/shadcn/empty"
-import { MapPin } from "lucide-react"
+import { MapPin, Trash2, FileJson, Layers } from "lucide-react"
 
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:3001"
-const MAPBOX_TOKEN = process.env.REACT_APP_MAPBOX_API
 
 export function GeofenceZones() {
   const navigate = useNavigate()
-  const [geofences, setGeofences] = useState([])
+  const [intersections, setIntersections] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [selectedGeofence, setSelectedGeofence] = useState(null)
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-  const [renameDialogOpen, setRenameDialogOpen] = useState(false)
-  const [newName, setNewName] = useState("")
-  const [expandedCoordinates, setExpandedCoordinates] = useState(null)
+  const [deleteTarget, setDeleteTarget] = useState(null)
+  const [mapDataView, setMapDataView] = useState(null)
 
   useEffect(() => {
-    fetchGeofences()
+    fetchIntersections()
   }, [])
 
-  const fetchGeofences = async () => {
+  const fetchIntersections = async () => {
     try {
       setLoading(true)
-      const response = await fetch(`${API_URL}/api/geofences`)
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch geofences')
-      }
-
-      const data = await response.json()
-
-      // Extract features from GeoJSON FeatureCollection
-      if (data.type === 'FeatureCollection' && data.features) {
-        setGeofences(data.features)
-      } else {
-        setGeofences([])
-      }
+      const res = await fetch(`${API_URL}/api/intersections`)
+      if (!res.ok) throw new Error("Failed to fetch intersections")
+      const data = await res.json()
+      // For each intersection, also fetch lane/crosswalk counts
+      const enriched = await Promise.all(
+        data.map(async (int) => {
+          const [lanesRes, cwRes] = await Promise.all([
+            fetch(`${API_URL}/api/lanes?intersection_id=${int.id}`),
+            fetch(`${API_URL}/api/crosswalks?intersection_id=${int.id}`),
+          ])
+          const lanes = await lanesRes.json()
+          const crosswalks = await cwRes.json()
+          return { ...int, laneCount: lanes.length, crosswalkCount: crosswalks.length }
+        })
+      )
+      setIntersections(enriched)
     } catch (err) {
-      console.error('Error fetching geofences:', err)
+      console.error("Error fetching intersections:", err)
       setError(err.message)
     } finally {
       setLoading(false)
     }
   }
 
-  const handleCreateNew = () => {
-    navigate('/geofencing')
-  }
-
-  const handleDeleteClick = (geofence) => {
-    setSelectedGeofence(geofence)
-    setDeleteDialogOpen(true)
-  }
-
-  const handleRenameClick = (geofence) => {
-    setSelectedGeofence(geofence)
-    setNewName(geofence.properties.name)
-    setRenameDialogOpen(true)
-  }
-
-  const deleteGeofence = async (geofenceId) => {
+  const deleteIntersection = async (id) => {
     try {
-      const response = await fetch(`${API_URL}/api/geofences/${geofenceId}`, {
-        method: "DELETE",
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || "Failed to delete geofence")
+      const res = await fetch(`${API_URL}/api/intersections/${id}`, { method: "DELETE" })
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error)
       }
-
-      console.log("✅ Geofence deleted successfully")
-
-      // Refresh the list
-      await fetchGeofences()
+      setDeleteTarget(null)
+      await fetchIntersections()
     } catch (err) {
-      console.error("❌ Error deleting geofence:", err)
-      setError(`Failed to delete: ${err.message}`)
+      console.error("Error deleting:", err)
+      setError(err.message)
     }
   }
 
-  const renameGeofence = async (geofenceId, newName) => {
+  const viewMapData = async (id) => {
     try {
-      const response = await fetch(`${API_URL}/api/geofences/${geofenceId}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ name: newName }),
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || "Failed to rename geofence")
+      const res = await fetch(`${API_URL}/api/intersections/${id}/mapdata`)
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error)
       }
-
-      console.log("✅ Geofence renamed successfully")
-
-      // Refresh the list
-      await fetchGeofences()
+      const data = await res.json()
+      setMapDataView(data)
     } catch (err) {
-      console.error("❌ Error renaming geofence:", err)
-      setError(`Failed to rename: ${err.message}`)
+      setError(err.message)
+      setTimeout(() => setError(null), 3000)
     }
   }
-
-  const handleConfirmDelete = () => {
-    if (selectedGeofence) {
-      deleteGeofence(selectedGeofence.id)
-    }
-    setDeleteDialogOpen(false)
-    setSelectedGeofence(null)
-  }
-
-  const handleCancelDelete = () => {
-    setSelectedGeofence(null)
-    setDeleteDialogOpen(false)
-  }
-
-  const handleConfirmRename = () => {
-    if (selectedGeofence && newName.trim()) {
-      renameGeofence(selectedGeofence.id, newName.trim())
-    }
-    setRenameDialogOpen(false)
-    setSelectedGeofence(null)
-    setNewName("")
-  }
-
-  const handleCancelRename = () => {
-    setSelectedGeofence(null)
-    setNewName("")
-    setRenameDialogOpen(false)
-  }
-
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'active':
-        return 'bg-green-500/10 text-green-500 border-green-500/20'
-      case 'inactive':
-        return 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20'
-      case 'archived':
-        return 'bg-gray-500/10 text-gray-500 border-gray-500/20'
-      default:
-        return 'bg-blue-500/10 text-blue-500 border-blue-500/20'
-    }
-  }
-
-  const getTypeLabel = (type) => {
-    const labels = {
-      zone: 'Zone',
-      corridor: 'Corridor',
-      intersection: 'Intersection',
-      alert_area: 'Alert Area'
-    }
-    return labels[type] || type
-  }
-
-  
-
-  const getCoordinateCount = (geometry) => {
-    if (geometry?.type === 'Polygon' && geometry.coordinates?.[0]) {
-      return geometry.coordinates[0].length - 1 // Subtract 1 because first and last are the same
-    }
-    return 0
-  }
-
-  const toggleCoordinates = (featureId) => {
-    setExpandedCoordinates(expandedCoordinates === featureId ? null : featureId)
-  }
-
-  const getGeofenceSnapshotUrl = (geometry) => {
-    if (!MAPBOX_TOKEN || !geometry || geometry.type !== 'Polygon') {
-      console.warn('Missing token or invalid geometry for snapshot')
-      return null
-    }
-
-    try {
-      // Get polygon coordinates
-      const coordinates = geometry.coordinates[0]
-      if (!coordinates || coordinates.length === 0) {
-        return null
-      }
-
-      // Calculate bounding box
-      let minLng = Infinity, maxLng = -Infinity
-      let minLat = Infinity, maxLat = -Infinity
-
-      coordinates.forEach(([lng, lat]) => {
-        if (lng < minLng) minLng = lng
-        if (lng > maxLng) maxLng = lng
-        if (lat < minLat) minLat = lat
-        if (lat > maxLat) maxLat = lat
-      })
-
-      // Calculate center point
-      const centerLng = (minLng + maxLng) / 2
-      const centerLat = (minLat + maxLat) / 2
-
-      // Calculate zoom level based on bounding box size
-      const lngDiff = maxLng - minLng
-      const latDiff = maxLat - minLat
-      const maxDiff = Math.max(lngDiff, latDiff)
-
-      let zoom = 13
-      if (maxDiff > 0.1) zoom = 9
-      else if (maxDiff > 0.05) zoom = 11
-      else if (maxDiff > 0.01) zoom = 13
-      else if (maxDiff > 0.005) zoom = 14
-      else zoom = 14
-
-      // Create GeoJSON for overlay
-      const geojson = {
-        type: 'FeatureCollection',
-        features: [{
-          type: 'Feature',
-          geometry: {
-            type: 'Polygon',
-            coordinates: [coordinates]
-          },
-          properties: {
-            stroke: '#3b82f6',
-            'stroke-width': 5,
-            'stroke-opacity': 1,
-            fill: '#3b82f6',
-            'fill-opacity': 0.3
-          }
-        }]
-      }
-
-      // Create overlay path for Mapbox Static API
-      const overlayPath = `geojson(${encodeURIComponent(JSON.stringify(geojson))})`
-
-      // Construct URL: /styles/v1/{style}/{overlay}/{lon},{lat},{zoom},{bearing},{pitch}/{width}x{height}{@2x}
-      const url = `https://api.mapbox.com/styles/v1/mapbox/dark-v11/static/${overlayPath}/${centerLng},${centerLat},${zoom},0,0/400x200@2x?access_token=${MAPBOX_TOKEN}&attribution=false&logo=false`
-
-      console.log('Generated snapshot URL:', url.substring(0, 100) + '...')
-      console.log('Center:', centerLng, centerLat, 'Zoom:', zoom)
-      return url
-    } catch (err) {
-      console.error('Error generating snapshot URL:', err)
-      return null
-    }
-  }
-
 
   return (
     <div className="space-y-6 min-h-full pb-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Geofence Zones</h1>
+          <h1 className="text-3xl font-bold text-foreground">Intersections</h1>
           <p className="text-muted-foreground mt-2">
-            Create and manage geographic boundaries for location-based monitoring
+            V2X MAP data collection - manage intersections, lanes, and crosswalks
           </p>
         </div>
-        <Button onClick={handleCreateNew}>Create New Zone</Button>
+        <Button onClick={() => navigate("/geofencing")}>Open Map Editor</Button>
       </div>
 
-      {/* Loading State */}
       {loading && (
         <div className="flex items-center justify-center py-12">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-foreground mx-auto mb-4"></div>
-            <p className="text-muted-foreground">Loading geofences...</p>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-foreground mx-auto mb-4" />
+            <p className="text-muted-foreground">Loading intersections...</p>
           </div>
         </div>
       )}
 
-      {/* Error State */}
       {error && !loading && (
         <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-6 text-center">
-          <p className="text-red-500 font-semibold mb-2">Error Loading Geofences</p>
+          <p className="text-red-500 font-semibold mb-2">Error</p>
           <p className="text-sm text-muted-foreground">{error}</p>
-          <Button onClick={fetchGeofences} className="mt-4" variant="outline">
+          <Button onClick={fetchIntersections} className="mt-4" variant="outline">
             Retry
           </Button>
         </div>
       )}
 
-      {/* Empty State */}
-      {!loading && !error && geofences.length === 0 && (
+      {!loading && !error && intersections.length === 0 && (
         <Empty className="bg-black border-neutral-800">
           <EmptyIcon className="bg-neutral-900">
             <MapPin className="h-6 w-6 text-muted-foreground" />
           </EmptyIcon>
-          <EmptyTitle className="text-white">No geofences found</EmptyTitle>
+          <EmptyTitle className="text-white">No intersections configured</EmptyTitle>
           <EmptyDescription>
-            Get started by creating your first geofence zone to monitor geographic boundaries.
+            Open the map editor to create your first intersection with lanes and crosswalks.
           </EmptyDescription>
           <EmptyAction>
-            <Button onClick={handleCreateNew}>Create Your First Zone</Button>
+            <Button onClick={() => navigate("/geofencing")}>Open Map Editor</Button>
           </EmptyAction>
         </Empty>
       )}
 
-      {/* Geofence Grid */}
-      {!loading && !error && geofences.length > 0 && (
+      {!loading && !error && intersections.length > 0 && (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {geofences.map((feature) => {
-            const props = feature.properties
-            const coordinateCount = getCoordinateCount(feature.geometry)
-            const coordinates = props.metadata?.coordinates || feature.geometry?.coordinates
-            const snapshotUrl = getGeofenceSnapshotUrl(feature.geometry)
-            const isExpanded = expandedCoordinates === feature.id
-
+          {intersections.map((int) => {
+            const coords = int.ref_point?.coordinates
             return (
               <div
-                key={feature.id}
-                className="bg-black border border-neutral-800 shadow-[0_4px_6px_rgba(255,255,255,0.3)] rounded-lg overflow-hidden hover:border-primary/50 transition-colors"
+                key={int.id}
+                className="bg-black border border-neutral-800 rounded-lg overflow-hidden hover:border-primary/50 transition-colors"
               >
-                {/* Snapshot Image */}
-                {snapshotUrl && (
-                  <div
-                    className="w-full h-48 bg-neutral-900 relative overflow-hidden"
-                    style={{
-                      '--sonar-duration': `${6 + Math.random() * 4}s`
-                    }}
-                  >
-                    <img
-                      src={snapshotUrl}
-                      alt={`Map preview of ${props.name}`}
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        e.target.style.display = 'none'
-                        e.target.parentElement.innerHTML = '<div class="flex items-center justify-center h-full text-muted-foreground text-sm">Map preview unavailable</div>'
-                      }}
-                    />
-                    {/* Sonar Scanning Animation */}
-                    <div className="absolute inset-0 pointer-events-none">
-                      {/* Red sonar sweep line */}
-                      <div
-                        className="absolute top-0 bottom-0 w-32 animate-sonar"
-                        style={{
-                          background: 'linear-gradient(to right, transparent, rgba(239, 68, 68, 0.6), transparent)',
-                          filter: 'blur(8px)',
-                          boxShadow: '0 0 30px rgba(239, 68, 68, 0.5)'
-                        }}
-                      />
-                      {/* Dots that appear as sonar passes */}
-                      {[
-                        { animation: 'animate-dotReveal1', left: '20%', top: '25%' },
-                        { animation: 'animate-dotReveal2', left: '35%', top: '45%' },
-                        { animation: 'animate-dotReveal3', left: '50%', top: '35%' },
-                        { animation: 'animate-dotReveal4', left: '60%', top: '55%' },
-                        { animation: 'animate-dotReveal5', left: '75%', top: '65%' },
-                        { animation: 'animate-dotReveal6', left: '85%', top: '20%' },
-                        { animation: 'animate-dotReveal1', left: '15%', top: '75%' },
-                        { animation: 'animate-dotReveal2', left: '40%', top: '60%' },
-                        { animation: 'animate-dotReveal3', left: '65%', top: '40%' },
-                        { animation: 'animate-dotReveal4', left: '80%', top: '50%' },
-                      ].map((dot, i) => (
-                        <div
-                          key={i}
-                          className={`absolute w-2 h-2 bg-blue-400 rounded-full ${dot.animation}`}
-                          style={{
-                            left: dot.left,
-                            top: dot.top,
-                            opacity: 0,
-                            boxShadow: '0 0 8px rgba(59, 130, 246, 0.8), 0 0 4px rgba(59, 130, 246, 0.6)'
-                          }}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                )}
-
                 <div className="p-6">
                   <div className="flex items-start justify-between mb-3">
-                    <h3 className="font-semibold text-lg text-white">{props.name}</h3>
-                    <Badge className={getStatusColor(props.status)}>
-                      {props.status}
+                    <h3 className="font-semibold text-lg text-white">{int.name}</h3>
+                    <Badge
+                      className={
+                        int.status === "confirmed"
+                          ? "bg-green-500/10 text-green-500 border-green-500/20"
+                          : "bg-yellow-500/10 text-yellow-500 border-yellow-500/20"
+                      }
+                    >
+                      {int.status}
                     </Badge>
                   </div>
 
-                  <p className="text-sm text-muted-foreground mb-4">
-                    {props.description || 'No description'}
-                  </p>
-
                   <div className="space-y-2 text-sm mb-4">
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Type:</span>
-                      <span className="font-medium text-white">{getTypeLabel(props.geofence_type)}</span>
+                      <span className="text-muted-foreground">Intersection ID:</span>
+                      <span className="font-medium text-white">{int.intersection_id}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Coordinates:</span>
-                      <span className="font-medium text-white">{coordinateCount} points</span>
+                      <span className="text-muted-foreground">Revision:</span>
+                      <span className="font-medium text-white">{int.msg_issue_revision}</span>
+                    </div>
+                    {coords && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Ref Point:</span>
+                        <span className="font-medium text-white text-xs">
+                          {coords[1].toFixed(5)}, {coords[0].toFixed(5)}
+                        </span>
+                      </div>
+                    )}
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Lanes:</span>
+                      <span className="font-medium text-white">{int.laneCount}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Created by:</span>
-                      <span className="font-medium text-white">
-                        {props.created_by_first_name
-                          ? `${props.created_by_first_name} ${props.created_by_last_name || ''}`
-                          : props.created_by_username || 'Unknown'}
-                      </span>
+                      <span className="text-muted-foreground">Crosswalks:</span>
+                      <span className="font-medium text-white">{int.crosswalkCount}</span>
                     </div>
                   </div>
 
-                  {/* Action Buttons */}
-                  <div className="flex gap-2 mb-3">
+                  <div className="flex gap-2">
                     <Button
-                      onClick={() => handleRenameClick(feature)}
+                      onClick={() => navigate("/geofencing")}
                       variant="outline"
                       size="sm"
                       className="flex-1 bg-zinc-800 text-white border-zinc-700 hover:bg-zinc-700"
                     >
-                      Rename
+                      <Layers className="h-3.5 w-3.5 mr-1" />
+                      Edit
                     </Button>
+                    {int.status === "confirmed" && (
+                      <Button
+                        onClick={() => viewMapData(int.id)}
+                        variant="outline"
+                        size="sm"
+                        className="bg-zinc-800 text-white border-zinc-700 hover:bg-zinc-700"
+                      >
+                        <FileJson className="h-3.5 w-3.5 mr-1" />
+                        JSON
+                      </Button>
+                    )}
                     <Button
-                      onClick={() => handleDeleteClick(feature)}
+                      onClick={() => setDeleteTarget(int)}
                       variant="outline"
                       size="sm"
-                      className="flex-1 bg-red-600/10 text-red-500 border-red-500/20 hover:bg-red-600/20"
+                      className="bg-red-600/10 text-red-500 border-red-500/20 hover:bg-red-600/20"
                     >
-                      Delete
+                      <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   </div>
-
-                  {/* Show coordinate preview if available */}
-                  {coordinates && coordinates[0] && (
-                    <div className="mt-2">
-                      <button
-                        onClick={() => toggleCoordinates(feature.id)}
-                        className="text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
-                      >
-                        {isExpanded ? '▼' : '▶'} View Coordinates
-                      </button>
-                      {isExpanded && (
-                        <pre className="mt-2 p-2 bg-muted rounded text-xs overflow-x-auto text-white">
-                          {JSON.stringify(coordinates, null, 2)}
-                        </pre>
-                      )}
-                    </div>
-                  )}
                 </div>
               </div>
             )
@@ -458,75 +225,52 @@ export function GeofenceZones() {
         </div>
       )}
 
-      {/* Rename Dialog */}
-      <AlertDialog open={renameDialogOpen} onOpenChange={setRenameDialogOpen}>
+      {/* Delete Dialog */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
         <AlertDialogContent className="dark bg-zinc-900 border-zinc-800 text-white">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-white text-lg">
-              Rename Geofence
-            </AlertDialogTitle>
+            <AlertDialogTitle className="text-white">Delete Intersection?</AlertDialogTitle>
             <AlertDialogDescription className="text-zinc-400">
-              Enter a new name for "{selectedGeofence?.properties?.name}"
+              This will permanently delete "{deleteTarget?.name}" and all its lanes and crosswalks.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <div className="py-4">
-            <input
-              type="text"
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              placeholder="Enter new name"
-              className="w-full px-4 py-2 bg-zinc-800 border border-zinc-700 rounded-md text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              autoFocus
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && newName.trim()) {
-                  handleConfirmRename()
-                }
-              }}
-            />
-          </div>
           <AlertDialogFooter>
-            <AlertDialogCancel
-              onClick={handleCancelRename}
-              className="bg-zinc-800 text-white border-zinc-700 hover:bg-zinc-700"
-            >
+            <AlertDialogCancel className="bg-zinc-800 text-white border-zinc-700 hover:bg-zinc-700">
               Cancel
             </AlertDialogCancel>
             <AlertDialogAction
-              onClick={handleConfirmRename}
-              className="bg-blue-600 text-white hover:bg-blue-700"
-              disabled={!newName.trim()}
+              onClick={() => deleteTarget && deleteIntersection(deleteTarget.id)}
+              className="bg-red-600 text-white hover:bg-red-700"
             >
-              Rename
+              Delete
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent className="dark bg-zinc-900 border-zinc-800 text-white">
+      {/* MapData Viewer Dialog */}
+      <AlertDialog open={!!mapDataView} onOpenChange={() => setMapDataView(null)}>
+        <AlertDialogContent className="dark bg-zinc-900 border-zinc-800 text-white max-w-2xl">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-white text-lg">
-              Delete Geofence?
-            </AlertDialogTitle>
+            <AlertDialogTitle className="text-white">MapData JSON Export</AlertDialogTitle>
             <AlertDialogDescription className="text-zinc-400">
-              Are you sure you want to delete "{selectedGeofence?.properties?.name}"? This
-              action cannot be undone and will permanently remove the geofence
-              from the database.
+              Revision {mapDataView?.revision} - Exported {mapDataView?.exported_at ? new Date(mapDataView.exported_at).toLocaleString() : ""}
             </AlertDialogDescription>
           </AlertDialogHeader>
+          <pre className="text-xs text-zinc-300 bg-zinc-800 rounded p-3 overflow-auto max-h-96 whitespace-pre-wrap">
+            {mapDataView ? JSON.stringify(mapDataView.map_data_json, null, 2) : ""}
+          </pre>
           <AlertDialogFooter>
-            <AlertDialogCancel
-              onClick={handleCancelDelete}
-              className="bg-zinc-800 text-white border-zinc-700 hover:bg-zinc-700"
-            >
-              Cancel
+            <AlertDialogCancel className="bg-zinc-800 text-white border-zinc-700 hover:bg-zinc-700">
+              Close
             </AlertDialogCancel>
             <AlertDialogAction
-              onClick={handleConfirmDelete}
-              className="bg-red-600 text-white hover:bg-red-700"
+              onClick={() => {
+                navigator.clipboard.writeText(JSON.stringify(mapDataView?.map_data_json, null, 2))
+              }}
+              className="bg-blue-600 text-white hover:bg-blue-700"
             >
-              Delete
+              Copy JSON
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
