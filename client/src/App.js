@@ -16,6 +16,7 @@ import LanesPage from "./components/dashboard/pages/LanesPage";
 import CrosswalksPage from "./components/dashboard/pages/CrosswalksPage";
 import AnalyticsTraffic from "./components/dashboard/pages/AnalyticsTraffic";
 import Settings from "./components/dashboard/pages/Settings";
+import NotFound from "./error/404NotFound";
 
 const reducers = combineReducers({
   keplerGl: keplerGlReducer,
@@ -77,6 +78,7 @@ export default function App() {
               </DashboardLayout>
             }
           />
+          <Route path="*" element={<NotFound />} />
         </Routes>
       </Router>
     </Provider>

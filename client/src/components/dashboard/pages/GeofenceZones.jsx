@@ -20,6 +20,7 @@ import {
   EmptyAction,
 } from "@/components/ui/shadcn/empty"
 import { MapPin, Trash2, FileJson, Layers } from "lucide-react"
+import IntersectionPreviewMap from "@/components/maps/IntersectionPreviewMap"
 
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:3001"
 
@@ -50,7 +51,7 @@ export function GeofenceZones() {
           ])
           const lanes = await lanesRes.json()
           const crosswalks = await cwRes.json()
-          return { ...int, laneCount: lanes.length, crosswalkCount: crosswalks.length }
+          return { ...int, lanes, crosswalks, laneCount: lanes.length, crosswalkCount: crosswalks.length }
         })
       )
       setIntersections(enriched)
@@ -147,6 +148,14 @@ export function GeofenceZones() {
                 key={int.id}
                 className="bg-black border border-neutral-800 rounded-lg overflow-hidden hover:border-primary/50 transition-colors"
               >
+                {coords && (
+                  <IntersectionPreviewMap
+                    center={[coords[0], coords[1]]}
+                    lanes={int.lanes || []}
+                    crosswalks={int.crosswalks || []}
+                    className="w-full h-48"
+                  />
+                )}
                 <div className="p-6">
                   <div className="flex items-start justify-between mb-3">
                     <h3 className="font-semibold text-lg text-white">{int.name}</h3>
