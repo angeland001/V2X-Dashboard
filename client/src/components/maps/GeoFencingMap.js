@@ -33,7 +33,7 @@ import {
  *
  * Uses mapbox-gl (already bundled with kepler.gl) directly for the base map,
  * with manual click-based drawing for lanes (LineString) and crosswalks (Polygon).
- * No extra npm packages required beyond what kepler.gl already provides.
+ * 
  */
 
 const MAPBOX_TOKEN = process.env.REACT_APP_MAPBOX_API;
@@ -57,6 +57,50 @@ const APPROACH_COLORS = {
   None: "#969696",
 };
 
+const CONNECTION_COLOR = "#FF9500";
+
+// ── Bezier helpers ──────────────────────────────────────────────
+function generateBezierCurve(start, end, numPoints = 20) {
+  const midX = (start[0] + end[0]) / 2;
+  const midY = (start[1] + end[1]) / 2;
+  const dx = end[0] - start[0];
+  const dy = end[1] - start[1];
+  const dist = Math.sqrt(dx * dx + dy * dy);
+  const offset = dist * 0.15; // small offset to keep curves compact near center
+  // Perpendicular offset for the control point
+  const cpX = midX - (dy / dist) * offset;
+  const cpY = midY + (dx / dist) * offset;
+
+  const coords = [];
+  for (let i = 0; i <= numPoints; i++) {
+    const t = i / numPoints;
+    const x = (1 - t) * (1 - t) * start[0] + 2 * (1 - t) * t * cpX + t * t * end[0];
+    const y = (1 - t) * (1 - t) * start[1] + 2 * (1 - t) * t * cpY + t * t * end[1];
+    coords.push([x, y]);
+  }
+  return coords;
+}
+
+function generateArrowhead(coords, sizeDeg = 0.00002) {
+  if (coords.length < 2) return null;
+  const tip = coords[coords.length - 1];
+  const prev = coords[coords.length - 2];
+  const dx = tip[0] - prev[0];
+  const dy = tip[1] - prev[1];
+  const len = Math.sqrt(dx * dx + dy * dy);
+  if (len === 0) return null;
+  const ux = dx / len;
+  const uy = dy / len;
+  // Two base points perpendicular to direction, behind the tip
+  const base1 = [tip[0] - ux * sizeDeg + uy * sizeDeg * 0.5, tip[1] - uy * sizeDeg - ux * sizeDeg * 0.5];
+  const base2 = [tip[0] - ux * sizeDeg - uy * sizeDeg * 0.5, tip[1] - uy * sizeDeg + ux * sizeDeg * 0.5];
+  return {
+    type: "Feature",
+    geometry: { type: "Polygon", coordinates: [[tip, base1, base2, tip]] },
+    properties: {},
+  };
+}
+
 // We import mapboxgl from the copy kepler.gl ships so there's no extra install
 let mapboxgl;
 try {
@@ -73,6 +117,7 @@ function GeoFencingMap() {
   const mapLoadedRef = useRef(false);
 
   // ── State ─────────────────────────────────────────────────────
+  const [mapStyle, setMapStyle] = useState("satellite-streets"); // "satellite-streets" | "dark"
   const [intersections, setIntersections] = useState([]);
   const [activeIntersection, setActiveIntersection] = useState(null);
   const [showNewIntersection, setShowNewIntersection] = useState(false);
@@ -82,10 +127,12 @@ function GeoFencingMap() {
 
   const [lanes, setLanes] = useState([]);
   const [crosswalks, setCrosswalks] = useState([]);
+  const [connections, setConnections] = useState([]);
 
-  // Drawing: null | "lane" | "crosswalk"
+  // Drawing: null | "lane" | "crosswalk" | "connection"
   const [drawMode, setDrawMode] = useState(null);
   const [drawPoints, setDrawPoints] = useState([]);
+  const [connectionFrom, setConnectionFrom] = useState(null);
 
   // Config panel after drawing or right-click
   const [configPanel, setConfigPanel] = useState(null);
@@ -101,10 +148,12 @@ function GeoFencingMap() {
   const drawModeRef = useRef(null);
   const drawPointsRef = useRef([]);
   const activeIntRef = useRef(null);
+  const connectionFromRef = useRef(null);
 
   useEffect(() => { drawModeRef.current = drawMode; }, [drawMode]);
   useEffect(() => { drawPointsRef.current = drawPoints; }, [drawPoints]);
   useEffect(() => { activeIntRef.current = activeIntersection; }, [activeIntersection]);
+  useEffect(() => { connectionFromRef.current = connectionFrom; }, [connectionFrom]);
 
   // ── Toast helper ──────────────────────────────────────────────
   const showMessage = useCallback((text, type = "info") => {
@@ -141,17 +190,28 @@ function GeoFencingMap() {
     }
   }, []);
 
+  const loadConnections = useCallback(async (intId) => {
+    try {
+      const res = await fetch(`${API_URL}/api/lane-connections?intersection_id=${intId}`);
+      setConnections(await res.json());
+    } catch (err) {
+      console.error("Failed to load connections:", err);
+    }
+  }, []);
+
   useEffect(() => { loadIntersections(); }, [loadIntersections]);
 
   useEffect(() => {
     if (activeIntersection) {
       loadLanes(activeIntersection.id);
       loadCrosswalks(activeIntersection.id);
+      loadConnections(activeIntersection.id);
     } else {
       setLanes([]);
       setCrosswalks([]);
+      setConnections([]);
     }
-  }, [activeIntersection, loadLanes, loadCrosswalks]);
+  }, [activeIntersection, loadLanes, loadCrosswalks, loadConnections]);
 
   // ── Initialize Mapbox ─────────────────────────────────────────
   useEffect(() => {
@@ -160,7 +220,7 @@ function GeoFencingMap() {
     mapboxgl.accessToken = MAPBOX_TOKEN;
     const map = new mapboxgl.Map({
       container: mapContainerRef.current,
-      style: "mapbox://styles/mapbox/dark-v11",
+      style: "mapbox://styles/mapbox/satellite-streets-v12",
       center: CHATTANOOGA_CENTER,
       zoom: DEFAULT_ZOOM,
     });
@@ -185,6 +245,18 @@ function GeoFencingMap() {
         data: { type: "FeatureCollection", features: [] },
       });
       map.addSource("intersections-src", {
+        type: "geojson",
+        data: { type: "FeatureCollection", features: [] },
+      });
+      map.addSource("phase-labels-src", {
+        type: "geojson",
+        data: { type: "FeatureCollection", features: [] },
+      });
+      map.addSource("connections-src", {
+        type: "geojson",
+        data: { type: "FeatureCollection", features: [] },
+      });
+      map.addSource("connection-arrows-src", {
         type: "geojson",
         data: { type: "FeatureCollection", features: [] },
       });
@@ -279,11 +351,66 @@ function GeoFencingMap() {
           "text-halo-width": 1,
         },
       });
+      map.addLayer({
+        id: "phase-labels",
+        type: "symbol",
+        source: "phase-labels-src",
+        layout: {
+          "text-field": ["get", "phase"],
+          "text-size": 13,
+          "text-font": ["DIN Pro Bold", "Arial Unicode MS Bold"],
+          "text-allow-overlap": true,
+          "text-ignore-placement": true,
+        },
+        paint: {
+          "text-color": "#ffffff",
+          "text-halo-color": "rgba(0,0,0,0.8)",
+          "text-halo-width": 2,
+        },
+      });
+      map.addLayer({
+        id: "connections-line",
+        type: "line",
+        source: "connections-src",
+        paint: {
+          "line-color": CONNECTION_COLOR,
+          "line-width": 2,
+        },
+        layout: {
+          "line-cap": "round",
+          "line-join": "round",
+        },
+      });
+      map.addLayer({
+        id: "connection-arrows-fill",
+        type: "fill",
+        source: "connection-arrows-src",
+        paint: {
+          "fill-color": CONNECTION_COLOR,
+          "fill-opacity": 0.9,
+        },
+      });
 
       // ── Click handler for drawing ──────────────────
       map.on("click", (e) => {
         const mode = drawModeRef.current;
         if (!mode) return;
+
+        if (mode === "connection") {
+          // Pick a lane feature under the click
+          const features = map.queryRenderedFeatures(e.point, { layers: ["lanes-line"] });
+          if (features.length === 0) return;
+          const laneId = features[0].properties.id;
+          const from = connectionFromRef.current;
+          if (!from) {
+            setConnectionFrom(laneId);
+          } else {
+            if (laneId === from) return; // ignore clicking same lane
+            createConnection(from, laneId);
+            setConnectionFrom(null);
+          }
+          return;
+        }
 
         const point = [e.lngLat.lng, e.lngLat.lat];
         const newPoints = [...drawPointsRef.current, point];
@@ -343,11 +470,28 @@ function GeoFencingMap() {
         }
       });
 
+      map.on("contextmenu", "connections-line", (e) => {
+        e.preventDefault();
+        const feature = e.features?.[0];
+        if (feature) {
+          const props = feature.properties;
+          setConfigPanel({
+            type: "connection-edit",
+            connectionId: props.id,
+            values: {
+              signal_group: props.signal_group != null && props.signal_group !== "null" ? String(props.signal_group) : "",
+            },
+          });
+        }
+      });
+
       // Cursor changes
       map.on("mouseenter", "lanes-line", () => { map.getCanvas().style.cursor = "pointer"; });
       map.on("mouseleave", "lanes-line", () => { map.getCanvas().style.cursor = drawModeRef.current ? "crosshair" : ""; });
       map.on("mouseenter", "crosswalks-fill", () => { map.getCanvas().style.cursor = "pointer"; });
       map.on("mouseleave", "crosswalks-fill", () => { map.getCanvas().style.cursor = drawModeRef.current ? "crosshair" : ""; });
+      map.on("mouseenter", "connections-line", () => { map.getCanvas().style.cursor = "pointer"; });
+      map.on("mouseleave", "connections-line", () => { map.getCanvas().style.cursor = drawModeRef.current ? "crosshair" : ""; });
     });
 
     return () => {
@@ -357,6 +501,128 @@ function GeoFencingMap() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // ── Helper: add all custom sources & layers to the map ─────────
+  const addSourcesAndLayers = useCallback((map) => {
+    if (!map.getSource("lanes-src")) {
+      map.addSource("lanes-src", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+    }
+    if (!map.getSource("crosswalks-src")) {
+      map.addSource("crosswalks-src", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+    }
+    if (!map.getSource("draw-src")) {
+      map.addSource("draw-src", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+    }
+    if (!map.getSource("intersections-src")) {
+      map.addSource("intersections-src", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+    }
+    if (!map.getSource("phase-labels-src")) {
+      map.addSource("phase-labels-src", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+    }
+    if (!map.getSource("connections-src")) {
+      map.addSource("connections-src", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+    }
+    if (!map.getSource("connection-arrows-src")) {
+      map.addSource("connection-arrows-src", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+    }
+
+    if (!map.getLayer("crosswalks-fill")) {
+      map.addLayer({ id: "crosswalks-fill", type: "fill", source: "crosswalks-src", paint: { "fill-color": ["get", "color"], "fill-opacity": 0.25 } });
+    }
+    if (!map.getLayer("crosswalks-outline")) {
+      map.addLayer({ id: "crosswalks-outline", type: "line", source: "crosswalks-src", paint: { "line-color": ["get", "color"], "line-width": 2 } });
+    }
+    if (!map.getLayer("lanes-line")) {
+      map.addLayer({ id: "lanes-line", type: "line", source: "lanes-src", paint: { "line-color": ["get", "color"], "line-width": 4 }, layout: { "line-cap": "round", "line-join": "round" } });
+    }
+    if (!map.getLayer("draw-line")) {
+      map.addLayer({ id: "draw-line", type: "line", source: "draw-src", paint: { "line-color": "#ffffff", "line-width": 3, "line-dasharray": [2, 2] } });
+    }
+    if (!map.getLayer("draw-fill")) {
+      map.addLayer({ id: "draw-fill", type: "fill", source: "draw-src", paint: { "fill-color": "#ffffff", "fill-opacity": 0.1 }, filter: ["==", "$type", "Polygon"] });
+    }
+    if (!map.getLayer("draw-points")) {
+      map.addLayer({ id: "draw-points", type: "circle", source: "draw-src", paint: { "circle-radius": 5, "circle-color": "#ffffff", "circle-stroke-width": 2, "circle-stroke-color": "#000000" }, filter: ["==", "$type", "Point"] });
+    }
+    if (!map.getLayer("intersections-points")) {
+      map.addLayer({ id: "intersections-points", type: "circle", source: "intersections-src", paint: { "circle-radius": 10, "circle-color": ["get", "color"], "circle-stroke-width": 2, "circle-stroke-color": "#ffffff" } });
+    }
+    if (!map.getLayer("intersections-labels")) {
+      map.addLayer({ id: "intersections-labels", type: "symbol", source: "intersections-src", layout: { "text-field": ["get", "name"], "text-offset": [0, 1.5], "text-size": 11 }, paint: { "text-color": "#ffffff", "text-halo-color": "#000000", "text-halo-width": 1 } });
+    }
+    if (!map.getLayer("phase-labels")) {
+      map.addLayer({ id: "phase-labels", type: "symbol", source: "phase-labels-src", layout: { "text-field": ["get", "phase"], "text-size": 13, "text-font": ["DIN Pro Bold", "Arial Unicode MS Bold"], "text-allow-overlap": true, "text-ignore-placement": true }, paint: { "text-color": "#ffffff", "text-halo-color": "rgba(0,0,0,0.8)", "text-halo-width": 2 } });
+    }
+    if (!map.getLayer("connections-line")) {
+      map.addLayer({ id: "connections-line", type: "line", source: "connections-src", paint: { "line-color": CONNECTION_COLOR, "line-width": 2 }, layout: { "line-cap": "round", "line-join": "round" } });
+    }
+    if (!map.getLayer("connection-arrows-fill")) {
+      map.addLayer({ id: "connection-arrows-fill", type: "fill", source: "connection-arrows-src", paint: { "fill-color": CONNECTION_COLOR, "fill-opacity": 0.9 } });
+    }
+  }, []);
+
+  // ── Switch map style ──────────────────────────────────────────
+  const mapStyleRef = useRef(mapStyle);
+  useEffect(() => { mapStyleRef.current = mapStyle; }, [mapStyle]);
+
+  const toggleMapStyle = useCallback(() => {
+    setMapStyle((prev) => (prev === "satellite-streets" ? "dark" : "satellite-streets"));
+  }, []);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapLoadedRef.current) return;
+
+    const styleUrl = mapStyle === "dark"
+      ? "mapbox://styles/mapbox/dark-v11"
+      : "mapbox://styles/mapbox/satellite-streets-v12";
+
+    map.setStyle(styleUrl);
+
+    const onStyleLoad = () => {
+      addSourcesAndLayers(map);
+
+      // Re-populate data
+      const laneFeatures = lanes.map((l) => ({
+        type: "Feature", geometry: l.geometry,
+        properties: { id: l.id, lane_type: l.lane_type, phase: l.phase, name: l.name, color: LANE_COLORS[l.lane_type] || "#cccccc" },
+      }));
+      const laneSrc = map.getSource("lanes-src");
+      if (laneSrc) laneSrc.setData({ type: "FeatureCollection", features: laneFeatures });
+
+      const phaseFeatures = lanes
+        .filter((l) => l.phase != null && l.geometry?.coordinates?.length >= 1)
+        .map((l) => {
+          const coords = l.geometry.coordinates;
+          const endCoord = coords[coords.length - 1];
+          return { type: "Feature", geometry: { type: "Point", coordinates: endCoord }, properties: { phase: String(l.phase) } };
+        });
+      const phaseSrc = map.getSource("phase-labels-src");
+      if (phaseSrc) phaseSrc.setData({ type: "FeatureCollection", features: phaseFeatures });
+
+      const cwFeatures = crosswalks.map((c) => ({
+        type: "Feature", geometry: c.geometry,
+        properties: { id: c.id, approach_type: c.approach_type, approach_id: c.approach_id, name: c.name, color: APPROACH_COLORS[c.approach_type] || "#cccccc" },
+      }));
+      const cwSrc = map.getSource("crosswalks-src");
+      if (cwSrc) cwSrc.setData({ type: "FeatureCollection", features: cwFeatures });
+
+      const intFeatures = intersections
+        .filter((i) => i.ref_point?.coordinates)
+        .map((i) => ({
+          type: "Feature", geometry: i.ref_point,
+          properties: { id: i.id, name: i.name, status: i.status, color: i.id === activeIntRef.current?.id ? "#FFC800" : i.status === "confirmed" ? "#00C864" : "#6496FF" },
+        }));
+      const intSrc = map.getSource("intersections-src");
+      if (intSrc) intSrc.setData({ type: "FeatureCollection", features: intFeatures });
+
+      // Re-populate connection data
+      updateConnectionSources(map, connections, lanes);
+    };
+
+    map.once("style.load", onStyleLoad);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mapStyle, addSourcesAndLayers]);
 
   // ── Update map data when lanes/crosswalks/intersections change ─
   useEffect(() => {
@@ -378,6 +644,21 @@ function GeoFencingMap() {
     const laneSrc = map.getSource("lanes-src");
     if (laneSrc) laneSrc.setData({ type: "FeatureCollection", features: laneFeatures });
 
+    // Phase labels (point at the last coordinate of each lane that has a phase)
+    const phaseFeatures = lanes
+      .filter((l) => l.phase != null && l.geometry?.coordinates?.length >= 1)
+      .map((l) => {
+        const coords = l.geometry.coordinates;
+        const endCoord = coords[coords.length - 1];
+        return {
+          type: "Feature",
+          geometry: { type: "Point", coordinates: endCoord },
+          properties: { phase: String(l.phase) },
+        };
+      });
+    const phaseSrc = map.getSource("phase-labels-src");
+    if (phaseSrc) phaseSrc.setData({ type: "FeatureCollection", features: phaseFeatures });
+
     // Crosswalks
     const cwFeatures = crosswalks.map((c) => ({
       type: "Feature",
@@ -393,6 +674,47 @@ function GeoFencingMap() {
     const cwSrc = map.getSource("crosswalks-src");
     if (cwSrc) cwSrc.setData({ type: "FeatureCollection", features: cwFeatures });
   }, [lanes, crosswalks]);
+
+  // Update connection curves — uses lane endpoint (last coord, same as phase label)
+  useEffect(() => {
+    if (!mapRef.current || !mapLoadedRef.current) return;
+    updateConnectionSources(mapRef.current, connections, lanes);
+  }, [connections, lanes]);
+
+  function updateConnectionSources(map, conns, laneList) {
+    // Build a lookup: lane id → last coordinate (where the phase label sits)
+    const laneEndpoints = {};
+    laneList.forEach((l) => {
+      const coords = l.geometry?.coordinates;
+      if (coords && coords.length > 0) {
+        laneEndpoints[l.id] = coords[coords.length - 1];
+      }
+    });
+
+    const lineFeatures = [];
+    const arrowFeatures = [];
+    conns.forEach((conn) => {
+      const start = laneEndpoints[conn.from_lane_id];
+      const end = laneEndpoints[conn.to_lane_id];
+      if (!start || !end) return;
+
+      const curveCoords = generateBezierCurve(start, end);
+      lineFeatures.push({
+        type: "Feature",
+        geometry: { type: "LineString", coordinates: curveCoords },
+        properties: { id: conn.id, from_lane_id: conn.from_lane_id, to_lane_id: conn.to_lane_id, signal_group: conn.signal_group },
+      });
+      const arrow = generateArrowhead(curveCoords);
+      if (arrow) {
+        arrow.properties = { id: conn.id };
+        arrowFeatures.push(arrow);
+      }
+    });
+    const connSrc = map.getSource("connections-src");
+    if (connSrc) connSrc.setData({ type: "FeatureCollection", features: lineFeatures });
+    const arrowSrc = map.getSource("connection-arrows-src");
+    if (arrowSrc) arrowSrc.setData({ type: "FeatureCollection", features: arrowFeatures });
+  }
 
   // Update intersection markers
   useEffect(() => {
@@ -526,12 +848,67 @@ function GeoFencingMap() {
     setDrawPoints([]);
     clearDrawSource();
     setDrawMode("crosswalk");
-    showMessage("Click to place polygon vertices. Double-click to close.", "info");
+    showMessage("Click to place approach vertices. Double-click to close.", "info");
+  };
+
+  const startDrawConnection = () => {
+    if (!activeIntersection) {
+      showMessage("Select or create an intersection first.", "error");
+      return;
+    }
+    if (lanes.length < 2) {
+      showMessage("You need at least 2 lanes to create a connection.", "error");
+      return;
+    }
+    setConfigPanel(null);
+    setDrawPoints([]);
+    clearDrawSource();
+    setConnectionFrom(null);
+    setDrawMode("connection");
+    showMessage("Click a FROM lane, then click a TO lane.", "info");
+  };
+
+  const createConnection = async (fromLaneId, toLaneId) => {
+    try {
+      const res = await fetch(`${API_URL}/api/lane-connections`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ from_lane_id: fromLaneId, to_lane_id: toLaneId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      const intId = activeIntRef.current?.id;
+      if (intId) await loadConnections(intId);
+      showMessage("Connection created.");
+    } catch (err) {
+      showMessage(`Error: ${err.message}`, "error");
+    }
+  };
+
+  const deleteConnection = async (connId) => {
+    try {
+      const res = await fetch(`${API_URL}/api/lane-connections/${connId}`, { method: "DELETE" });
+      if (!res.ok) throw new Error((await res.json()).error);
+      setConfigPanel(null);
+      const intId = activeIntRef.current?.id;
+      if (intId) await loadConnections(intId);
+      showMessage("Connection deleted.");
+    } catch (err) {
+      showMessage(`Error: ${err.message}`, "error");
+    }
+  };
+
+  const updateConnectionSignalGroup = async () => {
+    // The API only has POST/DELETE, so we delete and recreate isn't ideal.
+    // For signal_group edits we just show the panel — but the current API doesn't have PUT.
+    // We'll skip this for now since signal_group can be set at creation time.
+    setConfigPanel(null);
   };
 
   const cancelDraw = () => {
     setDrawMode(null);
     setDrawPoints([]);
+    setConnectionFrom(null);
     clearDrawSource();
   };
 
@@ -568,7 +945,7 @@ function GeoFencingMap() {
       setPlacingIntersection(null);
       await loadIntersections();
       setActiveIntersection(data);
-      showMessage("Intersection created. Draw lanes and crosswalks, then confirm.");
+      showMessage("Intersection created. Draw lanes and approaches, then confirm.");
     } catch (err) {
       showMessage(`Error: ${err.message}`, "error");
     }
@@ -656,7 +1033,7 @@ function GeoFencingMap() {
       if (!res.ok) throw new Error(data.error);
       setConfigPanel(null);
       await loadCrosswalks(activeIntersection.id);
-      showMessage("Crosswalk saved.");
+      showMessage("Approach saved.");
     } catch (err) {
       showMessage(`Error: ${err.message}`, "error");
     }
@@ -714,7 +1091,7 @@ function GeoFencingMap() {
       if (!res.ok) throw new Error((await res.json()).error);
       setConfigPanel(null);
       await loadCrosswalks(activeIntersection.id);
-      showMessage("Crosswalk updated.");
+      showMessage("Approach updated.");
     } catch (err) {
       showMessage(`Error: ${err.message}`, "error");
     }
@@ -726,7 +1103,7 @@ function GeoFencingMap() {
       if (!res.ok) throw new Error((await res.json()).error);
       setConfigPanel(null);
       await loadCrosswalks(activeIntersection.id);
-      showMessage("Crosswalk deleted.");
+      showMessage("Approach deleted.");
     } catch (err) {
       showMessage(`Error: ${err.message}`, "error");
     }
@@ -794,17 +1171,25 @@ function GeoFencingMap() {
                   {drawMode === "lane" ? "Cancel" : "Draw Lane"}
                 </Button>
                 <Button size="sm" className={drawMode === "crosswalk" ? "flex-1 text-xs h-8 bg-yellow-600 hover:bg-yellow-700" : "flex-1 text-xs h-8 bg-zinc-800 text-white border border-zinc-600 hover:bg-zinc-700"} onClick={drawMode === "crosswalk" ? cancelDraw : startDrawCrosswalk}>
-                  {drawMode === "crosswalk" ? "Cancel" : "Draw Crosswalk"}
+                  {drawMode === "crosswalk" ? "Cancel" : "Draw Approach"}
                 </Button>
               </div>
+              <Button size="sm" className={drawMode === "connection" ? "w-full text-xs h-8 bg-orange-600 hover:bg-orange-700" : "w-full text-xs h-8 bg-zinc-800 text-white border border-zinc-600 hover:bg-zinc-700"} onClick={drawMode === "connection" ? cancelDraw : startDrawConnection}>
+                {drawMode === "connection" ? "Cancel" : "Connect Lanes"}
+              </Button>
               {drawMode && (
                 <p className="text-xs text-zinc-400">
-                  {drawMode === "lane" ? "Click to place points. Double-click to finish." : "Click to place vertices. Double-click to close polygon."}
+                  {drawMode === "lane" ? "Click to place points. Double-click to finish."
+                    : drawMode === "crosswalk" ? "Click to place approach vertices. Double-click to close."
+                    : drawMode === "connection" && !connectionFrom ? "Click the FROM lane."
+                    : drawMode === "connection" && connectionFrom ? "Now click the TO lane."
+                    : ""}
                 </p>
               )}
               <div className="text-xs text-zinc-400 space-y-0.5">
                 <div>Lanes: {lanes.length}</div>
-                <div>Crosswalks: {crosswalks.length}</div>
+                <div>Approaches: {crosswalks.length}</div>
+                <div>Connections: {connections.length}</div>
               </div>
               <div className="flex gap-2 pt-1">
                 <Button size="sm" className="flex-1 text-xs h-8 bg-green-600 hover:bg-green-700 text-white" onClick={() => setConfirmDialog(true)}>
@@ -831,6 +1216,10 @@ function GeoFencingMap() {
                   <span className="text-zinc-300">{name}</span>
                 </div>
               ))}
+              <div className="flex items-center gap-1.5">
+                <div className="w-3 h-1 rounded-full" style={{ backgroundColor: CONNECTION_COLOR }} />
+                <span className="text-zinc-300">Connection</span>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -871,7 +1260,7 @@ function GeoFencingMap() {
               This will mark "{activeIntersection?.name}" as confirmed and generate the SAE J2735 MapData JSON export.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <div className="text-xs text-zinc-400 py-1">Lanes: {lanes.length} | Crosswalks: {crosswalks.length}</div>
+          <div className="text-xs text-zinc-400 py-1">Lanes: {lanes.length} | Approaches: {crosswalks.length} | Connections: {connections.length}</div>
           <AlertDialogFooter>
             <AlertDialogCancel className="bg-zinc-800 text-white border-zinc-700 hover:bg-zinc-700">Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={confirmIntersection} className="bg-green-600 text-white hover:bg-green-700">Confirm & Export</AlertDialogAction>
@@ -930,12 +1319,12 @@ function GeoFencingMap() {
         <div style={{ position: "absolute", top: "50%", right: 24, transform: "translateY(-50%)", zIndex: 20 }}>
           <Card className="dark bg-zinc-900/95 border-zinc-700 backdrop-blur w-72">
             <CardHeader className="pb-2 pt-4 px-4">
-              <CardTitle className="text-sm text-white">{configPanel.type === "crosswalk" ? "Configure Crosswalk" : "Edit Crosswalk"}</CardTitle>
+              <CardTitle className="text-sm text-white">{configPanel.type === "crosswalk" ? "Configure Approach" : "Edit Approach"}</CardTitle>
             </CardHeader>
             <CardContent className="px-4 pb-3 space-y-3">
               <div>
                 <label className="text-xs text-zinc-400 mb-1 block">Name (optional)</label>
-                <Input value={configPanel.values.name} onChange={(e) => setConfigPanel((p) => ({ ...p, values: { ...p.values, name: e.target.value } }))} placeholder="Crosswalk name" className="bg-zinc-800 border-zinc-700 text-white text-sm h-8" />
+                <Input value={configPanel.values.name} onChange={(e) => setConfigPanel((p) => ({ ...p, values: { ...p.values, name: e.target.value } }))} placeholder="Approach name" className="bg-zinc-800 border-zinc-700 text-white text-sm h-8" />
               </div>
               <div>
                 <label className="text-xs text-zinc-400 mb-1 block">Approach Type</label>
@@ -963,7 +1352,7 @@ function GeoFencingMap() {
             <CardFooter className="px-4 pb-4 flex gap-2">
               {configPanel.type === "crosswalk" ? (
                 <>
-                  <Button size="sm" className="flex-1 text-xs bg-yellow-600 hover:bg-yellow-700 text-white" onClick={saveCrosswalk}>Save Crosswalk</Button>
+                  <Button size="sm" className="flex-1 text-xs bg-yellow-600 hover:bg-yellow-700 text-white" onClick={saveCrosswalk}>Save Approach</Button>
                   <Button size="sm" variant="outline" className="text-xs bg-zinc-800 text-white border-zinc-600 hover:bg-zinc-700" onClick={() => setConfigPanel(null)}>Cancel</Button>
                 </>
               ) : (
@@ -973,6 +1362,27 @@ function GeoFencingMap() {
                   <Button size="sm" variant="outline" className="text-xs bg-zinc-800 text-white border-zinc-600 hover:bg-zinc-700" onClick={() => setConfigPanel(null)}>Close</Button>
                 </>
               )}
+            </CardFooter>
+          </Card>
+        </div>
+      )}
+
+      {/* ── Connection Edit Panel ──────────────────────────────── */}
+      {configPanel && configPanel.type === "connection-edit" && (
+        <div style={{ position: "absolute", top: "50%", right: 24, transform: "translateY(-50%)", zIndex: 20 }}>
+          <Card className="dark bg-zinc-900/95 border-zinc-700 backdrop-blur w-72">
+            <CardHeader className="pb-2 pt-4 px-4">
+              <CardTitle className="text-sm text-white">Edit Connection</CardTitle>
+            </CardHeader>
+            <CardContent className="px-4 pb-3 space-y-3">
+              <div>
+                <label className="text-xs text-zinc-400 mb-1 block">Signal Group (optional)</label>
+                <Input type="number" value={configPanel.values.signal_group} onChange={(e) => setConfigPanel((p) => ({ ...p, values: { ...p.values, signal_group: e.target.value } }))} placeholder="Signal group" className="bg-zinc-800 border-zinc-700 text-white text-sm h-8" />
+              </div>
+            </CardContent>
+            <CardFooter className="px-4 pb-4 flex gap-2">
+              <Button size="sm" variant="outline" className="flex-1 text-xs bg-red-600/10 text-red-400 border-red-500/30 hover:bg-red-600/20" onClick={() => deleteConnection(configPanel.connectionId)}>Delete</Button>
+              <Button size="sm" variant="outline" className="text-xs bg-zinc-800 text-white border-zinc-600 hover:bg-zinc-700" onClick={() => setConfigPanel(null)}>Close</Button>
             </CardFooter>
           </Card>
         </div>
@@ -1045,9 +1455,20 @@ function GeoFencingMap() {
         </>
       )}
 
+      {/* ── Map Style Toggle (top-right) ────────────────────────── */}
+      <div style={{ position: "absolute", top: 16, right: 16, zIndex: 20 }}>
+        <Button
+          size="sm"
+          className="text-xs h-8 px-3 bg-zinc-900/90 text-white border border-zinc-600 hover:bg-zinc-700 backdrop-blur"
+          onClick={toggleMapStyle}
+        >
+          {mapStyle === "satellite-streets" ? "Dark Mode" : "Satellite"}
+        </Button>
+      </div>
+
       {/* ── Toast ──────────────────────────────────────────────── */}
       {message && (
-        <div style={{ position: "absolute", top: 16, right: 16, zIndex: 30, maxWidth: 350 }}>
+        <div style={{ position: "absolute", top: 56, right: 16, zIndex: 30, maxWidth: 350 }}>
           <div className={`px-4 py-2.5 rounded-lg text-sm border backdrop-blur ${message.type === "error" ? "bg-red-500/90 text-white border-red-400/50" : "bg-zinc-800/90 text-white border-zinc-600/50"}`}>
             {message.text}
           </div>

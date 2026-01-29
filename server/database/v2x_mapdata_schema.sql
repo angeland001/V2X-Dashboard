@@ -1,6 +1,6 @@
 -- V2X MapData Schema
 -- Creates tables for intersections, lanes, crosswalks, and MapData exports
--- Run this against kepler_db (PostGIS must be enabled)
+-- 
 
 -- Enable PostGIS if not already
 CREATE EXTENSION IF NOT EXISTS postgis;
@@ -118,3 +118,18 @@ DROP TRIGGER IF EXISTS trg_crosswalks_updated ON crosswalks;
 CREATE TRIGGER trg_crosswalks_updated
     BEFORE UPDATE ON crosswalks
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- ============================================================
+-- 5. LANE CONNECTIONS  (ingress → egress links)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS lane_connections (
+    id              SERIAL PRIMARY KEY,
+    from_lane_id    INTEGER NOT NULL REFERENCES lanes(id) ON DELETE CASCADE,
+    to_lane_id      INTEGER NOT NULL REFERENCES lanes(id) ON DELETE CASCADE,
+    signal_group    INTEGER,
+    created_at      TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_lane_connections_from ON lane_connections(from_lane_id);
+CREATE INDEX IF NOT EXISTS idx_lane_connections_to ON lane_connections(to_lane_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_lane_connections_unique ON lane_connections(from_lane_id, to_lane_id);

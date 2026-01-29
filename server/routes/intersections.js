@@ -126,6 +126,51 @@ router.delete("/:id", async (req, res) => {
   }
 });
 
+// ─── J2735 Helper Functions ──────────────────────────────────────
+
+function toJ2735LatLon(coords) {
+  return {
+    lat: Math.round(coords[1] * 1e7),
+    long: Math.round(coords[0] * 1e7),
+  };
+}
+
+function coordToXYOffsetCm(coord, refCoord) {
+  const refLatRad = (refCoord[1] * Math.PI) / 180;
+  const x = Math.round((coord[0] - refCoord[0]) * Math.cos(refLatRad) * 111320 * 100);
+  const y = Math.round((coord[1] - refCoord[1]) * 110540 * 100);
+  return { x, y };
+}
+
+function getNodeXYRange(x, y) {
+  const ax = Math.abs(x);
+  const ay = Math.abs(y);
+  const maxVal = Math.max(ax, ay);
+  if (maxVal <= 511 && x >= -512 && y >= -512) return "node-XY1";
+  if (maxVal <= 1023 && x >= -1024 && y >= -1024) return "node-XY2";
+  if (maxVal <= 2047 && x >= -2048 && y >= -2048) return "node-XY3";
+  if (maxVal <= 4095 && x >= -4096 && y >= -4096) return "node-XY4";
+  if (maxVal <= 8191 && x >= -8192 && y >= -8192) return "node-XY5";
+  return "node-XY6";
+}
+
+function encodeLaneAttributes(lane) {
+  const laneType = (lane.lane_type || "vehicle").toLowerCase();
+
+  // directionalUse: 2-bit field [value, bitLength]
+  // bit 0 = ingress, bit 1 = egress => both = 3 => [3, 2]; ingress-only = [1, 2]; egress-only = [2, 2]
+  let directionalUse = [2, 2]; // default ingress+egress (big-endian: bit1=ingressPath, bit0=egressPath)
+  if (laneType === "crosswalk") {
+    directionalUse = [2, 2];
+  }
+
+  return {
+    directionalUse,
+    sharedWith: [0, 10],
+    laneType: [laneType === "crosswalk" ? "crosswalk" : "vehicle", [0, 8]],
+  };
+}
+
 // ─── CONFIRM intersection & export MapData ───────────────────────
 router.post("/:id/confirm", async (req, res) => {
   try {
@@ -160,80 +205,106 @@ router.post("/:id/confirm", async (req, res) => {
       [id]
     );
 
-    // Build SAE J2735 MapData-like JSON
+    // Fetch lane connections for this intersection
+    const connResult = await db.query(
+      `SELECT lc.id, lc.from_lane_id, lc.to_lane_id, lc.signal_group,
+              tl.lane_number AS to_lane_number
+       FROM lane_connections lc
+       JOIN lanes fl ON fl.id = lc.from_lane_id
+       JOIN lanes tl ON tl.id = lc.to_lane_id
+       WHERE fl.intersection_id = $1`,
+      [id]
+    );
+
+    // Build lookup: from_lane_id -> array of connection objects
+    const connectionsByFromLane = {};
+    connResult.rows.forEach((c) => {
+      if (!connectionsByFromLane[c.from_lane_id]) {
+        connectionsByFromLane[c.from_lane_id] = [];
+      }
+      connectionsByFromLane[c.from_lane_id].push(c);
+    });
+
+    // Build SAE J2735 MapData JSON (ASN.1 encoding format)
     const refCoords = intersection.ref_point.coordinates;
+    const refPoint = toJ2735LatLon(refCoords);
+
     const laneSet = lanesResult.rows.map((lane, i) => {
       const coords = lane.geometry.coordinates;
+      const connections = connectionsByFromLane[lane.id] || [];
+
+      const connectsTo = connections.length > 0
+        ? connections.map((c) => ({
+            connectingLane: { lane: c.to_lane_number },
+            signalGroup: c.signal_group || lane.phase || undefined,
+          }))
+        : lane.phase != null
+          ? [{ connectingLane: { lane: lane.lane_number || i + 1 }, signalGroup: lane.phase }]
+          : undefined;
+
+      const attrs = encodeLaneAttributes(lane);
+
+      const nodes = coords.map((c) => {
+        const offset = coordToXYOffsetCm(c, refCoords);
+        const tag = getNodeXYRange(offset.x, offset.y);
+        return { delta: [tag, { x: offset.x, y: offset.y }] };
+      });
+
       return {
         laneID: lane.lane_number || i + 1,
-        name: lane.name || `Lane ${lane.lane_number || i + 1}`,
         laneAttributes: {
-          directionalUse: { ingressPath: true, egressPath: true },
-          sharedWith: {},
-          laneType: { [lane.lane_type.toLowerCase()]: true },
+          directionalUse: attrs.directionalUse,
+          sharedWith: attrs.sharedWith,
+          laneType: attrs.laneType,
         },
-        nodeList: {
-          nodes: coords.map((c) => ({
-            delta: { nodeLLatLon: { lon: c[0], lat: c[1] } },
-          })),
-        },
-        ...(lane.phase != null
-          ? {
-              connectsTo: [
-                {
-                  connectingLane: { lane: lane.lane_number || i + 1 },
-                  signalGroup: lane.phase,
-                },
-              ],
-            }
-          : {}),
-        maneuvers: { maneuverStraightAllowed: true },
+        maneuvers: [0, 12],
+        nodeList: ["nodes", nodes],
+        ...(connectsTo ? { connectsTo } : {}),
       };
     });
 
     // Add crosswalks as special lanes
     cwResult.rows.forEach((cw, i) => {
       const coords = cw.geometry.coordinates[0]; // outer ring
+      const cwLane = { lane_type: "crosswalk" };
+      const attrs = encodeLaneAttributes(cwLane);
+
+      const nodes = coords.map((c) => {
+        const offset = coordToXYOffsetCm(c, refCoords);
+        const tag = getNodeXYRange(offset.x, offset.y);
+        return { delta: [tag, { x: offset.x, y: offset.y }] };
+      });
+
       laneSet.push({
         laneID: 200 + (cw.approach_id || i + 1),
-        name: cw.name || `Crosswalk ${cw.approach_id || i + 1}`,
         laneAttributes: {
-          directionalUse: {
-            ingressPath: cw.approach_type === "Ingress" || cw.approach_type === "Both",
-            egressPath: cw.approach_type === "Egress" || cw.approach_type === "Both",
-          },
-          sharedWith: {},
-          laneType: { crosswalk: true },
+          directionalUse: attrs.directionalUse,
+          sharedWith: attrs.sharedWith,
+          laneType: attrs.laneType,
         },
-        nodeList: {
-          nodes: coords.map((c) => ({
-            delta: { nodeLLatLon: { lon: c[0], lat: c[1] } },
-          })),
-        },
+        maneuvers: [0, 12],
+        nodeList: ["nodes", nodes],
       });
     });
 
     const newRevision = (intersection.msg_issue_revision || 0) + 1;
 
     const mapDataJson = {
-      msgIssueRevision: newRevision,
-      layerType: "intersectionData",
-      layerID: intersection.region_id,
-      intersections: [
-        {
-          id: {
-            region: intersection.region_id,
-            id: intersection.intersection_id,
+      messageId: 18,
+      value: ["MapData", {
+        msgIssueRevision: newRevision,
+        intersections: [
+          {
+            revision: newRevision,
+            id: {
+              region: intersection.region_id,
+              id: intersection.intersection_id,
+            },
+            refPoint,
+            laneSet,
           },
-          name: intersection.name,
-          refPoint: {
-            lat: refCoords[1],
-            long: refCoords[0],
-          },
-          laneWidth: 366,
-          laneSet,
-        },
-      ],
+        ],
+      }],
     };
 
     // Bump revision + set confirmed
