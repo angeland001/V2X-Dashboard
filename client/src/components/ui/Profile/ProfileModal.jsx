@@ -6,7 +6,7 @@ const API_URL = process.env.REACT_APP_API_URL || "http://localhost:3001";
 
 export function ProfileModal({ isOpen, onClose }) {
   const [user, setUser] = useState(null);
-  const [stats, setStats] = useState({ geofences: 0, alerts: 0 });
+  const [stats, setStats] = useState({ intersections: 0, alerts: 0 });
   const [isClosing, setIsClosing] = useState(false);
   const fileInputRef = useRef(null);
 
@@ -28,12 +28,12 @@ export function ProfileModal({ isOpen, onClose }) {
 
   const fetchUserStats = async (userId) => {
     try {
-      const response = await fetch(`${API_URL}/api/geofences`);
+      const response = await fetch(`${API_URL}/api/intersections`);
       if (response.ok) {
         const data = await response.json();
-        const userGeofences = data.features?.filter(f => f.properties.created_by === userId) || [];
+        const userIntersections = data.filter(i => i.created_by === userId) || [];
         setStats({
-          geofences: userGeofences.length,
+          intersections: userIntersections.length,
           alerts: 0 // Placeholder for future implementation
         });
       }
@@ -172,8 +172,8 @@ export function ProfileModal({ isOpen, onClose }) {
           {/* Stats */}
           <div className="grid grid-cols-3 gap-4 px-6 py-4 bg-neutral-800/50 profile-stats">
             <div className="text-center">
-              <p className="text-2xl font-bold text-gray-200">{stats.geofences}</p>
-              <p className="text-xs text-neutral-400 uppercase tracking-wide">Geofences</p>
+              <p className="text-2xl font-bold text-gray-200">{stats.intersections}</p>
+              <p className="text-xs text-neutral-400 uppercase tracking-wide">Intersections</p>
             </div>
             <div className="text-center">
               <p className="text-2xl font-bold text-gray-200">{stats.alerts}</p>
@@ -222,13 +222,13 @@ export function ProfileModal({ isOpen, onClose }) {
             <div className="space-y-3">
               <div>
                 <div className="flex justify-between text-xs mb-1">
-                  <span className="text-neutral-400">Geofence Creation</span>
-                  <span className="text-white font-medium">{Math.min(100, stats.geofences * 10)}%</span>
+                  <span className="text-neutral-400">Intersection Creation</span>
+                  <span className="text-white font-medium">{Math.min(100, stats.intersections * 10)}%</span>
                 </div>
                 <div className="h-1.5 bg-neutral-800 rounded-full overflow-hidden">
                   <div
                     className="h-full bg-gradient-to-r from-yellow-500 via-orange-500 to-red-500 rounded-full profile-progress-bar profile-progress-bar-1"
-                    style={{ width: `${Math.min(100, stats.geofences * 10)}%` }}
+                    style={{ width: `${Math.min(100, stats.intersections * 10)}%` }}
                   />
                 </div>
               </div>
