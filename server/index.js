@@ -12,6 +12,10 @@ const geofenceRoutes = require("./routes/geofences");
 const authRoutes = require("./routes/auth");
 const userRoutes = require("./routes/users");
 const sdsmRoutes = require("./routes/sdsm");
+const intersectionRoutes = require("./routes/intersections");
+const laneRoutes = require("./routes/lanes");
+const crosswalkRoutes = require("./routes/crosswalks");
+const laneConnectionRoutes = require("./routes/lane_connections");
 const db = require("./database/postgis");
 
 const app = express();
@@ -31,6 +35,11 @@ app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 // Mount SDSM routes
 app.use("/api/sdsm", sdsmRoutes);
+// Mount V2X MapData routes
+app.use("/api/intersections", intersectionRoutes);
+app.use("/api/lanes", laneRoutes);
+app.use("/api/crosswalks", crosswalkRoutes);
+app.use("/api/lane-connections", laneConnectionRoutes);
 
 // Health check endpoint
 app.get("/health", (req, res) => {
@@ -59,4 +68,8 @@ app.listen(PORT, () => {
   console.log(`Auth API: http://localhost:${PORT}/api/auth`);
   console.log(`User API: http://localhost:${PORT}/api/users`);
   console.log(`SDSM API: http://localhost:${PORT}/api/sdsm`);
+  console.log(`Intersections API: http://localhost:${PORT}/api/intersections`);
+  console.log(`Lanes API: http://localhost:${PORT}/api/lanes`);
+  console.log(`Crosswalks API: http://localhost:${PORT}/api/crosswalks`);
+  console.log(`Lane Connections API: http://localhost:${PORT}/api/lane-connections`);
 });

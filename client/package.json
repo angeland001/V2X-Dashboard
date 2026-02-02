@@ -3,6 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
+    "@deck.gl/core": "^8.9.36",
+    "@deck.gl/layers": "^8.9.36",
     "@fontsource/geist-mono": "^5.2.7",
     "@fontsource/geist-sans": "^5.2.5",
     "@radix-ui/react-alert-dialog": "^1.1.15",
@@ -32,6 +34,7 @@
     "embla-carousel-react": "^8.6.0",
     "kepler.gl": "^3.2.5",
     "lucide-react": "^0.562.0",
+    "mapbox-gl": "^3.18.1",
     "paper": "^0.12.18",
     "process": "^0.11.10",
     "react": "^18.2.0",
