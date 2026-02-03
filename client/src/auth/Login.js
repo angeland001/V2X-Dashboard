@@ -4900,10 +4900,22 @@ function Login() {
       const { canvasWidth } = getCanvasBounds();
       const canvasHeight = paper.view.size.height;
 
-      // ALIGNMENT CONTROLS - Adjust these values to align paths with background map
-      const offsetX = 0.2; // Positive = move right, Negative = move left
-      const offsetY = 0; // Positive = move down, Negative = move up
-      const scaleAdjust = 2.05; // Adjust overall size (1.0 = no change, 1.1 = 10% bigger, 0.9 = 10% smaller)
+      // SVG viewBox dimensions
+      const svgWidth = 1920;
+      const svgHeight = 919;
+
+      // Calculate scale to match CSS background-size: cover behavior
+      // Cover uses the larger scale factor to ensure the image covers the entire container
+      const scaleX = canvasWidth / svgWidth;
+      const scaleY = canvasHeight / svgHeight;
+      const scaleFactor = Math.max(scaleX, scaleY);
+
+      // Calculate offset to center the scaled content (same as background-position: center)
+      // When using cover, the image is larger than the container in one dimension
+      const scaledWidth = svgWidth * scaleFactor;
+      const scaledHeight = svgHeight * scaleFactor;
+      const offsetX = (canvasWidth - scaledWidth) / 2;
+      const offsetY = (canvasHeight - scaledHeight) / 2;
 
       // Use Chattanooga street paths
       chattanoogaStreetPaths.forEach((pathData, i) => {
@@ -4913,22 +4925,15 @@ function Login() {
           pathData: pathData,
         });
 
-        // Scale down the paths to fit the canvas (SVG viewBox is 1920x919)
-        const scaleX = canvasWidth / 1920;
-        const scaleY = canvasHeight / 919;
-        const scaleFactor = Math.min(scaleX, scaleY) * scaleAdjust;
+        // Get the original bounds before scaling
+        const originalBounds = shape.bounds.clone();
 
-        shape.scale(scaleFactor);
+        // Scale the path
+        shape.scale(scaleFactor, new paper.Point(0, 0));
 
-        // Center the paths in the canvas with offset adjustment
-        shape.position.x =
-          shape.position.x * scaleFactor +
-          (canvasWidth - 1920 * scaleFactor) / 2 +
-          offsetX;
-        shape.position.y =
-          shape.position.y * scaleFactor +
-          (canvasHeight - 919 * scaleFactor) / 2 +
-          offsetY;
+        // Position to match the cover behavior with center alignment
+        shape.position.x = originalBounds.center.x * scaleFactor + offsetX;
+        shape.position.y = originalBounds.center.y * scaleFactor + offsetY;
 
         shapeGroup.addChild(shape);
 
@@ -4961,19 +4966,48 @@ function Login() {
       });
     };
 
-    paper.view.onResize = () => {
-      // Clear existing shapes, dots, and pulse effects
-      dots.forEach((dot) => dot.remove());
-      dots = [];
-      pulseEffects.forEach((pulse) => pulse.remove());
-      pulseEffects = [];
-      shapeGroup.removeChildren();
+    // Debounce timer for resize
+    let resizeTimeout = null;
+    const canvas = leftCanvasRef.current;
 
-      // Reinitialize shapes with new canvas size
-      initializeShapes();
+    const handleResize = () => {
+      // Hide canvas immediately when resize starts
+      if (canvas) {
+        canvas.style.opacity = '0';
+      }
+
+      // Clear any existing timeout
+      if (resizeTimeout) {
+        clearTimeout(resizeTimeout);
+      }
+
+      // Wait for resize to finish, then reinitialize
+      resizeTimeout = setTimeout(() => {
+        // Clear existing shapes, dots, and pulse effects
+        dots.forEach((dot) => dot.remove());
+        dots = [];
+        pulseEffects.forEach((pulse) => pulse.remove());
+        pulseEffects = [];
+        shapeGroup.removeChildren();
+
+        // Reinitialize shapes with new canvas size
+        initializeShapes();
+
+        // Fade canvas back in
+        if (canvas) {
+          canvas.style.opacity = '1';
+        }
+      }, 250); // 250ms debounce
     };
 
+    // Use window resize event for better control
+    window.addEventListener('resize', handleResize);
+
     return () => {
+      window.removeEventListener('resize', handleResize);
+      if (resizeTimeout) {
+        clearTimeout(resizeTimeout);
+      }
       dots.forEach((dot) => dot.remove());
       pulseEffects.forEach((pulse) => pulse.remove());
       if (paper.project) {
@@ -5049,6 +5083,7 @@ function Login() {
               left: 0,
               width: "100%",
               height: "100%",
+              transition: "opacity 0.3s ease-in-out",
             }}
           ></canvas>
         </div>
