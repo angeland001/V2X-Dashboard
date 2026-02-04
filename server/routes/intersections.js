@@ -220,24 +220,7 @@ function toJ2735LatLon(coords) {
   };
 }
 
-function coordToXYOffsetCm(coord, refCoord) {
-  const refLatRad = (refCoord[1] * Math.PI) / 180;
-  const x = Math.round((coord[0] - refCoord[0]) * Math.cos(refLatRad) * 111320 * 100);
-  const y = Math.round((coord[1] - refCoord[1]) * 110540 * 100);
-  return { x, y };
-}
 
-function getNodeXYRange(x, y) {
-  const ax = Math.abs(x);
-  const ay = Math.abs(y);
-  const maxVal = Math.max(ax, ay);
-  if (maxVal <= 511 && x >= -512 && y >= -512) return "node-XY1";
-  if (maxVal <= 1023 && x >= -1024 && y >= -1024) return "node-XY2";
-  if (maxVal <= 2047 && x >= -2048 && y >= -2048) return "node-XY3";
-  if (maxVal <= 4095 && x >= -4096 && y >= -4096) return "node-XY4";
-  if (maxVal <= 8191 && x >= -8192 && y >= -8192) return "node-XY5";
-  return "node-XY6";
-}
 
 function encodeLaneAttributes(lane) {
   const laneType = (lane.lane_type || "vehicle").toLowerCase();
@@ -640,12 +623,15 @@ router.post("/import", async (req, res) => {
       }
 
       // Convert delta nodes to absolute coordinates
-      const coordinates = deltaNodesToCoordinates(refLat, refLon, nodes);
+      const allCoordinates = deltaNodesToCoordinates(refLat, refLon, nodes);
 
-      if (coordinates.length < 2) {
+      if (allCoordinates.length < 2) {
         console.warn(`Skipping lane ${laneID}: insufficient coordinates`);
         continue;
       }
+
+      // Enforce exactly 2 coordinates (start and end points)
+      const coordinates = [allCoordinates[0], allCoordinates[allCoordinates.length - 1]];
 
       // Create GeoJSON LineString
       const geometry = {
@@ -798,9 +784,12 @@ router.post("/import/preview", async (req, res) => {
         continue;
       }
 
-      const coordinates = deltaNodesToCoordinates(refLat, refLon, nodes);
+      const allCoordinates = deltaNodesToCoordinates(refLat, refLon, nodes);
 
-      if (coordinates.length < 2) continue;
+      if (allCoordinates.length < 2) continue;
+
+      // Enforce exactly 2 coordinates (start and end points)
+      const coordinates = [allCoordinates[0], allCoordinates[allCoordinates.length - 1]];
 
       let laneType = "vehicle";
       if (laneAttributes?.laneType) {
@@ -821,7 +810,7 @@ router.post("/import/preview", async (req, res) => {
         },
         connectsTo,
         startPoint: coordinates[0],
-        endPoint: coordinates[coordinates.length - 1],
+        endPoint: coordinates[1],
       });
     }
 

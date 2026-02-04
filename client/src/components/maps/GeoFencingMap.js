@@ -59,6 +59,11 @@ const APPROACH_COLORS = {
 
 const CONNECTION_COLOR = "#FF9500";
 
+const CONNECTION_PALETTE = [
+  "#FF9500", "#FF3B30", "#5AC8FA", "#4CD964", "#FF2D55",
+  "#FFCC00", "#5856D6", "#FF6B6B", "#00CED1", "#FF69B4",
+];
+
 // ── Bezier helpers ──────────────────────────────────────────────
 function generateBezierCurve(start, end, numPoints = 20) {
   const midX = (start[0] + end[0]) / 2;
@@ -141,6 +146,13 @@ function GeoFencingMap() {
   const [confirmDialog, setConfirmDialog] = useState(false);
   const [mapDataResult, setMapDataResult] = useState(null);
 
+  // Delete confirmation
+  const [deleteConfirmTarget, setDeleteConfirmTarget] = useState(null);
+
+  // Connection colors
+  const [connectionColor, setConnectionColor] = useState("#FF9500");
+  const [connectionColors, setConnectionColors] = useState({});
+
   // Toast
   const [message, setMessage] = useState(null);
 
@@ -154,6 +166,9 @@ function GeoFencingMap() {
   useEffect(() => { drawPointsRef.current = drawPoints; }, [drawPoints]);
   useEffect(() => { activeIntRef.current = activeIntersection; }, [activeIntersection]);
   useEffect(() => { connectionFromRef.current = connectionFrom; }, [connectionFrom]);
+
+  const connectionColorRef = useRef("#FF9500");
+  useEffect(() => { connectionColorRef.current = connectionColor; }, [connectionColor]);
 
   // ── Toast helper ──────────────────────────────────────────────
   const showMessage = useCallback((text, type = "info") => {
@@ -212,6 +227,21 @@ function GeoFencingMap() {
       setConnections([]);
     }
   }, [activeIntersection, loadLanes, loadCrosswalks, loadConnections]);
+
+  // Auto-assign colors to connections that don't have one yet
+  useEffect(() => {
+    setConnectionColors(prev => {
+      const updated = { ...prev };
+      let changed = false;
+      connections.forEach((conn, i) => {
+        if (!updated[conn.id]) {
+          updated[conn.id] = CONNECTION_PALETTE[i % CONNECTION_PALETTE.length];
+          changed = true;
+        }
+      });
+      return changed ? updated : prev;
+    });
+  }, [connections]);
 
   // ── Initialize Mapbox ─────────────────────────────────────────
   useEffect(() => {
@@ -373,7 +403,7 @@ function GeoFencingMap() {
         type: "line",
         source: "connections-src",
         paint: {
-          "line-color": CONNECTION_COLOR,
+          "line-color": ["get", "color"],
           "line-width": 2,
         },
         layout: {
@@ -386,12 +416,15 @@ function GeoFencingMap() {
         type: "fill",
         source: "connection-arrows-src",
         paint: {
-          "fill-color": CONNECTION_COLOR,
+          "fill-color": ["get", "color"],
           "fill-opacity": 0.9,
         },
       });
 
       // ── Click handler for drawing ──────────────────
+      // Use a timeout to distinguish single clicks from double-clicks
+      let clickTimeout = null;
+
       map.on("click", (e) => {
         const mode = drawModeRef.current;
         if (!mode) return;
@@ -413,9 +446,15 @@ function GeoFencingMap() {
         }
 
         const point = [e.lngLat.lng, e.lngLat.lat];
-        const newPoints = [...drawPointsRef.current, point];
-        setDrawPoints(newPoints);
-        updateDrawSource(map, newPoints, mode);
+
+        // Delay adding the point to allow double-click detection
+        if (clickTimeout) clearTimeout(clickTimeout);
+        clickTimeout = setTimeout(() => {
+          const newPoints = [...drawPointsRef.current, point];
+          setDrawPoints(newPoints);
+          updateDrawSource(map, newPoints, mode);
+          clickTimeout = null;
+        }, 200); // 200ms window for double-click
       });
 
       // ── Double-click to finish drawing ─────────────
@@ -424,6 +463,13 @@ function GeoFencingMap() {
         if (!mode) return;
 
         e.preventDefault();
+
+        // Cancel pending click to prevent adding duplicate points
+        if (clickTimeout) {
+          clearTimeout(clickTimeout);
+          clickTimeout = null;
+        }
+
         const pts = drawPointsRef.current;
 
         if (mode === "lane" && pts.length >= 2) {
@@ -554,10 +600,10 @@ function GeoFencingMap() {
       map.addLayer({ id: "phase-labels", type: "symbol", source: "phase-labels-src", layout: { "text-field": ["get", "phase"], "text-size": 13, "text-font": ["DIN Pro Bold", "Arial Unicode MS Bold"], "text-allow-overlap": true, "text-ignore-placement": true }, paint: { "text-color": "#ffffff", "text-halo-color": "rgba(0,0,0,0.8)", "text-halo-width": 2 } });
     }
     if (!map.getLayer("connections-line")) {
-      map.addLayer({ id: "connections-line", type: "line", source: "connections-src", paint: { "line-color": CONNECTION_COLOR, "line-width": 2 }, layout: { "line-cap": "round", "line-join": "round" } });
+      map.addLayer({ id: "connections-line", type: "line", source: "connections-src", paint: { "line-color": ["get", "color"], "line-width": 2 }, layout: { "line-cap": "round", "line-join": "round" } });
     }
     if (!map.getLayer("connection-arrows-fill")) {
-      map.addLayer({ id: "connection-arrows-fill", type: "fill", source: "connection-arrows-src", paint: { "fill-color": CONNECTION_COLOR, "fill-opacity": 0.9 } });
+      map.addLayer({ id: "connection-arrows-fill", type: "fill", source: "connection-arrows-src", paint: { "fill-color": ["get", "color"], "fill-opacity": 0.9 } });
     }
   }, []);
 
@@ -617,7 +663,7 @@ function GeoFencingMap() {
       if (intSrc) intSrc.setData({ type: "FeatureCollection", features: intFeatures });
 
       // Re-populate connection data
-      updateConnectionSources(map, connections, lanes);
+      updateConnectionSources(map, connections, lanes, connectionColors);
     };
 
     map.once("style.load", onStyleLoad);
@@ -678,10 +724,10 @@ function GeoFencingMap() {
   // Update connection curves — uses lane endpoint (last coord, same as phase label)
   useEffect(() => {
     if (!mapRef.current || !mapLoadedRef.current) return;
-    updateConnectionSources(mapRef.current, connections, lanes);
-  }, [connections, lanes]);
+    updateConnectionSources(mapRef.current, connections, lanes, connectionColors);
+  }, [connections, lanes, connectionColors]);
 
-  function updateConnectionSources(map, conns, laneList) {
+  function updateConnectionSources(map, conns, laneList, connColors) {
     // Build a lookup: lane id → last coordinate (where the phase label sits)
     const laneEndpoints = {};
     laneList.forEach((l) => {
@@ -698,15 +744,16 @@ function GeoFencingMap() {
       const end = laneEndpoints[conn.to_lane_id];
       if (!start || !end) return;
 
+      const color = connColors[conn.id] || CONNECTION_COLOR;
       const curveCoords = generateBezierCurve(start, end);
       lineFeatures.push({
         type: "Feature",
         geometry: { type: "LineString", coordinates: curveCoords },
-        properties: { id: conn.id, from_lane_id: conn.from_lane_id, to_lane_id: conn.to_lane_id, signal_group: conn.signal_group },
+        properties: { id: conn.id, from_lane_id: conn.from_lane_id, to_lane_id: conn.to_lane_id, signal_group: conn.signal_group, color },
       });
       const arrow = generateArrowhead(curveCoords);
       if (arrow) {
-        arrow.properties = { id: conn.id };
+        arrow.properties = { id: conn.id, color };
         arrowFeatures.push(arrow);
       }
     });
@@ -877,6 +924,9 @@ function GeoFencingMap() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
+      // Store the currently selected color for this new connection
+      const color = connectionColorRef.current;
+      setConnectionColors(prev => ({ ...prev, [data.id]: color }));
       const intId = activeIntRef.current?.id;
       if (intId) await loadConnections(intId);
       showMessage("Connection created.");
@@ -1195,10 +1245,55 @@ function GeoFencingMap() {
                 <Button size="sm" className="flex-1 text-xs h-8 bg-green-600 hover:bg-green-700 text-white" onClick={() => setConfirmDialog(true)}>
                   {activeIntersection.status === "confirmed" ? "Re-export" : "Confirm & Export"}
                 </Button>
-                <Button size="sm" variant="outline" className="text-xs h-8 bg-red-600/10 text-red-400 border-red-500/30 hover:bg-red-600/20" onClick={() => deleteIntersection(activeIntersection.id)}>
+                <Button size="sm" variant="outline" className="text-xs h-8 bg-red-600/10 text-red-400 border-red-500/30 hover:bg-red-600/20" onClick={() => setDeleteConfirmTarget(activeIntersection)}>
                   Delete
                 </Button>
               </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Connection Color Picker */}
+        {activeIntersection && (
+          <Card className="dark bg-zinc-900/95 border-zinc-700 backdrop-blur">
+            <CardHeader className="pb-1 pt-3 px-4">
+              <CardTitle className="text-xs text-zinc-400">Connection Color</CardTitle>
+            </CardHeader>
+            <CardContent className="px-4 pb-3 space-y-2">
+              <div className="flex items-center gap-2">
+                <input
+                  type="color"
+                  value={connectionColor}
+                  onChange={(e) => setConnectionColor(e.target.value)}
+                  className="w-8 h-8 rounded border border-zinc-600 cursor-pointer bg-transparent p-0"
+                />
+                <span className="text-xs text-zinc-300 font-mono">{connectionColor}</span>
+              </div>
+              <p className="text-xs text-zinc-500">New connections will use this color</p>
+              {connections.length > 0 && (
+                <div className="space-y-1 pt-1 border-t border-zinc-700">
+                  <p className="text-xs text-zinc-500 pt-1">Existing connections:</p>
+                  <div className={connections.length >= 5 ? "scrollbar-dark" : ""} style={connections.length >= 5 ? { maxHeight: 140, overflowY: "auto", paddingRight: 4 } : undefined}>
+                  {connections.map((conn) => {
+                    const fromLane = lanes.find(l => l.id === conn.from_lane_id);
+                    const toLane = lanes.find(l => l.id === conn.to_lane_id);
+                    return (
+                      <div key={conn.id} className="flex items-center gap-2">
+                        <input
+                          type="color"
+                          value={connectionColors[conn.id] || CONNECTION_COLOR}
+                          onChange={(e) => setConnectionColors(prev => ({ ...prev, [conn.id]: e.target.value }))}
+                          className="w-5 h-5 rounded border border-zinc-600 cursor-pointer bg-transparent p-0"
+                        />
+                        <span className="text-xs text-zinc-400 truncate">
+                          {fromLane?.name || `Lane ${fromLane?.lane_number || '?'}`} &rarr; {toLane?.name || `Lane ${toLane?.lane_number || '?'}`}
+                        </span>
+                      </div>
+                    );
+                  })}
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         )}
@@ -1217,7 +1312,7 @@ function GeoFencingMap() {
                 </div>
               ))}
               <div className="flex items-center gap-1.5">
-                <div className="w-3 h-1 rounded-full" style={{ backgroundColor: CONNECTION_COLOR }} />
+                <div className="w-3 h-1 rounded-full" style={{ backgroundColor: connectionColor }} />
                 <span className="text-zinc-300">Connection</span>
               </div>
             </div>
@@ -1264,6 +1359,27 @@ function GeoFencingMap() {
           <AlertDialogFooter>
             <AlertDialogCancel className="bg-zinc-800 text-white border-zinc-700 hover:bg-zinc-700">Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={confirmIntersection} className="bg-green-600 text-white hover:bg-green-700">Confirm & Export</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* ── Delete Intersection Confirmation ─────────────────── */}
+      <AlertDialog open={!!deleteConfirmTarget} onOpenChange={() => setDeleteConfirmTarget(null)}>
+        <AlertDialogContent className="dark bg-zinc-900 border-zinc-800 text-white">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-white">Delete Intersection?</AlertDialogTitle>
+            <AlertDialogDescription className="text-zinc-400">
+              This will permanently delete "{deleteConfirmTarget?.name}" and all its lanes, crosswalks, and connections. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="bg-zinc-800 text-white border-zinc-700 hover:bg-zinc-700">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => { deleteIntersection(deleteConfirmTarget.id); setDeleteConfirmTarget(null); }}
+              className="bg-red-600 text-white hover:bg-red-700"
+            >
+              Delete
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -1375,6 +1491,18 @@ function GeoFencingMap() {
               <CardTitle className="text-sm text-white">Edit Connection</CardTitle>
             </CardHeader>
             <CardContent className="px-4 pb-3 space-y-3">
+              <div>
+                <label className="text-xs text-zinc-400 mb-1 block">Color</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    value={connectionColors[configPanel.connectionId] || CONNECTION_COLOR}
+                    onChange={(e) => setConnectionColors(prev => ({ ...prev, [configPanel.connectionId]: e.target.value }))}
+                    className="w-8 h-8 rounded border border-zinc-600 cursor-pointer bg-transparent p-0"
+                  />
+                  <span className="text-xs text-zinc-300 font-mono">{connectionColors[configPanel.connectionId] || CONNECTION_COLOR}</span>
+                </div>
+              </div>
               <div>
                 <label className="text-xs text-zinc-400 mb-1 block">Signal Group (optional)</label>
                 <Input type="number" value={configPanel.values.signal_group} onChange={(e) => setConfigPanel((p) => ({ ...p, values: { ...p.values, signal_group: e.target.value } }))} placeholder="Signal group" className="bg-zinc-800 border-zinc-700 text-white text-sm h-8" />

@@ -185,6 +185,15 @@ router.post("/", async (req, res) => {
 
     let finalGeometry = geometry;
 
+    // Enforce exactly 2 coordinates (start and end points) for LineString geometry
+    if (finalGeometry && finalGeometry.type === "LineString" && finalGeometry.coordinates?.length > 2) {
+      const coords = finalGeometry.coordinates;
+      finalGeometry = {
+        type: "LineString",
+        coordinates: [coords[0], coords[coords.length - 1]],
+      };
+    }
+
     // If nodeList provided, convert delta offsets to coordinates
     if (nodeList && !geometry) {
       // Fetch intersection's reference point
@@ -275,6 +284,15 @@ router.put("/:id", async (req, res) => {
       geometry = nodeListToGeometry(nodeList, refLat, refLon);
     }
 
+    // Enforce exactly 2 coordinates (start and end points) for LineString geometry
+    if (geometry && geometry.type === "LineString" && geometry.coordinates?.length > 2) {
+      const coords = geometry.coordinates;
+      geometry = {
+        type: "LineString",
+        coordinates: [coords[0], coords[coords.length - 1]],
+      };
+    }
+
     const sets = [];
     const vals = [];
     let idx = 1;
@@ -354,6 +372,15 @@ router.post("/bulk", async (req, res) => {
       } else {
         console.warn(`Skipping lane ${laneID}: no geometry or nodeList`);
         continue;
+      }
+
+      // Enforce exactly 2 coordinates (start and end points) for LineString geometry
+      if (geometry && geometry.type === "LineString" && geometry.coordinates?.length > 2) {
+        const coords = geometry.coordinates;
+        geometry = {
+          type: "LineString",
+          coordinates: [coords[0], coords[coords.length - 1]],
+        };
       }
 
       // Determine lane type
