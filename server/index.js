@@ -8,13 +8,15 @@ console.log("Environment variables loaded:");
 console.log("POSTGIS_HOST:", process.env.POSTGIS_HOST);
 console.log("POSTGIS_PORT:", process.env.POSTGIS_PORT);
 
-const authRoutes = require("./routes/auth");
-const userRoutes = require("./routes/users");
-const sdsmRoutes = require("./routes/sdsm");
-const intersectionRoutes = require("./routes/intersections");
-const laneRoutes = require("./routes/lanes");
-const crosswalkRoutes = require("./routes/crosswalks");
-const laneConnectionRoutes = require("./routes/lane_connections");
+const authRoutes = require("./routes/authroutes/auth");
+const userRoutes = require("./routes/authroutes/users");
+const sdsmRoutes = require("./routes/api/sdsm");
+const tomtomRoutes = require("./routes/api/tom-tom-analytics");
+const intersectionRoutes = require("./routes/intersectionroutes/intersections");
+const laneRoutes = require("./routes/intersectionroutes/lanes");
+const crosswalkRoutes = require("./routes/intersectionroutes/crosswalks");
+const laneConnectionRoutes = require("./routes/intersectionroutes/lane_connections");
+
 const db = require("./database/postgis");
 
 const app = express();
@@ -30,8 +32,9 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use("/api/auth", authRoutes);
 // Mount user routes
 app.use("/api/users", userRoutes);
-// Mount SDSM routes
+// Mount SDSM and TOMTOM routes
 app.use("/api/sdsm", sdsmRoutes);
+app.use("/api/tomtom-analytics", tomtomRoutes);
 // Mount V2X MapData routes
 app.use("/api/intersections", intersectionRoutes);
 app.use("/api/lanes", laneRoutes);
@@ -64,6 +67,7 @@ app.listen(PORT, () => {
   console.log(`Auth API: http://localhost:${PORT}/api/auth`);
   console.log(`User API: http://localhost:${PORT}/api/users`);
   console.log(`SDSM API: http://localhost:${PORT}/api/sdsm`);
+  console.log(`TOMTOM Analytics API: http://localhost:${PORT}/api/tomtom-analytics`);
   console.log(`Intersections API: http://localhost:${PORT}/api/intersections`);
   console.log(`Lanes API: http://localhost:${PORT}/api/lanes`);
   console.log(`Crosswalks API: http://localhost:${PORT}/api/crosswalks`);
