@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const db = require("../database/postgis");
+const db = require("../../database/postgis");
 
 // ─── GET connections (optionally filtered by intersection_id) ──────
 router.get("/", async (req, res) => {

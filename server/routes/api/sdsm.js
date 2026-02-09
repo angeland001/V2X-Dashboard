@@ -7,7 +7,7 @@
 
 const express = require('express');
 const router = express.Router();
-const db = require('../database/postgis');
+const db = require('../../database/postgis');
 // Using built-in fetch (Node.js 18+) or require node-fetch for older versions
 const fetch = globalThis.fetch || require('node-fetch');
 

@@ -18,8 +18,14 @@ import AnalyticsTraffic from "./components/dashboard/pages/AnalyticsTraffic";
 import Settings from "./components/dashboard/pages/Settings";
 import NotFound from "./error/404NotFound";
 
+const customKeplerReducer = keplerGlReducer.initialState({
+  uiState: {
+    currentModal: null,
+  },
+});
+
 const reducers = combineReducers({
-  keplerGl: keplerGlReducer,
+  keplerGl: customKeplerReducer,
 });
 
 const store = createStore(reducers, {}, applyMiddleware(taskMiddleware));
