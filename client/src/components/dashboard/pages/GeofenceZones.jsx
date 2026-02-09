@@ -37,6 +37,7 @@ export function GeofenceZones() {
   const [importName, setImportName] = useState("")
   const [importPreview, setImportPreview] = useState(null)
   const [importing, setImporting] = useState(false)
+  const [importError, setImportError] = useState(null)
 
   useEffect(() => {
     fetchIntersections()
@@ -101,38 +102,39 @@ export function GeofenceZones() {
 
   const previewImport = async () => {
     try {
+      setImportError(null)
       const res = await fetch(`${API_URL}/api/intersections/import/preview`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ mapData: importJson }),
       })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error)
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || data.message || `Preview failed (${res.status})`)
       setImportPreview(data)
     } catch (err) {
-      setError(err.message)
-      setTimeout(() => setError(null), 3000)
+      setImportError(err.message)
     }
   }
 
   const doImport = async () => {
     try {
       setImporting(true)
+      setImportError(null)
       const res = await fetch(`${API_URL}/api/intersections/import`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ mapData: importJson, name: importName || undefined }),
       })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error)
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || data.message || `Import failed (${res.status})`)
       setImportOpen(false)
       setImportJson("")
       setImportName("")
       setImportPreview(null)
+      setImportError(null)
       await fetchIntersections()
     } catch (err) {
-      setError(err.message)
-      setTimeout(() => setError(null), 3000)
+      setImportError(err.message)
     } finally {
       setImporting(false)
     }
@@ -143,6 +145,7 @@ export function GeofenceZones() {
     setImportJson("")
     setImportName("")
     setImportPreview(null)
+    setImportError(null)
   }
 
   return (
@@ -378,11 +381,18 @@ export function GeofenceZones() {
                 onChange={(e) => {
                   setImportJson(e.target.value)
                   setImportPreview(null)
+                  setImportError(null)
                 }}
                 placeholder='{"messageId": 18, "value": ["MapData", {...}]}'
                 className="w-full bg-zinc-800 border border-zinc-700 text-white font-mono text-xs min-h-[200px] rounded-md p-3 resize-y focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
+
+            {importError && (
+              <div className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+                {importError}
+              </div>
+            )}
 
             {importPreview && (
               <div className="bg-zinc-800 rounded-lg p-4 space-y-3">

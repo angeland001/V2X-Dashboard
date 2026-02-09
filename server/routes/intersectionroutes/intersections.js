@@ -46,9 +46,15 @@ router.get("/:id", async (req, res) => {
 router.post("/", async (req, res) => {
   try {
     const { name, description, ref_point, region_id, intersection_id, created_by } = req.body;
+    const normalizedName = normalizeIntersectionName(name);
 
-    if (!name || !ref_point || intersection_id == null) {
+    if (!normalizedName || !ref_point || intersection_id == null) {
       return res.status(400).json({ error: "name, ref_point (GeoJSON), and intersection_id are required" });
+    }
+
+    const existingByName = await findIntersectionByName(db, normalizedName);
+    if (existingByName) {
+      return res.status(409).json({ error: `Intersection name '${normalizedName}' already exists` });
     }
 
     const result = await db.query(
@@ -58,7 +64,7 @@ router.post("/", async (req, res) => {
                  ST_AsGeoJSON(ref_point)::json AS ref_point,
                  region_id, intersection_id, msg_issue_revision,
                  status, created_by, created_at, updated_at`,
-      [name, description || null, JSON.stringify(ref_point), region_id || 0, intersection_id, created_by || null]
+      [normalizedName, description || null, JSON.stringify(ref_point), region_id || 0, intersection_id, created_by || null]
     );
     res.status(201).json(result.rows[0]);
   } catch (err) {
@@ -77,7 +83,20 @@ router.put("/:id", async (req, res) => {
     const vals = [];
     let idx = 1;
 
-    if (name !== undefined) { sets.push(`name = $${idx++}`); vals.push(name); }
+    if (name !== undefined) {
+      const normalizedName = normalizeIntersectionName(name);
+      if (!normalizedName) {
+        return res.status(400).json({ error: "name cannot be empty" });
+      }
+
+      const existingByName = await findIntersectionByName(db, normalizedName, id);
+      if (existingByName) {
+        return res.status(409).json({ error: `Intersection name '${normalizedName}' already exists` });
+      }
+
+      sets.push(`name = $${idx++}`);
+      vals.push(normalizedName);
+    }
     if (description !== undefined) { sets.push(`description = $${idx++}`); vals.push(description); }
     if (ref_point !== undefined) { sets.push(`ref_point = ST_SetSRID(ST_GeomFromGeoJSON($${idx++}), 4326)`); vals.push(JSON.stringify(ref_point)); }
     if (region_id !== undefined) { sets.push(`region_id = $${idx++}`); vals.push(region_id); }
@@ -209,6 +228,175 @@ function fromJ2735LatLon(j2735Point) {
     lat: j2735Point.lat / 1e7,
     lon: (j2735Point.long || j2735Point.lon) / 1e7,
   };
+}
+
+function normalizeLineStringGeometry(geometry) {
+  if (!geometry || geometry.type !== "LineString" || !Array.isArray(geometry.coordinates)) {
+    return null;
+  }
+
+  const coordinates = geometry.coordinates
+    .filter(
+      (coord) =>
+        Array.isArray(coord) &&
+        coord.length >= 2 &&
+        Number.isFinite(Number(coord[0])) &&
+        Number.isFinite(Number(coord[1]))
+    )
+    .map((coord) => [Number(coord[0]), Number(coord[1])]);
+
+  if (coordinates.length < 2) {
+    return null;
+  }
+
+  return {
+    type: "LineString",
+    coordinates,
+  };
+}
+
+/**
+ * Import supports either:
+ * 1) geometry: GeoJSON LineString coordinates
+ * 2) nodeList: J2735 delta nodes
+ */
+function extractLaneGeometry(lane, refLat, refLon) {
+  const geometryFromPayload = normalizeLineStringGeometry(lane.geometry);
+  if (geometryFromPayload) {
+    return geometryFromPayload;
+  }
+
+  const { nodeList } = lane;
+  let nodes;
+  if (Array.isArray(nodeList) && nodeList[0] === "nodes") {
+    nodes = nodeList[1];
+  } else if (Array.isArray(nodeList)) {
+    nodes = nodeList;
+  } else {
+    return null;
+  }
+
+  const allCoordinates = deltaNodesToCoordinates(refLat, refLon, nodes);
+  if (allCoordinates.length < 2) {
+    return null;
+  }
+
+  // Keep historical behavior for nodeList imports: start/end only.
+  return {
+    type: "LineString",
+    coordinates: [allCoordinates[0], allCoordinates[allCoordinates.length - 1]],
+  };
+}
+
+function extractLaneType(laneAttributes) {
+  let laneType = "vehicle";
+  if (laneAttributes?.laneType) {
+    const lt = laneAttributes.laneType;
+    if (Array.isArray(lt) && lt[0]) {
+      laneType = String(lt[0]).toLowerCase();
+    } else if (typeof lt === "string") {
+      laneType = lt.toLowerCase();
+    }
+  }
+  return laneType;
+}
+
+function normalizeLaneTypeForDb(laneType) {
+  const map = {
+    vehicle: "Vehicle",
+    crosswalk: "Crosswalk",
+    bike: "Bike",
+    sidewalk: "Sidewalk",
+    parking: "Parking",
+  };
+  return map[laneType] || "Vehicle";
+}
+
+function lineStringToPolygonGeometry(lineStringGeometry) {
+  const line = normalizeLineStringGeometry(lineStringGeometry);
+  if (!line || line.coordinates.length < 3) return null;
+
+  const ring = [...line.coordinates];
+  const first = ring[0];
+  const last = ring[ring.length - 1];
+  const isClosed = first[0] === last[0] && first[1] === last[1];
+  if (!isClosed) {
+    ring.push(first);
+  }
+
+  if (ring.length < 4) return null;
+
+  return {
+    type: "Polygon",
+    coordinates: [ring],
+  };
+}
+
+function deriveApproachIdFromLaneId(laneID) {
+  const parsed = Number(laneID);
+  if (!Number.isFinite(parsed)) return null;
+  const raw = parsed >= 200 ? parsed - 200 : parsed;
+  return raw > 0 ? raw : null;
+}
+
+function normalizeIntersectionName(name) {
+  return typeof name === "string" ? name.trim() : "";
+}
+
+async function findIntersectionByName(queryRunner, name, excludeId = null) {
+  const normalized = normalizeIntersectionName(name);
+  if (!normalized) return null;
+
+  const params = [normalized];
+  let sql = `
+    SELECT id, name
+    FROM intersections
+    WHERE LOWER(TRIM(name)) = LOWER(TRIM($1))
+  `;
+
+  if (excludeId != null) {
+    sql += ` AND id <> $2`;
+    params.push(excludeId);
+  }
+
+  sql += ` LIMIT 1`;
+  const result = await queryRunner.query(sql, params);
+  return result.rows[0] || null;
+}
+
+function makeBadRequestError(message) {
+  const err = new Error(message);
+  err.statusCode = 400;
+  return err;
+}
+
+function parseMapDataInput(mapData) {
+  if (mapData == null) {
+    throw makeBadRequestError("mapData JSON is required");
+  }
+
+  if (typeof mapData !== "string") {
+    return mapData;
+  }
+
+  const trimmed = mapData.trim();
+  if (!trimmed) {
+    throw makeBadRequestError("mapData JSON is required");
+  }
+
+  // Allow users to paste JSON fenced in markdown code blocks.
+  const maybeUnfenced = trimmed
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```$/, "");
+
+  try {
+    return JSON.parse(maybeUnfenced);
+  } catch (_err) {
+    const sample = maybeUnfenced.slice(0, 30);
+    throw makeBadRequestError(
+      `Invalid MAP JSON. Paste raw JSON object text only. Starts with: "${sample}"`
+    );
+  }
 }
 
 // ─── ENCODING: Coordinates → Delta offsets ───────────────────────
@@ -532,16 +720,13 @@ router.get("/:id/mapdata", async (req, res) => {
 // ─── IMPORT MapData JSON and create intersection + lanes ─────────
 router.post("/import", async (req, res) => {
   const client = await db.pool.connect();
+  let txStarted = false;
 
   try {
     const { mapData, name, created_by } = req.body;
 
-    if (!mapData) {
-      return res.status(400).json({ error: "mapData JSON is required" });
-    }
-
     // Parse the MAP message structure
-    let mapDataObj = typeof mapData === "string" ? JSON.parse(mapData) : mapData;
+    let mapDataObj = parseMapDataInput(mapData);
 
     // Handle different MAP message formats
     let intersectionData;
@@ -580,10 +765,16 @@ router.post("/import", async (req, res) => {
       coordinates: [refLon, refLat],
     };
 
-    await client.query("BEGIN");
-
     // Create the intersection
-    const intersectionName = name || `Imported Intersection ${intersectionId?.id || Date.now()}`;
+    const intersectionName = normalizeIntersectionName(name) || `Imported Intersection ${intersectionId?.id || Date.now()}`;
+    const existingByName = await findIntersectionByName(client, intersectionName);
+    if (existingByName) {
+      return res.status(409).json({ error: `Intersection name '${intersectionName}' already exists` });
+    }
+
+    await client.query("BEGIN");
+    txStarted = true;
+
     const intResult = await client.query(
       `INSERT INTO intersections (name, description, ref_point, region_id, intersection_id, msg_issue_revision, status, created_by)
        VALUES ($1, $2, ST_SetSRID(ST_GeomFromGeoJSON($3), 4326), $4, $5, $6, 'draft', $7)
@@ -603,52 +794,47 @@ router.post("/import", async (req, res) => {
     );
     const createdIntersection = intResult.rows[0];
 
-    // Process each lane and convert delta nodes to coordinates
+    // Process each lane from either GeoJSON geometry or nodeList delta format
     const createdLanes = [];
+    const createdCrosswalks = [];
     const laneIdMap = {}; // Map laneID from MAP to database lane id
 
     for (const lane of laneSet) {
-      const { laneID, laneAttributes, nodeList, connectsTo } = lane;
+      const { laneID, laneAttributes, connectsTo } = lane;
+      const geometry = extractLaneGeometry(lane, refLat, refLon);
 
-      // Extract nodes from nodeList
-      // Format: ["nodes", [{ delta: ["node-XY1", {x, y}] }, ...]]
-      let nodes;
-      if (Array.isArray(nodeList) && nodeList[0] === "nodes") {
-        nodes = nodeList[1];
-      } else if (Array.isArray(nodeList)) {
-        nodes = nodeList;
-      } else {
-        console.warn(`Skipping lane ${laneID}: invalid nodeList format`);
+      if (!geometry) {
+        console.warn(`Skipping lane ${laneID}: missing/invalid geometry and nodeList`);
         continue;
       }
 
-      // Convert delta nodes to absolute coordinates
-      const allCoordinates = deltaNodesToCoordinates(refLat, refLon, nodes);
+      const laneType = extractLaneType(laneAttributes);
 
-      if (allCoordinates.length < 2) {
-        console.warn(`Skipping lane ${laneID}: insufficient coordinates`);
-        continue;
-      }
-
-      // Enforce exactly 2 coordinates (start and end points)
-      const coordinates = [allCoordinates[0], allCoordinates[allCoordinates.length - 1]];
-
-      // Create GeoJSON LineString
-      const geometry = {
-        type: "LineString",
-        coordinates,
-      };
-
-      // Determine lane type from attributes
-      let laneType = "vehicle";
-      if (laneAttributes?.laneType) {
-        const lt = laneAttributes.laneType;
-        if (Array.isArray(lt) && lt[0]) {
-          laneType = lt[0].toLowerCase();
-        } else if (typeof lt === "string") {
-          laneType = lt.toLowerCase();
+      // MAP crosswalk lanes are persisted as crosswalk polygons for editor parity.
+      if (laneType === "crosswalk") {
+        const polygon = lineStringToPolygonGeometry(geometry);
+        if (polygon) {
+          const cwResult = await client.query(
+            `INSERT INTO crosswalks (intersection_id, geometry, approach_type, approach_id, name, metadata)
+             VALUES ($1, ST_SetSRID(ST_GeomFromGeoJSON($2), 4326), $3, $4, $5, $6)
+             RETURNING id, intersection_id, ST_AsGeoJSON(geometry)::json AS geometry,
+                       approach_type, approach_id, name, metadata`,
+            [
+              createdIntersection.id,
+              JSON.stringify(polygon),
+              "Both",
+              deriveApproachIdFromLaneId(laneID),
+              `Crosswalk ${laneID}`,
+              JSON.stringify({ source_lane_id: laneID, connectsTo, originalAttributes: laneAttributes }),
+            ]
+          );
+          createdCrosswalks.push(cwResult.rows[0]);
+          continue;
         }
+        console.warn(`Crosswalk lane ${laneID} is not polygon-like; storing as lane fallback`);
       }
+
+      const laneTypeDb = normalizeLaneTypeForDb(laneType);
 
       // Extract phase/signal group from connectsTo if available
       let phase = null;
@@ -665,7 +851,7 @@ router.post("/import", async (req, res) => {
         [
           createdIntersection.id,
           JSON.stringify(geometry),
-          laneType,
+          laneTypeDb,
           phase,
           `Lane ${laneID}`,
           laneID,
@@ -718,17 +904,21 @@ router.post("/import", async (req, res) => {
       message: "MAP message imported successfully",
       intersection: createdIntersection,
       lanes: createdLanes,
+      crosswalks: createdCrosswalks,
       connections: createdConnections,
       summary: {
         lanesCreated: createdLanes.length,
+        crosswalksCreated: createdCrosswalks.length,
         connectionsCreated: createdConnections.length,
         refPoint: { lat: refLat, lon: refLon },
       },
     });
   } catch (err) {
-    await client.query("ROLLBACK");
+    if (txStarted) {
+      await client.query("ROLLBACK");
+    }
     console.error("Error importing MAP message:", err);
-    res.status(500).json({ error: err.message });
+    res.status(err.statusCode || 500).json({ error: err.message });
   } finally {
     client.release();
   }
@@ -739,11 +929,7 @@ router.post("/import/preview", async (req, res) => {
   try {
     const { mapData } = req.body;
 
-    if (!mapData) {
-      return res.status(400).json({ error: "mapData JSON is required" });
-    }
-
-    let mapDataObj = typeof mapData === "string" ? JSON.parse(mapData) : mapData;
+    let mapDataObj = parseMapDataInput(mapData);
 
     // Parse MAP message structure (same logic as import)
     let intersectionData;
@@ -773,23 +959,11 @@ router.post("/import/preview", async (req, res) => {
     // Convert all lanes to GeoJSON for preview
     const lanes = [];
     for (const lane of laneSet) {
-      const { laneID, laneAttributes, nodeList, connectsTo } = lane;
+      const { laneID, laneAttributes, connectsTo } = lane;
+      const geometry = extractLaneGeometry(lane, refLat, refLon);
+      if (!geometry) continue;
 
-      let nodes;
-      if (Array.isArray(nodeList) && nodeList[0] === "nodes") {
-        nodes = nodeList[1];
-      } else if (Array.isArray(nodeList)) {
-        nodes = nodeList;
-      } else {
-        continue;
-      }
-
-      const allCoordinates = deltaNodesToCoordinates(refLat, refLon, nodes);
-
-      if (allCoordinates.length < 2) continue;
-
-      // Enforce exactly 2 coordinates (start and end points)
-      const coordinates = [allCoordinates[0], allCoordinates[allCoordinates.length - 1]];
+      const coordinates = geometry.coordinates;
 
       let laneType = "vehicle";
       if (laneAttributes?.laneType) {
@@ -804,13 +978,10 @@ router.post("/import/preview", async (req, res) => {
       lanes.push({
         laneID,
         laneType,
-        geometry: {
-          type: "LineString",
-          coordinates,
-        },
+        geometry,
         connectsTo,
         startPoint: coordinates[0],
-        endPoint: coordinates[1],
+        endPoint: coordinates[coordinates.length - 1],
       });
     }
 
@@ -835,7 +1006,7 @@ router.post("/import/preview", async (req, res) => {
     });
   } catch (err) {
     console.error("Error previewing MAP message:", err);
-    res.status(500).json({ error: err.message });
+    res.status(err.statusCode || 500).json({ error: err.message });
   }
 });
 
