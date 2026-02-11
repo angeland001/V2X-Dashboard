@@ -98,24 +98,18 @@ const summaryCards = [
     title: "Alerts Triggered",
     value: "Overloaded",
     subtitle: "System overloaded",
-    bgColor: "bg-red-950",
-    borderColor: "border-red-900",
     textColor: "text-red-400",
   },
   {
     title: "System Grade",
     value: "B+ Grade",
     subtitle: "Above Average",
-    bgColor: "bg-green-950",
-    borderColor: "border-green-900",
     textColor: "text-green-400",
   },
   {
     title: "Avg Energy Use",
     value: "78.5 kWh",
     subtitle: "+5.2% increase",
-    bgColor: "bg-blue-950",
-    borderColor: "border-blue-900",
     textColor: "text-blue-400",
   },
 ]
@@ -123,7 +117,7 @@ const summaryCards = [
 export function AnalyticsEnvironmental() {
   return (
     <div className="space-y-6">
-      <Card className="bg-[#1e1f25] border-neutral-800">
+      <Card className="bg-black-900 border-neutral-800 shadow-[0_4px_6px_rgba(255,255,255,0.3)]">
         <CardHeader>
           <CardTitle className="text-neutral-100 text-lg">Environmental Impact Monitoring</CardTitle>
           <p className="text-sm text-neutral-500">
@@ -204,7 +198,7 @@ export function AnalyticsEnvironmental() {
           {/* Summary Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {summaryCards.map((card) => (
-              <div key={card.title} className={`${card.bgColor} border ${card.borderColor} rounded-lg p-5`}>
+              <div key={card.title} className="bg-black-900 border border-neutral-800 shadow-[0_4px_6px_rgba(255,255,255,0.3)] rounded-lg p-5">
                 <p className={`text-sm ${card.textColor}`}>{card.title}</p>
                 <p className="text-xl font-bold text-neutral-100 mt-1">{card.value}</p>
                 <p className="text-sm text-neutral-400 mt-1">{card.subtitle}</p>

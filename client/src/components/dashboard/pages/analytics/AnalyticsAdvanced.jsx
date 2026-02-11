@@ -88,7 +88,7 @@ export function AnalyticsAdvanced() {
       {/* Stat Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {statCards.map((stat) => (
-          <Card key={stat.title} className="bg-[#1e1f25] border-neutral-800">
+          <Card key={stat.title} className="bg-black-900 border-neutral-800 shadow-[0_4px_6px_rgba(255,255,255,0.3)]">
             <CardContent className="p-5">
               <p className="text-sm text-neutral-400">{stat.title}</p>
               <p className="text-2xl font-bold text-neutral-100 mt-1">{stat.value}</p>
@@ -101,7 +101,7 @@ export function AnalyticsAdvanced() {
       {/* Heatmap & Line Chart Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Traffic Density Heatmap */}
-        <Card className="bg-[#1e1f25] border-neutral-800">
+        <Card className="bg-black-900 border-neutral-800 shadow-[0_4px_6px_rgba(255,255,255,0.3)]">
           <CardHeader>
             <CardTitle className="text-neutral-100 text-base">Traffic Density Heatmap</CardTitle>
           </CardHeader>
@@ -153,7 +153,7 @@ export function AnalyticsAdvanced() {
         </Card>
 
         {/* Comparative Traffic Flow */}
-        <Card className="bg-[#1e1f25] border-neutral-800">
+        <Card className="bg-black-900 border-neutral-800 shadow-[0_4px_6px_rgba(255,255,255,0.3)]">
           <CardHeader>
             <CardTitle className="text-neutral-100 text-base">Comparative Traffic Flow</CardTitle>
           </CardHeader>

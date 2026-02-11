@@ -84,7 +84,7 @@ const taskBorderColors = {
 export function AnalyticsMaintenance() {
   return (
     <div className="space-y-6">
-      <Card className="bg-[#1e1f25] border-neutral-800">
+      <Card className="bg-black-900 border-neutral-800 shadow-[0_4px_6px_rgba(255,255,255,0.3)]">
         <CardHeader>
           <CardTitle className="text-neutral-100 text-lg">Predictive Maintenance Schedule</CardTitle>
         </CardHeader>
@@ -107,7 +107,7 @@ export function AnalyticsMaintenance() {
             {maintenanceData.map((row, index) => (
               <div
                 key={row.name}
-                className={`flex items-center min-h-[52px] ${index % 2 === 0 ? "bg-[#2a2b30]" : "bg-[#1e1f25]"}`}
+                className={`flex items-center min-h-[52px] ${index % 2 === 0 ? "bg-[#1a1b20]" : "bg-black-900"}`}
               >
                 {/* Row Label */}
                 <div className="w-[200px] shrink-0 px-4 py-3 flex items-center gap-3">

@@ -26,7 +26,7 @@ const responseTimeData = [
 const responseTimeConfig = {
   count: {
     label: "Incident Count",
-    color: "#bce29e",
+    color: "#fc8d59",
   },
 }
 
@@ -34,6 +34,7 @@ const responseTimeConfig = {
 const incidentTypes = [
   {
     title: "Accident",
+    color: "#b30000",
     stats: [
       { label: "Avg Response", value: "6.2 min" },
       { label: "Total Incidents", value: "156" },
@@ -49,6 +50,7 @@ const incidentTypes = [
   },
   {
     title: "Water Issues",
+    color: "#d7301f",
     stats: [
       { label: "Avg Response", value: "8.1 min" },
       { label: "Total Incidents", value: "89" },
@@ -64,6 +66,7 @@ const incidentTypes = [
   },
   {
     title: "% of Health",
+    color: "#fc8d59",
     stats: [
       { label: "Avg Response", value: "4.5 min" },
       { label: "Total Incidents", value: "234" },
@@ -79,6 +82,7 @@ const incidentTypes = [
   },
   {
     title: "Medical",
+    color: "#fdbb84",
     stats: [
       { label: "Avg Response", value: "3.8 min" },
       { label: "Total Incidents", value: "178" },
@@ -96,11 +100,11 @@ const incidentTypes = [
 
 // Defect Type Distribution pie data
 const defectTypeData = [
-  { name: "Potholes", value: 35, fill: "#3b82f6" },
-  { name: "Cracks", value: 25, fill: "#f59e0b" },
-  { name: "Surface Wear", value: 20, fill: "#10b981" },
-  { name: "Drainage", value: 12, fill: "#ef4444" },
-  { name: "Signage", value: 8, fill: "#8b5cf6" },
+  { name: "Potholes", value: 35, fill: "#b30000" },
+  { name: "Cracks", value: 25, fill: "#d7301f" },
+  { name: "Surface Wear", value: 20, fill: "#ef6548" },
+  { name: "Drainage", value: 12, fill: "#fc8d59" },
+  { name: "Signage", value: 8, fill: "#fdbb84" },
 ]
 
 // Defects by Location stacked bar chart data
@@ -124,17 +128,17 @@ const defectReports = [
 
 // Severity summary
 const severitySummary = [
-  { label: "Critical", count: 3, bgColor: "bg-red-950", borderColor: "border-red-900", textColor: "text-red-400" },
-  { label: "High Priority", count: 7, bgColor: "bg-orange-950", borderColor: "border-orange-900", textColor: "text-orange-400" },
-  { label: "Medium", count: 12, bgColor: "bg-yellow-950", borderColor: "border-yellow-900", textColor: "text-yellow-400" },
-  { label: "Low Priority", count: 8, bgColor: "bg-green-950", borderColor: "border-green-900", textColor: "text-green-400" },
+  { label: "Critical", count: 3, textColor: "text-red-400" },
+  { label: "High Priority", count: 7, textColor: "text-orange-400" },
+  { label: "Medium", count: 12, textColor: "text-yellow-400" },
+  { label: "Low Priority", count: 8, textColor: "text-green-400" },
 ]
 
 const severityColors = {
-  Critical: "text-red-400 bg-red-950 border-red-800",
-  High: "text-orange-400 bg-orange-950 border-orange-800",
-  Medium: "text-yellow-400 bg-yellow-950 border-yellow-800",
-  Low: "text-green-400 bg-green-950 border-green-800",
+  Critical: "text-red-400 bg-[#1e1f25] border-red-800",
+  High: "text-orange-400 bg-[#1e1f25] border-orange-800",
+  Medium: "text-yellow-400 bg-[#1e1f25] border-yellow-800",
+  Low: "text-green-400 bg-[#1e1f25] border-green-800",
 }
 
 const statusColors = {
@@ -147,7 +151,7 @@ export function AnalyticsIncidents() {
   return (
     <div className="space-y-6">
       {/* Incident Response Time Analysis */}
-      <Card className="bg-[#1e1f25] border-neutral-800">
+      <Card className="bg-black-900 border-neutral-800 shadow-[0_4px_6px_rgba(255,255,255,0.3)]">
         <CardHeader>
           <CardTitle className="text-neutral-100 text-lg">Incident Response Time Analysis</CardTitle>
         </CardHeader>
@@ -162,7 +166,12 @@ export function AnalyticsIncidents() {
                 <YAxis stroke="#8a8a8a" fontSize={12} tickLine={false} axisLine={false} />
                 <ChartTooltip content={<ChartTooltipContent />} />
                 <ChartLegend content={<ChartLegendContent />} />
-                <Bar dataKey="count" fill="var(--color-count)" radius={[4, 4, 0, 0]} barSize={60} />
+                <Bar dataKey="count" radius={[4, 4, 0, 0]} barSize={60}>
+                  {responseTimeData.map((entry, index) => {
+                    const colors = ["#ff6b6b", "#ff5252", "#f44336", "#e53935", "#d32f2f", "#c62828", "#b71c1c"];
+                    return <Cell key={`cell-${index}`} fill={colors[index]} />;
+                  })}
+                </Bar>
               </BarChart>
             </ChartContainer>
           </div>
@@ -172,7 +181,7 @@ export function AnalyticsIncidents() {
             <h3 className="text-neutral-300 text-sm font-medium mb-4">Response Time by Incident Type</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               {incidentTypes.map((type) => (
-                <div key={type.title} className="bg-[#2a2b30] rounded-lg border border-[#3a3b40] p-4">
+                <div key={type.title} className="bg-black-900 rounded-lg border border-neutral-800 shadow-[0_4px_6px_rgba(255,255,255,0.3)] p-4">
                   <h4 className="text-neutral-200 text-sm font-medium mb-3">{type.title}</h4>
                   <div className="space-y-2 mb-4">
                     {type.stats.map((stat) => (
@@ -187,7 +196,7 @@ export function AnalyticsIncidents() {
                       <BarChart data={type.chartData}>
                         <XAxis dataKey="month" stroke="#8a8a8a" fontSize={10} tickLine={false} axisLine={false} />
                         <YAxis hide />
-                        <Bar dataKey="value" fill="#3b82f6" radius={[3, 3, 0, 0]} barSize={20} />
+                        <Bar dataKey="value" fill={type.color} radius={[3, 3, 0, 0]} barSize={20} />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
@@ -199,7 +208,7 @@ export function AnalyticsIncidents() {
       </Card>
 
       {/* Road Defects Overview */}
-      <Card className="bg-[#1e1f25] border-neutral-800">
+      <Card className="bg-black-900 border-neutral-800 shadow-[0_4px_6px_rgba(255,255,255,0.3)]">
         <CardHeader>
           <CardTitle className="text-neutral-100 text-lg">Road Defects Overview</CardTitle>
         </CardHeader>
@@ -253,11 +262,11 @@ export function AnalyticsIncidents() {
                     <Legend
                       formatter={(value) => <span className="text-neutral-400 text-xs capitalize">{value}</span>}
                     />
-                    <Bar dataKey="potholes" stackId="a" fill="#3b82f6" />
-                    <Bar dataKey="cracks" stackId="a" fill="#f59e0b" />
-                    <Bar dataKey="surface" stackId="a" fill="#10b981" />
-                    <Bar dataKey="drainage" stackId="a" fill="#ef4444" />
-                    <Bar dataKey="signage" stackId="a" fill="#8b5cf6" radius={[0, 4, 4, 0]} />
+                    <Bar dataKey="potholes" stackId="a" fill="#b30000" />
+                    <Bar dataKey="cracks" stackId="a" fill="#d7301f" />
+                    <Bar dataKey="surface" stackId="a" fill="#ef6548" />
+                    <Bar dataKey="drainage" stackId="a" fill="#fc8d59" />
+                    <Bar dataKey="signage" stackId="a" fill="#fdbb84" radius={[0, 4, 4, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -302,7 +311,7 @@ export function AnalyticsIncidents() {
           {/* Severity Summary Cards */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {severitySummary.map((item) => (
-              <div key={item.label} className={`${item.bgColor} border ${item.borderColor} rounded-lg p-4`}>
+              <div key={item.label} className="bg-black-900 border border-neutral-800 shadow-[0_4px_6px_rgba(255,255,255,0.3)] rounded-lg p-4">
                 <p className={`text-sm ${item.textColor}`}>{item.label}</p>
                 <p className="text-2xl font-bold text-neutral-100 mt-1">{item.count}</p>
               </div>

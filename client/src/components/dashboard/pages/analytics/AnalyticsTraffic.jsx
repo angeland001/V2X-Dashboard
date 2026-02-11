@@ -4,28 +4,24 @@ import KeplerGL from "@kepler.gl/components"
 import { addDataToMap, wrapTo } from "@kepler.gl/actions"
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, LineChart, Line, Legend, RadialBarChart, RadialBar
+  PieChart, Pie, Cell, 
 } from "recharts"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/shadcn/card"
-import {
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-} from "@/components/ui/shadcn/chart"
+
 
 // Stat card data
 const statCards = [
-  { title: "Real Time Users", value: "60.7k", change: "+125%", positive: true },
-  { title: "Total Visits", value: "40.2k", change: "+125%", positive: true },
+  { title: "Real Time Users", value: "60.7k", change: "+60%", positive: true },
+  { title: "Total Visits", value: "40.2k", change: "+20%", positive: true },
   { title: "Visit Duration", value: "36h 52m", change: "+125%", positive: true },
 ]
 
 // Views donut chart data
 const viewsData = [
-  { name: "Pakistan", value: 45, fill: "#ff8787" },
-  { name: "China", value: 30, fill: "#f8c4b4" },
-  { name: "Canada", value: 15, fill: "#e5ebb2" },
-  { name: "America", value: 10, fill: "#bce29e" },
+  { name: "East Brainerd", value: 45, fill: "#B21A01" },
+  { name: "Downtown", value: 30, fill: "#F36315" },
+  { name: "UTC", value: 15, fill: "#F4C73A" },
+  { name: "Hixson", value: 10, fill: "#F3E55D" },
 ]
 
 // Traffic channel bar chart data
@@ -41,9 +37,9 @@ const trafficChannelData = [
 
 // Device views data
 const deviceViewsData = [
-  { name: "Mobile", value: 55, fill: "#ff8787" },
-  { name: "Web App", value: 30, fill: "#e5ebb2" },
-  { name: "Tablet", value: 15, fill: "#bce29e" },
+  { name: "Mobile", value: 55, fill: "#b45309" },
+  { name: "Web App", value: 30, fill: "#d97706" },
+  { name: "Tablet", value: 15, fill: "#f59e0b" },
 ]
 
 // Viewers age data
@@ -56,18 +52,7 @@ const viewersAgeData = [
   { age: "55+", viewers: 35 },
 ]
 
-// Engagement data
-const engagementData = [
-  { platform: "Google", value: "134k" },
-  { platform: "Facebook", value: "130k" },
-  { platform: "Instagram", value: "120k" },
-  { platform: "Snapchat", value: "118k" },
-  { platform: "Tiktok", value: "115k" },
-  { platform: "Youtube", value: "107k" },
-  { platform: "WhatsApp", value: "089k" },
-]
 
-const API_URL = process.env.REACT_APP_API_URL || "http://localhost:3001";
 
 export function AnalyticsTraffic() {
   const dispatch = useDispatch();
@@ -122,7 +107,7 @@ export function AnalyticsTraffic() {
       {/* Stat Cards Row */}
       <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-4">
         {statCards.map((stat) => (
-          <Card key={stat.title} className="bg-[#1e1f25] border-neutral-800">
+          <Card key={stat.title} className="bg-black-900 border-neutral-800 shadow-[0_4px_6px_rgba(255,255,255,0.3)]">
             <CardContent className="p-5">
               <div className="flex items-center justify-between mb-2">
                 <p className="text-sm text-neutral-400">{stat.title}</p>
@@ -139,7 +124,7 @@ export function AnalyticsTraffic() {
         ))}
 
         {/* Views Donut Card */}
-        <Card className="bg-[#1e1f25] border-neutral-800 row-span-2">
+        <Card className="bg-black-900 border-neutral-800 shadow-[0_4px_6px_rgba(255,255,255,0.3)] row-span-2">
           <CardContent className="p-5">
             <div className="flex items-center justify-between mb-2">
               <p className="text-sm text-neutral-400">Views</p>
@@ -184,7 +169,7 @@ export function AnalyticsTraffic() {
       {/* Traffic Channel & Maps Row */}
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Traffic Channel Bar Chart */}
-        <Card className="bg-[#1e1f25] border-neutral-800 lg:col-span-2">
+        <Card className="bg-black-900 border-neutral-800 shadow-[0_4px_6px_rgba(255,255,255,0.3)] lg:col-span-2">
           <CardHeader className="pb-2">
             <CardTitle className="text-neutral-100 text-base">Traffic Channel</CardTitle>
             <div className="flex gap-4 mt-2">
@@ -206,9 +191,9 @@ export function AnalyticsTraffic() {
                     contentStyle={{ backgroundColor: "#1e1f25", border: "1px solid #3a3b40", borderRadius: "8px" }}
                     itemStyle={{ color: "#e9e9e9" }}
                   />
-                  <Bar dataKey="hotline" fill="#f8c4b4" radius={[10, 10, 10, 10]} barSize={35} />
-                  <Bar dataKey="balance" fill="#e5ebb2" radius={[10, 10, 10, 10]} barSize={35} />
-                  <Bar dataKey="total" fill="#ff8787" radius={[10, 10, 10, 10]} barSize={35} />
+                  <Bar dataKey="hotline" fill="#fcd34d" radius={[10, 10, 10, 10]} barSize={35} />
+                  <Bar dataKey="balance" fill="#fbbf24" radius={[10, 10, 10, 10]} barSize={35} />
+                  <Bar dataKey="total" fill="#f59e0b" radius={[10, 10, 10, 10]} barSize={35} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -218,7 +203,7 @@ export function AnalyticsTraffic() {
         {/* Side Column - Devices & Viewers */}
         <div className="space-y-4">
           {/* Views From Devices */}
-          <Card className="bg-[#1e1f25] border-neutral-800">
+          <Card className="bg-black-900 border-neutral-800 shadow-[0_4px_6px_rgba(255,255,255,0.3)]">
             <CardContent className="p-5">
               <p className="text-sm font-medium text-neutral-100 mb-3">Views From Devices</p>
               <div className="flex items-center gap-2 mb-3">
@@ -242,9 +227,9 @@ export function AnalyticsTraffic() {
           </Card>
 
           {/* Viewers Age Distribution */}
-          <Card className="bg-[#1e1f25] border-neutral-800">
+          <Card className="bg-black-900 border-neutral-800 shadow-[0_4px_6px_rgba(255,255,255,0.3)]">
             <CardContent className="p-5">
-              <p className="text-sm font-medium text-neutral-100 mb-3">Viewers</p>
+              <p className="text-sm font-medium text-neutral-100 mb-3">Viewers Age Distribution</p>
               <div className="h-[160px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={viewersAgeData} barGap={4}>
@@ -256,7 +241,7 @@ export function AnalyticsTraffic() {
                     />
                     <Bar dataKey="viewers" radius={[10, 10, 10, 10]} barSize={14}>
                       {viewersAgeData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={index % 2 === 0 ? "#f8c4b4" : "#e5ebb2"} />
+                        <Cell key={`cell-${index}`} fill={index % 2 === 0 ? "#fbbf24" : "#f59e0b"} />
                       ))}
                     </Bar>
                   </BarChart>
@@ -268,7 +253,7 @@ export function AnalyticsTraffic() {
       </div>
 
       {/* Kepler Map */}
-      <Card className="bg-[#1e1f25] border-neutral-800">
+      <Card className="bg-black-900 border-neutral-800 shadow-[0_4px_6px_rgba(255,255,255,0.3)]">
         <CardHeader className="pb-2">
           <CardTitle className="text-neutral-100 text-base">Peak Traffic Hours</CardTitle>
         </CardHeader>
@@ -284,22 +269,7 @@ export function AnalyticsTraffic() {
         </CardContent>
       </Card>
 
-      {/* Engagements Row */}
-      <Card className="bg-[#1e1f25] border-neutral-800">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-neutral-100 text-base">Engagements</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-7 gap-4">
-            {engagementData.map((item) => (
-              <div key={item.platform} className="text-center">
-                <p className="text-lg font-semibold text-neutral-100">{item.value}</p>
-                <p className="text-xs text-neutral-500 mt-1">{item.platform}</p>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+      
     </div>
   )
 }
