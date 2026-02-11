@@ -1,8 +1,7 @@
 import React from "react"
 import {
   RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
-  ResponsiveContainer, Legend, Tooltip,
-  BarChart, Bar, XAxis, YAxis, CartesianGrid
+  
 } from "recharts"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/shadcn/card"
 import {
@@ -26,15 +25,15 @@ const radarData = [
 const radarConfig = {
   industrial: {
     label: "Industrial Zone",
-    color: "#8b5cf6",
+    color: "#525252",
   },
   downtown: {
     label: "Downtown",
-    color: "#ef4444",
+    color: "#737373",
   },
   suburban: {
     label: "Suburban",
-    color: "#06b6d4",
+    color: "#969696",
   },
 }
 
@@ -43,51 +42,51 @@ const environmentalMetrics = [
   {
     title: "Emissions",
     data: [
-      { name: "CO2 Output", value: 78, fill: "#ef4444" },
-      { name: "NOx Levels", value: 62, fill: "#f59e0b" },
-      { name: "PM2.5", value: 45, fill: "#10b981" },
-      { name: "SO2", value: 30, fill: "#8b5cf6" },
-      { name: "VOC", value: 55, fill: "#ffffff" },
+      { name: "CO2 Output", value: 78, fill: "#252525" },
+      { name: "NOx Levels", value: 62, fill: "#525252" },
+      { name: "PM2.5", value: 45, fill: "#737373" },
+      { name: "SO2", value: 30, fill: "#969696" },
+      { name: "VOC", value: 55, fill: "#bdbdbd" },
     ],
   },
   {
     title: "Automation",
     data: [
-      { name: "Smart Signals", value: 85, fill: "#ef4444" },
-      { name: "EV Stations", value: 60, fill: "#f59e0b" },
-      { name: "Solar Panels", value: 72, fill: "#10b981" },
-      { name: "Wind Power", value: 40, fill: "#8b5cf6" },
-      { name: "Grid Sync", value: 68, fill: "#ffffff" },
+      { name: "Smart Signals", value: 85, fill: "#252525" },
+      { name: "EV Stations", value: 60, fill: "#525252" },
+      { name: "Solar Panels", value: 72, fill: "#737373" },
+      { name: "Wind Power", value: 40, fill: "#969696" },
+      { name: "Grid Sync", value: 68, fill: "#bdbdbd" },
     ],
   },
   {
     title: "CO2 Emissions",
     data: [
-      { name: "Transport", value: 90, fill: "#ef4444" },
-      { name: "Industrial", value: 75, fill: "#f59e0b" },
-      { name: "Commercial", value: 55, fill: "#10b981" },
-      { name: "Residential", value: 35, fill: "#8b5cf6" },
-      { name: "Agriculture", value: 20, fill: "#ffffff" },
+      { name: "Transport", value: 90, fill: "#252525" },
+      { name: "Industrial", value: 75, fill: "#525252" },
+      { name: "Commercial", value: 55, fill: "#737373" },
+      { name: "Residential", value: 35, fill: "#969696" },
+      { name: "Agriculture", value: 20, fill: "#bdbdbd" },
     ],
   },
   {
     title: "OSHA Violations",
     data: [
-      { name: "Zone A", value: 15, fill: "#ef4444" },
-      { name: "Zone B", value: 25, fill: "#f59e0b" },
-      { name: "Zone C", value: 10, fill: "#10b981" },
-      { name: "Zone D", value: 35, fill: "#8b5cf6" },
-      { name: "Zone E", value: 20, fill: "#ffffff" },
+      { name: "Zone A", value: 15, fill: "#252525" },
+      { name: "Zone B", value: 25, fill: "#525252" },
+      { name: "Zone C", value: 10, fill: "#737373" },
+      { name: "Zone D", value: 35, fill: "#969696" },
+      { name: "Zone E", value: 20, fill: "#bdbdbd" },
     ],
   },
   {
     title: "OSHA Emission",
     data: [
-      { name: "Category 1", value: 65, fill: "#ef4444" },
-      { name: "Category 2", value: 50, fill: "#f59e0b" },
-      { name: "Category 3", value: 80, fill: "#10b981" },
-      { name: "Category 4", value: 40, fill: "#8b5cf6" },
-      { name: "Category 5", value: 55, fill: "#ffffff" },
+      { name: "Category 1", value: 65, fill: "#252525" },
+      { name: "Category 2", value: 50, fill: "#525252" },
+      { name: "Category 3", value: 80, fill: "#737373" },
+      { name: "Category 4", value: 40, fill: "#969696" },
+      { name: "Category 5", value: 55, fill: "#bdbdbd" },
     ],
   },
 ]

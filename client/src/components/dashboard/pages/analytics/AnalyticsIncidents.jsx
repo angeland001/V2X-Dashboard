@@ -1,16 +1,24 @@
-import React from "react"
+import React, { useState, useMemo } from "react"
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, Legend
+  PieChart, Pie, Cell, Legend, Label, Sector, LabelList
 } from "recharts"
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/shadcn/card"
+import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/shadcn/card"
 import {
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
   ChartLegend,
   ChartLegendContent,
+  ChartStyle,
 } from "@/components/ui/shadcn/chart"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/shadcn/select"
 
 // Response Time Distribution
 const responseTimeData = [
@@ -26,7 +34,42 @@ const responseTimeData = [
 const responseTimeConfig = {
   count: {
     label: "Incident Count",
-    color: "#fc8d59",
+    color: "#737373",
+  },
+}
+
+// Interactive chart data for Road Defects
+const interactiveDefectData = [
+  { type: "potholes", defects: 275, fill: "var(--color-potholes)" },
+  { type: "cracks", defects: 200, fill: "var(--color-cracks)" },
+  { type: "surface", defects: 187, fill: "var(--color-surface)" },
+  { type: "drainage", defects: 173, fill: "var(--color-drainage)" },
+  { type: "signage", defects: 90, fill: "var(--color-signage)" },
+]
+
+const interactiveDefectConfig = {
+  defects: {
+    label: "Defects",
+  },
+  potholes: {
+    label: "Potholes",
+    color: "#252525",
+  },
+  cracks: {
+    label: "Cracks",
+    color: "#525252",
+  },
+  surface: {
+    label: "Surface Wear",
+    color: "#737373",
+  },
+  drainage: {
+    label: "Drainage",
+    color: "#969696",
+  },
+  signage: {
+    label: "Signage",
+    color: "#bdbdbd",
   },
 }
 
@@ -34,7 +77,7 @@ const responseTimeConfig = {
 const incidentTypes = [
   {
     title: "Accident",
-    color: "#b30000",
+    color: "#525252",
     stats: [
       { label: "Avg Response", value: "6.2 min" },
       { label: "Total Incidents", value: "156" },
@@ -50,7 +93,7 @@ const incidentTypes = [
   },
   {
     title: "Water Issues",
-    color: "#d7301f",
+    color: "#737373",
     stats: [
       { label: "Avg Response", value: "8.1 min" },
       { label: "Total Incidents", value: "89" },
@@ -66,7 +109,7 @@ const incidentTypes = [
   },
   {
     title: "% of Health",
-    color: "#fc8d59",
+    color: "#969696",
     stats: [
       { label: "Avg Response", value: "4.5 min" },
       { label: "Total Incidents", value: "234" },
@@ -82,7 +125,7 @@ const incidentTypes = [
   },
   {
     title: "Medical",
-    color: "#fdbb84",
+    color: "#bdbdbd",
     stats: [
       { label: "Avg Response", value: "3.8 min" },
       { label: "Total Incidents", value: "178" },
@@ -148,6 +191,15 @@ const statusColors = {
 }
 
 export function AnalyticsIncidents() {
+  const id = "defect-interactive"
+  const [activeDefect, setActiveDefect] = useState(interactiveDefectData[0].type)
+
+  const activeIndex = useMemo(
+    () => interactiveDefectData.findIndex((item) => item.type === activeDefect),
+    [activeDefect]
+  )
+  const defectTypes = useMemo(() => interactiveDefectData.map((item) => item.type), [])
+
   return (
     <div className="space-y-6">
       {/* Incident Response Time Analysis */}
@@ -168,7 +220,7 @@ export function AnalyticsIncidents() {
                 <ChartLegend content={<ChartLegendContent />} />
                 <Bar dataKey="count" radius={[4, 4, 0, 0]} barSize={60}>
                   {responseTimeData.map((entry, index) => {
-                    const colors = ["#ff6b6b", "#ff5252", "#f44336", "#e53935", "#d32f2f", "#c62828", "#b71c1c"];
+                    const colors = ["#d9d9d9", "#bdbdbd", "#969696", "#737373", "#525252", "#252525", "#000000"];
                     return <Cell key={`cell-${index}`} fill={colors[index]} />;
                   })}
                 </Bar>
@@ -208,68 +260,181 @@ export function AnalyticsIncidents() {
       </Card>
 
       {/* Road Defects Overview */}
-      <Card className="bg-black-900 border-neutral-800 shadow-[0_4px_6px_rgba(255,255,255,0.3)]">
+      <Card data-chart={id} className="bg-black-900 border-neutral-800 shadow-[0_4px_6px_rgba(255,255,255,0.3)]">
+        <ChartStyle id={id} config={interactiveDefectConfig} />
         <CardHeader>
-          <CardTitle className="text-neutral-100 text-lg">Road Defects Overview</CardTitle>
+          <div className="flex items-start justify-between">
+            <div>
+              <CardTitle className="text-neutral-100 text-lg">Road Defects Overview</CardTitle>
+              <CardDescription className="text-neutral-500 text-sm mt-1">Interactive Defect Analysis</CardDescription>
+            </div>
+            <Select value={activeDefect} onValueChange={setActiveDefect}>
+              <SelectTrigger
+                className="ml-auto h-7 w-[150px] rounded-lg pl-2.5 bg-[#2a2b30] border-neutral-700"
+                aria-label="Select a defect type"
+              >
+                <SelectValue placeholder="Select type" />
+              </SelectTrigger>
+              <SelectContent align="end" className="rounded-xl bg-[#2a2b30] border-neutral-700">
+                {defectTypes.map((key) => {
+                  const config = interactiveDefectConfig[key]
+
+                  if (!config) {
+                    return null
+                  }
+
+                  return (
+                    <SelectItem
+                      key={key}
+                      value={key}
+                      className="rounded-lg [&_span]:flex text-neutral-200"
+                    >
+                      <div className="flex items-center gap-2 text-xs">
+                        <span
+                          className="flex h-3 w-3 shrink-0 rounded-xs"
+                          style={{
+                            backgroundColor: `var(--color-${key})`,
+                          }}
+                        />
+                        {config?.label}
+                      </div>
+                    </SelectItem>
+                  )
+                })}
+              </SelectContent>
+            </Select>
+          </div>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Charts Row */}
+          {/* Interactive Charts Row */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Defect Type Pie Chart */}
-            <div>
+            {/* Interactive Pie Chart */}
+            <div className="flex flex-col">
               <h3 className="text-neutral-300 text-sm font-medium mb-4">Defect Type Distribution</h3>
-              <div className="h-[280px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={defectTypeData}
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={100}
-                      dataKey="value"
-                      stroke="none"
-                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                    >
-                      {defectTypeData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.fill} />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      contentStyle={{ backgroundColor: "#1e1f25", border: "1px solid #3a3b40", borderRadius: "8px" }}
-                      itemStyle={{ color: "#e9e9e9" }}
+              <ChartContainer
+                id={id}
+                config={interactiveDefectConfig}
+                className="mx-auto aspect-square w-full max-w-[300px]"
+              >
+                <PieChart>
+                  <ChartTooltip
+                    cursor={false}
+                    content={<ChartTooltipContent hideLabel />}
+                  />
+                  <Pie
+                    data={interactiveDefectData}
+                    dataKey="defects"
+                    nameKey="type"
+                    innerRadius={60}
+                    strokeWidth={5}
+                    activeIndex={activeIndex}
+                    activeShape={({
+                      outerRadius = 0,
+                      ...props
+                    }) => (
+                      <g>
+                        <Sector {...props} outerRadius={outerRadius + 10} />
+                        <Sector
+                          {...props}
+                          outerRadius={outerRadius + 25}
+                          innerRadius={outerRadius + 12}
+                        />
+                      </g>
+                    )}
+                  >
+                    <Label
+                      content={({ viewBox }) => {
+                        if (viewBox && "cx" in viewBox && "cy" in viewBox) {
+                          return (
+                            <text
+                              x={viewBox.cx}
+                              y={viewBox.cy}
+                              textAnchor="middle"
+                              dominantBaseline="middle"
+                            >
+                              <tspan
+                                x={viewBox.cx}
+                                y={viewBox.cy}
+                                className="fill-neutral-100 text-3xl font-bold"
+                              >
+                                {interactiveDefectData[activeIndex].defects.toLocaleString()}
+                              </tspan>
+                              <tspan
+                                x={viewBox.cx}
+                                y={(viewBox.cy || 0) + 24}
+                                className="fill-neutral-400"
+                              >
+                                Defects
+                              </tspan>
+                            </text>
+                          )
+                        }
+                      }}
                     />
-                    <Legend
-                      formatter={(value) => <span className="text-neutral-400 text-xs">{value}</span>}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
+                  </Pie>
+                </PieChart>
+              </ChartContainer>
             </div>
 
-            {/* Defects by Location Stacked Bar */}
-            <div>
-              <h3 className="text-neutral-300 text-sm font-medium mb-4">Defects by Location</h3>
-              <div className="h-[280px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={defectsByLocation} layout="vertical">
-                    <CartesianGrid strokeDasharray="3 3" stroke="#303030" horizontal={false} />
-                    <XAxis type="number" stroke="#8a8a8a" fontSize={12} tickLine={false} axisLine={false} />
-                    <YAxis dataKey="location" type="category" stroke="#8a8a8a" fontSize={11} tickLine={false} axisLine={false} width={80} />
-                    <Tooltip
-                      contentStyle={{ backgroundColor: "#1e1f25", border: "1px solid #3a3b40", borderRadius: "8px" }}
-                      itemStyle={{ color: "#e9e9e9" }}
+            {/* Interactive Bar Chart */}
+            <div className="flex flex-col">
+              <h3 className="text-neutral-300 text-sm font-medium mb-4">Defect Breakdown</h3>
+              <ChartContainer config={interactiveDefectConfig} className="h-[300px] w-full">
+                <BarChart
+                  data={interactiveDefectData}
+                  layout="vertical"
+                  margin={{
+                    right: 16,
+                  }}
+                >
+                  <CartesianGrid horizontal={false} stroke="#303030" />
+                  <YAxis
+                    dataKey="type"
+                    type="category"
+                    tickLine={false}
+                    tickMargin={10}
+                    axisLine={false}
+                    tickFormatter={(value) => interactiveDefectConfig[value]?.label || value}
+                    hide
+                  />
+                  <XAxis dataKey="defects" type="number" hide />
+                  <ChartTooltip
+                    cursor={false}
+                    content={<ChartTooltipContent indicator="line" />}
+                  />
+                  <Bar
+                    dataKey="defects"
+                    layout="vertical"
+                    radius={4}
+                  >
+                    {interactiveDefectData.map((entry, index) => (
+                      <Cell 
+                        key={`cell-${index}`} 
+                        fill={entry.fill}
+                        opacity={index === activeIndex ? 1 : 0.6}
+                        style={{
+                          filter: index === activeIndex ? 'none' : 'brightness(0.7) saturate(0.5)',
+                        }}
+                      />
+                    ))}
+                    <LabelList
+                      dataKey="type"
+                      position="insideLeft"
+                      offset={8}
+                      className="fill-white"
+                      fontSize={12}
+                      formatter={(value) => interactiveDefectConfig[value]?.label || value}
                     />
-                    <Legend
-                      formatter={(value) => <span className="text-neutral-400 text-xs capitalize">{value}</span>}
+                    <LabelList
+                      dataKey="defects"
+                      position="right"
+                      offset={8}
+                      className="fill-neutral-100"
+                      fontSize={12}
                     />
-                    <Bar dataKey="potholes" stackId="a" fill="#b30000" />
-                    <Bar dataKey="cracks" stackId="a" fill="#d7301f" />
-                    <Bar dataKey="surface" stackId="a" fill="#ef6548" />
-                    <Bar dataKey="drainage" stackId="a" fill="#fc8d59" />
-                    <Bar dataKey="signage" stackId="a" fill="#fdbb84" radius={[0, 4, 4, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
+                  </Bar>
+                </BarChart>
+              </ChartContainer>
             </div>
           </div>
 

@@ -4,54 +4,147 @@ import KeplerGL from "@kepler.gl/components"
 import { addDataToMap, wrapTo } from "@kepler.gl/actions"
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, 
+  PieChart, Pie, Cell, Area, AreaChart, RadialBarChart, RadialBar, PolarGrid,
 } from "recharts"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/shadcn/card"
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  ChartLegend,
+  ChartLegendContent,
+} from "@/components/ui/shadcn/chart"
 
 
-// Stat card data
+
+// Stat card data with chart data
 const statCards = [
-  { title: "Real Time Users", value: "60.7k", change: "+60%", positive: true },
-  { title: "Total Visits", value: "40.2k", change: "+20%", positive: true },
-  { title: "Visit Duration", value: "36h 52m", change: "+125%", positive: true },
+  { 
+    title: "Real Time Users", 
+    value: "843", 
+    change: "+60%", 
+    positive: true,
+    chartData: [
+      { month: "Jan", value: 45 },
+      { month: "Feb", value: 52 },
+      { month: "Mar", value: 348 },
+      { month: "Apr", value: 355 },
+      { month: "May", value: 458 },
+      { month: "Jun", value: 861 },
+    ]
+  },
+  { 
+    title: "Total Visits", 
+    value: "40.2k", 
+    change: "+20%", 
+    positive: true,
+    chartData: [
+      { month: "Jan", value: 4535 },
+      { month: "Feb", value: 4256 },
+      { month: "Mar", value: 13437 },
+      { month: "Apr", value: 28308 },
+      { month: "May", value: 31009 },
+      { month: "Jun", value: 40020 },
+    ]
+  },
+  { 
+    title: "Visit Duration", 
+    value: "36h 52m", 
+    change: "+125%", 
+    positive: true,
+    chartData: [
+      { month: "Jan", value: 18 },
+      { month: "Feb", value: 22 },
+      { month: "Mar", value: 25 },
+      { month: "Apr", value: 30 },
+      { month: "May", value: 33 },
+      { month: "Jun", value: 37 },
+    ]
+  },
 ]
 
-// Views donut chart data
+// Chart config for stat cards
+const statChartConfig = {
+  value: {
+    label: "Value",
+    color: "#969696",
+  },
+}
+
+// Views radial chart data
 const viewsData = [
-  { name: "East Brainerd", value: 45, fill: "#B21A01" },
-  { name: "Downtown", value: 30, fill: "#F36315" },
-  { name: "UTC", value: 15, fill: "#F4C73A" },
-  { name: "Hixson", value: 10, fill: "#F3E55D" },
+  { location: "East Brainerd", visitors: 275, fill: "#252525" },
+  { location: "Downtown", visitors: 200, fill: "#525252" },
+  { location: "UTC", visitors: 187, fill: "#737373" },
+  { location: "Hixson", visitors: 173, fill: "#969696" },
 ]
+
+const viewsChartConfig = {
+  visitors: {
+    label: "Visitors",
+  },
+  "East Brainerd": {
+    label: "East Brainerd",
+    color: "#252525",
+  },
+  "Downtown": {
+    label: "Downtown",
+    color: "#525252",
+  },
+  "UTC": {
+    label: "UTC",
+    color: "#737373",
+  },
+  "Hixson": {
+    label: "Hixson",
+    color: "#969696",
+  },
+}
 
 // Traffic channel bar chart data
 const trafficChannelData = [
-  { day: "Mon", hotline: 20000, balance: 12000, total: 8000 },
-  { day: "Tue", hotline: 25000, balance: 18000, total: 14000 },
-  { day: "Wed", hotline: 28000, balance: 22000, total: 18000 },
-  { day: "Thu", hotline: 15000, balance: 10000, total: 6000 },
-  { day: "Fri", hotline: 22000, balance: 15000, total: 10000 },
-  { day: "Sat", hotline: 18000, balance: 12000, total: 8000 },
-  { day: "Sun", hotline: 12000, balance: 8000, total: 5000 },
+  { month: "January", desktop: 186 },
+  { month: "February", desktop: 305 },
+  { month: "March", desktop: 237 },
+  { month: "April", desktop: 73 },
+  { month: "May", desktop: 209 },
+  { month: "June", desktop: 214 },
 ]
+
+const trafficChannelConfig = {
+  desktop: {
+    label: "Desktop",
+    color: "#737373",
+  },
+}
 
 // Device views data
 const deviceViewsData = [
-  { name: "Mobile", value: 55, fill: "#b45309" },
-  { name: "Web App", value: 30, fill: "#d97706" },
-  { name: "Tablet", value: 15, fill: "#f59e0b" },
+  { name: "Mobile", value: 55, fill: "#525252" },
+  { name: "Web App", value: 30, fill: "#737373" },
+  { name: "Tablet", value: 15, fill: "#969696" },
 ]
 
-// Viewers age data
+// Viewers age data - stacked
 const viewersAgeData = [
-  { age: "00-18", viewers: 40 },
-  { age: "18-25", viewers: 60 },
-  { age: "26-35", viewers: 75 },
-  { age: "36-45", viewers: 55 },
-  { age: "46-55", viewers: 65 },
-  { age: "55+", viewers: 35 },
+  { age: "00-18", male: 450, female: 300 },
+  { age: "18-25", male: 380, female: 420 },
+  { age: "26-35", male: 520, female: 120 },
+  { age: "36-45", male: 140, female: 550 },
+  { age: "46-55", male: 600, female: 350 },
+  { age: "55+", male: 480, female: 400 },
 ]
 
+const viewersAgeConfig = {
+  male: {
+    label: "Male",
+    color: "#737373",
+  },
+  female: {
+    label: "Female",
+    color: "#bdbdbd",
+  },
+}
 
 
 export function AnalyticsTraffic() {
@@ -107,9 +200,9 @@ export function AnalyticsTraffic() {
       {/* Stat Cards Row */}
       <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-4">
         {statCards.map((stat) => (
-          <Card key={stat.title} className="bg-black-900 border-neutral-800 shadow-[0_4px_6px_rgba(255,255,255,0.3)]">
-            <CardContent className="p-5">
-              <div className="flex items-center justify-between mb-2">
+          <Card key={stat.title} className="bg-black-900 border-neutral-800 shadow-[0_4px_6px_rgba(255,255,255,0.3)] h-[340px] flex flex-col">
+            <CardContent className="p-5 flex-1 flex flex-col">
+              <div className="flex items-center justify-between mb-3">
                 <p className="text-sm text-neutral-400">{stat.title}</p>
                 <span className="text-sm text-[#6dc956] flex items-center gap-1">
                   {stat.change}
@@ -118,47 +211,85 @@ export function AnalyticsTraffic() {
                   </svg>
                 </span>
               </div>
-              <p className="text-2xl font-semibold text-neutral-100 tracking-wide">{stat.value}</p>
+              <p className="text-3xl font-semibold text-neutral-100 tracking-wide mb-4">{stat.value}</p>
+              
+              {/* Mini Area Chart */}
+              <div className="flex-1 -mx-2 mt-2">
+                <ChartContainer config={statChartConfig} className="h-full w-full">
+                  <AreaChart
+                    data={stat.chartData}
+                    margin={{
+                      top: 5,
+                      right: 5,
+                      left: 5,
+                      bottom: 5,
+                    }}
+                  >
+                    <defs>
+                      <linearGradient id={`gradient-${stat.title}`} x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#969696" stopOpacity={0.4} />
+                        <stop offset="100%" stopColor="#969696" stopOpacity={0.05} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#303030" vertical={false} />
+                    <XAxis 
+                      dataKey="month" 
+                      stroke="#8a8a8a" 
+                      fontSize={10} 
+                      tickLine={false} 
+                      axisLine={false}
+                      tickMargin={5}
+                    />
+                    <YAxis 
+                      stroke="#8a8a8a" 
+                      fontSize={10} 
+                      tickLine={false} 
+                      axisLine={false}
+                      width={30}
+                    />
+                    <ChartTooltip
+                      cursor={false}
+                      content={<ChartTooltipContent indicator="line" />}
+                    />
+                    <Area
+                      dataKey="value"
+                      type="natural"
+                      fill={`url(#gradient-${stat.title})`}
+                      stroke="#969696"
+                      strokeWidth={2}
+                    />
+                  </AreaChart>
+                </ChartContainer>
+              </div>
             </CardContent>
           </Card>
         ))}
 
-        {/* Views Donut Card */}
+        {/* Views Radial Card */}
         <Card className="bg-black-900 border-neutral-800 shadow-[0_4px_6px_rgba(255,255,255,0.3)] row-span-2">
           <CardContent className="p-5">
             <div className="flex items-center justify-between mb-2">
               <p className="text-sm text-neutral-400">Views</p>
               <p className="text-xl font-semibold text-neutral-100">174k</p>
             </div>
-            <div className="h-[180px] flex items-center justify-center">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={viewsData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={50}
-                    outerRadius={80}
-                    paddingAngle={2}
-                    dataKey="value"
-                    stroke="none"
-                  >
-                    {viewsData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.fill} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    contentStyle={{ backgroundColor: "#1e1f25", border: "1px solid #3a3b40", borderRadius: "8px" }}
-                    itemStyle={{ color: "#e9e9e9" }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="flex flex-wrap gap-3 mt-2">
+            <ChartContainer
+              config={viewsChartConfig}
+              className="mx-auto aspect-square max-h-[200px]"
+            >
+              <RadialBarChart data={viewsData} innerRadius={30} outerRadius={100}>
+                <ChartTooltip
+                  cursor={false}
+                  content={<ChartTooltipContent hideLabel nameKey="location" />}
+                />
+                <PolarGrid gridType="circle" stroke="#303030" />
+                <RadialBar dataKey="visitors" />
+              </RadialBarChart>
+            </ChartContainer>
+            <div className="flex flex-wrap gap-3 mt-2 justify-center">
               {viewsData.map((item) => (
-                <div key={item.name} className="flex items-center gap-1.5">
+                <div key={item.location} className="flex items-center gap-1.5">
                   <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.fill }} />
-                  <span className="text-xs text-neutral-400">{item.name}</span>
+                  <span className="text-xs text-neutral-400">{item.location}</span>
                 </div>
               ))}
             </div>
@@ -172,31 +303,28 @@ export function AnalyticsTraffic() {
         <Card className="bg-black-900 border-neutral-800 shadow-[0_4px_6px_rgba(255,255,255,0.3)] lg:col-span-2">
           <CardHeader className="pb-2">
             <CardTitle className="text-neutral-100 text-base">Traffic Channel</CardTitle>
-            <div className="flex gap-4 mt-2">
-              {["Hotline", "Balance", "Total", "Weekly"].map((tab) => (
-                <span key={tab} className="text-xs text-neutral-500 hover:text-neutral-300 cursor-pointer">{tab}</span>
-              ))}
-            </div>
+            <p className="text-xs text-neutral-500 mt-1">January - June 2024</p>
           </CardHeader>
           <CardContent>
-            <div className="h-[280px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={trafficChannelData} barGap={4}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#303030" vertical={false} />
-                  <XAxis dataKey="day" stroke="#8a8a8a" fontSize={12} tickLine={false} axisLine={false} />
-                  <YAxis stroke="#8a8a8a" fontSize={12} tickLine={false} axisLine={false}
-                    tickFormatter={(val) => `${val / 1000}k`}
-                  />
-                  <Tooltip
-                    contentStyle={{ backgroundColor: "#1e1f25", border: "1px solid #3a3b40", borderRadius: "8px" }}
-                    itemStyle={{ color: "#e9e9e9" }}
-                  />
-                  <Bar dataKey="hotline" fill="#fcd34d" radius={[10, 10, 10, 10]} barSize={35} />
-                  <Bar dataKey="balance" fill="#fbbf24" radius={[10, 10, 10, 10]} barSize={35} />
-                  <Bar dataKey="total" fill="#f59e0b" radius={[10, 10, 10, 10]} barSize={35} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+            <ChartContainer config={trafficChannelConfig} className="h-[280px] w-full">
+              <BarChart data={trafficChannelData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#303030" vertical={false} />
+                <XAxis
+                  dataKey="month"
+                  stroke="#8a8a8a"
+                  fontSize={12}
+                  tickLine={false}
+                  tickMargin={10}
+                  axisLine={false}
+                  tickFormatter={(value) => value.slice(0, 3)}
+                />
+                <ChartTooltip
+                  cursor={false}
+                  content={<ChartTooltipContent hideLabel />}
+                />
+                <Bar dataKey="desktop" fill="var(--color-desktop)" radius={8} />
+              </BarChart>
+            </ChartContainer>
           </CardContent>
         </Card>
 
@@ -230,23 +358,63 @@ export function AnalyticsTraffic() {
           <Card className="bg-black-900 border-neutral-800 shadow-[0_4px_6px_rgba(255,255,255,0.3)]">
             <CardContent className="p-5">
               <p className="text-sm font-medium text-neutral-100 mb-3">Viewers Age Distribution</p>
-              <div className="h-[160px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={viewersAgeData} barGap={4}>
-                    <XAxis dataKey="age" stroke="#8a8a8a" fontSize={10} tickLine={false} axisLine={false} />
-                    <YAxis hide />
-                    <Tooltip
-                      contentStyle={{ backgroundColor: "#1e1f25", border: "1px solid #3a3b40", borderRadius: "8px" }}
-                      itemStyle={{ color: "#e9e9e9" }}
-                    />
-                    <Bar dataKey="viewers" radius={[10, 10, 10, 10]} barSize={14}>
-                      {viewersAgeData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={index % 2 === 0 ? "#fbbf24" : "#f59e0b"} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
+              <ChartContainer config={viewersAgeConfig} className="h-[180px] w-full">
+                <BarChart data={viewersAgeData}>
+                  <XAxis
+                    dataKey="age"
+                    stroke="#8a8a8a"
+                    fontSize={10}
+                    tickLine={false}
+                    tickMargin={10}
+                    axisLine={false}
+                  />
+                  <Bar
+                    dataKey="male"
+                    stackId="a"
+                    fill="var(--color-male)"
+                    radius={[0, 0, 4, 4]}
+                  />
+                  <Bar
+                    dataKey="female"
+                    stackId="a"
+                    fill="var(--color-female)"
+                    radius={[4, 4, 0, 0]}
+                  />
+                  <ChartTooltip
+                    content={
+                      <ChartTooltipContent
+                        hideLabel
+                        className="w-[180px]"
+                        formatter={(value, name, item, index) => (
+                          <>
+                            <div
+                              className="h-2.5 w-2.5 shrink-0 rounded-[2px]"
+                              style={{
+                                backgroundColor: `var(--color-${name})`,
+                              }}
+                            />
+                            {viewersAgeConfig[name]?.label || name}
+                            <div className="text-foreground ml-auto flex items-baseline gap-0.5 font-mono font-medium tabular-nums">
+                              {value}
+                            </div>
+                            {/* Add total after the last item */}
+                            {index === 1 && (
+                              <div className="text-foreground mt-1.5 flex basis-full items-center border-t pt-1.5 text-xs font-medium">
+                                Total
+                                <div className="text-foreground ml-auto flex items-baseline gap-0.5 font-mono font-medium tabular-nums">
+                                  {item.payload.male + item.payload.female}
+                                </div>
+                              </div>
+                            )}
+                          </>
+                        )}
+                      />
+                    }
+                    cursor={false}
+                    defaultIndex={1}
+                  />
+                </BarChart>
+              </ChartContainer>
             </CardContent>
           </Card>
         </div>

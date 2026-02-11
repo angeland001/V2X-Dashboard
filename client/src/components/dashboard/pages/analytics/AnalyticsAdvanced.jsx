@@ -40,11 +40,11 @@ const heatmapData = [
 
 // Color for heatmap values
 function getHeatColor(value) {
-  if (value >= 80) return { bg: "bg-red-600", text: "text-white" }
-  if (value >= 60) return { bg: "bg-orange-500", text: "text-white" }
-  if (value >= 40) return { bg: "bg-yellow-500", text: "text-neutral-900" }
-  if (value >= 20) return { bg: "bg-blue-500", text: "text-white" }
-  return { bg: "bg-green-500", text: "text-white" }
+  if (value >= 80) return { bg: "bg-[#252525]", text: "text-white" }
+  if (value >= 60) return { bg: "bg-[#525252]", text: "text-white" }
+  if (value >= 40) return { bg: "bg-[#737373]", text: "text-white" }
+  if (value >= 20) return { bg: "bg-[#969696]", text: "text-white" }
+  return { bg: "bg-[#bdbdbd]", text: "text-neutral-900" }
 }
 
 // Comparative Traffic Flow line chart data
@@ -61,25 +61,25 @@ const trafficFlowData = [
 const trafficFlowConfig = {
   weekday: {
     label: "Weekday Average",
-    color: "#bce29e",
+    color: "#525252",
   },
   weekend: {
     label: "Weekend Average",
-    color: "#66cc66",
+    color: "#737373",
   },
   beforeRoadWork: {
     label: "Before Road Work",
-    color: "#ffcc66",
+    color: "#969696",
   },
 }
 
 // Density legend
 const densityLegend = [
-  { label: "Low Traffic", color: "bg-blue-500" },
-  { label: "Moderate Traffic", color: "bg-green-500" },
-  { label: "Medium Traffic", color: "bg-yellow-500" },
-  { label: "Heavy Traffic", color: "bg-orange-500" },
-  { label: "Very Heavy Traffic", color: "bg-red-600" },
+  { label: "Low Traffic", color: "bg-[#d9d9d9]" },
+  { label: "Moderate Traffic", color: "bg-[#bdbdbd]" },
+  { label: "Medium Traffic", color: "bg-[#969696]" },
+  { label: "Heavy Traffic", color: "bg-[#737373]" },
+  { label: "Very Heavy Traffic", color: "bg-[#525252]" },
 ]
 
 export function AnalyticsAdvanced() {

@@ -64,21 +64,21 @@ const maintenanceData = [
 const months = ["Jan 2026", "Feb 2026", "Mar 2026", "Apr 2026"]
 
 const priorityColors = {
-  high: "bg-red-500",
-  medium: "bg-yellow-500",
-  low: "bg-green-500",
+  high: "bg-[#525252]",
+  medium: "bg-[#737373]",
+  low: "bg-[#969696]",
 }
 
 const taskColors = {
-  scheduled: "bg-emerald-500/80",
-  inProgress: "bg-blue-500/80",
-  overdue: "bg-neutral-400/60",
+  scheduled: "bg-[#737373]/80",
+  inProgress: "bg-[#969696]/80",
+  overdue: "bg-[#bdbdbd]/60",
 }
 
 const taskBorderColors = {
-  scheduled: "border-emerald-500",
-  inProgress: "border-blue-500",
-  overdue: "border-neutral-400",
+  scheduled: "border-[#737373]",
+  inProgress: "border-[#969696]",
+  overdue: "border-[#bdbdbd]",
 }
 
 export function AnalyticsMaintenance() {
@@ -143,15 +143,15 @@ export function AnalyticsMaintenance() {
           {/* Legend */}
           <div className="flex items-center justify-center gap-6 mt-6 pt-4 border-t border-neutral-800">
             <div className="flex items-center gap-2">
-              <div className="w-4 h-3 rounded bg-emerald-500/80" />
+              <div className="w-4 h-3 rounded bg-[#737373]/80" />
               <span className="text-sm text-neutral-400">Scheduled</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-4 h-3 rounded bg-blue-500/80" />
+              <div className="w-4 h-3 rounded bg-[#969696]/80" />
               <span className="text-sm text-neutral-400">In Progress</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-4 h-3 rounded bg-neutral-400/60" />
+              <div className="w-4 h-3 rounded bg-[#bdbdbd]/60" />
               <span className="text-sm text-neutral-400">Overdue</span>
             </div>
           </div>
