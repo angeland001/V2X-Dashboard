@@ -1,5 +1,6 @@
 import "mapbox-gl/dist/mapbox-gl.css";
 import React, { useState, useEffect, useCallback, useRef } from "react";
+import { fetchSpatZones, createSpatZone, updateSpatZone, deleteSpatZone } from "../../services/spatZones";
 import { Button } from "../ui/shadcn/button";
 import {
   Select,
@@ -106,6 +107,47 @@ function generateArrowhead(coords, sizeDeg = 0.00002) {
   };
 }
 
+function bboxCenterFromRing(ring) {
+  if (!Array.isArray(ring) || ring.length === 0) return null;
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  ring.forEach((c) => {
+    const x = c?.[0];
+    const y = c?.[1];
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+    minX = Math.min(minX, x);
+    minY = Math.min(minY, y);
+    maxX = Math.max(maxX, x);
+    maxY = Math.max(maxY, y);
+  });
+  if (!Number.isFinite(minX) || !Number.isFinite(minY) || !Number.isFinite(maxX) || !Number.isFinite(maxY)) return null;
+  return [(minX + maxX) / 2, (minY + maxY) / 2];
+}
+
+function coordsNear(a, b, eps = 1e-6) {
+  return (
+    Array.isArray(a) &&
+    Array.isArray(b) &&
+    Math.abs(a[0] - b[0]) <= eps &&
+    Math.abs(a[1] - b[1]) <= eps
+  );
+}
+
+function findEdgeIdForLine(polygonRing, lineCoords) {
+  // Returns the edge index (0..n-2) whose segment matches lineCoords (either direction).
+  if (!Array.isArray(polygonRing) || polygonRing.length < 4) return null;
+  if (!Array.isArray(lineCoords) || lineCoords.length < 2) return null;
+  const a = lineCoords[0];
+  const b = lineCoords[1];
+  for (let i = 0; i < polygonRing.length - 1; i += 1) {
+    const s = polygonRing[i];
+    const e = polygonRing[i + 1];
+    if ((coordsNear(s, a) && coordsNear(e, b)) || (coordsNear(s, b) && coordsNear(e, a))) {
+      return i;
+    }
+  }
+  return null;
+}
+
 // We import mapboxgl from the copy kepler.gl ships so there's no extra install
 let mapboxgl;
 try {
@@ -134,7 +176,7 @@ function GeoFencingMap() {
   const [crosswalks, setCrosswalks] = useState([]);
   const [connections, setConnections] = useState([]);
 
-  // Drawing: null | "lane" | "crosswalk" | "connection"
+  // Drawing: null | "lane" | "crosswalk" | "connection" | "spat-zone"
   const [drawMode, setDrawMode] = useState(null);
   const [drawPoints, setDrawPoints] = useState([]);
   const [connectionFrom, setConnectionFrom] = useState(null);
@@ -156,16 +198,47 @@ function GeoFencingMap() {
   // Toast
   const [message, setMessage] = useState(null);
 
+  // SPaT zones (dashboard-only drawing, app consumes later)
+  const [spatZones, setSpatZones] = useState([]);
+  const [spatEditingId, setSpatEditingId] = useState(null);
+  const [spatDraft, setSpatDraft] = useState({
+    name: "",
+    laneIds: [],
+    signalGroup: "",
+    polygon: null,
+    entryLine: null,
+    exitLine: null,
+    entryEdgeId: null,
+    exitEdgeId: null,
+    status: "active",
+  });
+  const [spatSelectMode, setSpatSelectMode] = useState(null); // "entry" | "exit" | null
+  const [spatLanePickMode, setSpatLanePickMode] = useState(false);
+  const [spatEdges, setSpatEdges] = useState([]);
+  const [spatHoverEdgeId, setSpatHoverEdgeId] = useState(null);
+  const [spatPreviewOpen, setSpatPreviewOpen] = useState(false);
+  const [spatPreviewPayload, setSpatPreviewPayload] = useState(null);
+  const [spatDeleteOpen, setSpatDeleteOpen] = useState(false);
+  const [spatManageOpen, setSpatManageOpen] = useState(false);
+
   // Keep refs in sync for mapbox event handlers
   const drawModeRef = useRef(null);
   const drawPointsRef = useRef([]);
   const activeIntRef = useRef(null);
   const connectionFromRef = useRef(null);
+  const spatSelectModeRef = useRef(null);
+  const spatLanePickModeRef = useRef(false);
+  const spatEntryEdgeIdRef = useRef(null);
+  const spatExitEdgeIdRef = useRef(null);
 
   useEffect(() => { drawModeRef.current = drawMode; }, [drawMode]);
   useEffect(() => { drawPointsRef.current = drawPoints; }, [drawPoints]);
   useEffect(() => { activeIntRef.current = activeIntersection; }, [activeIntersection]);
   useEffect(() => { connectionFromRef.current = connectionFrom; }, [connectionFrom]);
+  useEffect(() => { spatSelectModeRef.current = spatSelectMode; }, [spatSelectMode]);
+  useEffect(() => { spatLanePickModeRef.current = spatLanePickMode; }, [spatLanePickMode]);
+  useEffect(() => { spatEntryEdgeIdRef.current = spatDraft.entryEdgeId; }, [spatDraft.entryEdgeId]);
+  useEffect(() => { spatExitEdgeIdRef.current = spatDraft.exitEdgeId; }, [spatDraft.exitEdgeId]);
 
   const connectionColorRef = useRef("#FF9500");
   useEffect(() => { connectionColorRef.current = connectionColor; }, [connectionColor]);
@@ -214,6 +287,15 @@ function GeoFencingMap() {
     }
   }, []);
 
+  const loadSpatZones = useCallback(async (intId) => {
+    try {
+      const data = await fetchSpatZones(intId);
+      setSpatZones(data);
+    } catch (err) {
+      console.error("Failed to load SPaT zones:", err);
+    }
+  }, []);
+
   useEffect(() => { loadIntersections(); }, [loadIntersections]);
 
   useEffect(() => {
@@ -221,12 +303,41 @@ function GeoFencingMap() {
       loadLanes(activeIntersection.id);
       loadCrosswalks(activeIntersection.id);
       loadConnections(activeIntersection.id);
+      loadSpatZones(activeIntersection.id);
     } else {
       setLanes([]);
       setCrosswalks([]);
       setConnections([]);
+      setSpatZones([]);
     }
-  }, [activeIntersection, loadLanes, loadCrosswalks, loadConnections]);
+  }, [activeIntersection, loadLanes, loadCrosswalks, loadConnections, loadSpatZones]);
+
+  useEffect(() => {
+    const poly = spatDraft.polygon?.coordinates?.[0] || null;
+    if (!poly || poly.length < 4) {
+      setSpatEdges([]);
+      return;
+    }
+
+    const edges = [];
+    for (let i = 0; i < poly.length - 1; i += 1) {
+      const start = poly[i];
+      const end = poly[i + 1];
+      const key =
+        spatDraft.entryEdgeId === i
+          ? "entry"
+          : spatDraft.exitEdgeId === i
+            ? "exit"
+            : "edge";
+      edges.push({
+        type: "Feature",
+        geometry: { type: "LineString", coordinates: [start, end] },
+        properties: { key, edge_id: i },
+      });
+    }
+
+    setSpatEdges(edges);
+  }, [spatDraft.polygon, spatDraft.entryEdgeId, spatDraft.exitEdgeId]);
 
   // Auto-assign colors to connections that don't have one yet
   useEffect(() => {
@@ -290,6 +401,34 @@ function GeoFencingMap() {
         type: "geojson",
         data: { type: "FeatureCollection", features: [] },
       });
+      map.addSource("spat-zones-src", {
+        type: "geojson",
+        data: { type: "FeatureCollection", features: [] },
+      });
+      map.addSource("spat-edges-src", {
+        type: "geojson",
+        data: { type: "FeatureCollection", features: [] },
+      });
+      map.addSource("spat-draft-zone-src", {
+        type: "geojson",
+        data: { type: "FeatureCollection", features: [] },
+      });
+      map.addSource("spat-draft-entry-src", {
+        type: "geojson",
+        data: { type: "FeatureCollection", features: [] },
+      });
+      map.addSource("spat-draft-exit-src", {
+        type: "geojson",
+        data: { type: "FeatureCollection", features: [] },
+      });
+      map.addSource("spat-entry-src", {
+        type: "geojson",
+        data: { type: "FeatureCollection", features: [] },
+      });
+      map.addSource("spat-exit-src", {
+        type: "geojson",
+        data: { type: "FeatureCollection", features: [] },
+      });
 
       // ── Layers ─────────────────────────────────────
       map.addLayer({
@@ -322,6 +461,22 @@ function GeoFencingMap() {
           "line-cap": "round",
           "line-join": "round",
         },
+      });
+      // SPaT lane selection highlight (rendered above normal lane styling)
+      map.addLayer({
+        id: "spat-selected-lanes",
+        type: "line",
+        source: "lanes-src",
+        paint: {
+          "line-color": "#22C55E",
+          "line-width": 7,
+          "line-opacity": 0.9,
+        },
+        layout: {
+          "line-cap": "round",
+          "line-join": "round",
+        },
+        filter: ["==", "id", -1], // nothing selected by default
       });
       map.addLayer({
         id: "draw-line",
@@ -420,6 +575,90 @@ function GeoFencingMap() {
           "fill-opacity": 0.9,
         },
       });
+      map.addLayer({
+        id: "spat-zones-fill",
+        type: "fill",
+        source: "spat-zones-src",
+        paint: {
+          "fill-color": "#7C3AED",
+          "fill-opacity": 0.18,
+        },
+      });
+      map.addLayer({
+        id: "spat-zones-outline",
+        type: "line",
+        source: "spat-zones-src",
+        paint: {
+          "line-color": "#A78BFA",
+          "line-width": 2,
+        },
+      });
+      // Draft zone preview (used when creating/editing a single zone)
+      map.addLayer({
+        id: "spat-draft-zone-fill",
+        type: "fill",
+        source: "spat-draft-zone-src",
+        paint: {
+          "fill-color": "#0EA5E9",
+          "fill-opacity": 0.16,
+        },
+      });
+      map.addLayer({
+        id: "spat-draft-zone-outline",
+        type: "line",
+        source: "spat-draft-zone-src",
+        paint: {
+          "line-color": "#38BDF8",
+          "line-width": 2.5,
+        },
+      });
+      map.addLayer({
+        id: "spat-edges-line",
+        type: "line",
+        source: "spat-edges-src",
+        paint: {
+          "line-color": ["get", "color"],
+          "line-width": 4,
+        },
+      });
+      map.addLayer({
+        id: "spat-entry-line",
+        type: "line",
+        source: "spat-entry-src",
+        paint: {
+          "line-color": "#22C55E",
+          "line-width": 3,
+        },
+      });
+      map.addLayer({
+        id: "spat-exit-line",
+        type: "line",
+        source: "spat-exit-src",
+        paint: {
+          "line-color": "#EF4444",
+          "line-width": 3,
+        },
+      });
+      map.addLayer({
+        id: "spat-draft-entry-line",
+        type: "line",
+        source: "spat-draft-entry-src",
+        paint: {
+          "line-color": "#22C55E",
+          "line-width": 4,
+          "line-dasharray": [1.5, 1],
+        },
+      });
+      map.addLayer({
+        id: "spat-draft-exit-line",
+        type: "line",
+        source: "spat-draft-exit-src",
+        paint: {
+          "line-color": "#EF4444",
+          "line-width": 4,
+          "line-dasharray": [1.5, 1],
+        },
+      });
 
       // ── Click handler for drawing ──────────────────
       // Use a timeout to distinguish single clicks from double-clicks
@@ -478,6 +717,9 @@ function GeoFencingMap() {
           // Close the polygon
           const closedPts = [...pts, pts[0]];
           finishDrawing(closedPts, "crosswalk");
+        } else if (mode === "spat-zone" && pts.length >= 3) {
+          const closedPts = [...pts, pts[0]];
+          finishDrawing(closedPts, "spat-zone");
         }
       });
 
@@ -531,13 +773,45 @@ function GeoFencingMap() {
         }
       });
 
+      // Click lanes to select/unselect them for the SPaT zone draft
+      map.on("click", "lanes-line", (e) => {
+        if (!spatLanePickModeRef.current) return;
+        if (drawModeRef.current) return;
+        if (spatSelectModeRef.current) return;
+        const feature = e.features?.[0];
+        const laneIdRaw = feature?.properties?.id;
+        const laneId = Number(laneIdRaw);
+        if (!Number.isFinite(laneId)) return;
+        toggleSpatLaneId(laneId);
+      });
+
+      map.on("click", "spat-edges-line", (e) => {
+        if (!spatSelectModeRef.current) return;
+        const feature = e.features?.[0];
+        if (!feature) return;
+        selectSpatEdge(feature);
+      });
+      map.on("mousemove", "spat-edges-line", (e) => {
+        if (!spatSelectModeRef.current) return;
+        const feature = e.features?.[0];
+        if (!feature) return;
+        setSpatHoverEdgeId(feature.properties?.edge_id ?? null);
+      });
+      map.on("mouseleave", "spat-edges-line", () => {
+        setSpatHoverEdgeId(null);
+      });
+
       // Cursor changes
       map.on("mouseenter", "lanes-line", () => { map.getCanvas().style.cursor = "pointer"; });
-      map.on("mouseleave", "lanes-line", () => { map.getCanvas().style.cursor = drawModeRef.current ? "crosshair" : ""; });
+      map.on("mouseleave", "lanes-line", () => {
+        map.getCanvas().style.cursor = drawModeRef.current ? "crosshair" : (spatSelectModeRef.current || spatLanePickModeRef.current) ? "pointer" : "";
+      });
       map.on("mouseenter", "crosswalks-fill", () => { map.getCanvas().style.cursor = "pointer"; });
       map.on("mouseleave", "crosswalks-fill", () => { map.getCanvas().style.cursor = drawModeRef.current ? "crosshair" : ""; });
       map.on("mouseenter", "connections-line", () => { map.getCanvas().style.cursor = "pointer"; });
       map.on("mouseleave", "connections-line", () => { map.getCanvas().style.cursor = drawModeRef.current ? "crosshair" : ""; });
+      map.on("mouseenter", "spat-edges-line", () => { map.getCanvas().style.cursor = "pointer"; });
+      map.on("mouseleave", "spat-edges-line", () => { map.getCanvas().style.cursor = drawModeRef.current ? "crosshair" : ""; });
     });
 
     return () => {
@@ -571,6 +845,27 @@ function GeoFencingMap() {
     if (!map.getSource("connection-arrows-src")) {
       map.addSource("connection-arrows-src", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
     }
+    if (!map.getSource("spat-zones-src")) {
+      map.addSource("spat-zones-src", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+    }
+    if (!map.getSource("spat-edges-src")) {
+      map.addSource("spat-edges-src", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+    }
+    if (!map.getSource("spat-draft-zone-src")) {
+      map.addSource("spat-draft-zone-src", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+    }
+    if (!map.getSource("spat-draft-entry-src")) {
+      map.addSource("spat-draft-entry-src", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+    }
+    if (!map.getSource("spat-draft-exit-src")) {
+      map.addSource("spat-draft-exit-src", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+    }
+    if (!map.getSource("spat-entry-src")) {
+      map.addSource("spat-entry-src", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+    }
+    if (!map.getSource("spat-exit-src")) {
+      map.addSource("spat-exit-src", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+    }
 
     if (!map.getLayer("crosswalks-fill")) {
       map.addLayer({ id: "crosswalks-fill", type: "fill", source: "crosswalks-src", paint: { "fill-color": ["get", "color"], "fill-opacity": 0.25 } });
@@ -580,6 +875,16 @@ function GeoFencingMap() {
     }
     if (!map.getLayer("lanes-line")) {
       map.addLayer({ id: "lanes-line", type: "line", source: "lanes-src", paint: { "line-color": ["get", "color"], "line-width": 4 }, layout: { "line-cap": "round", "line-join": "round" } });
+    }
+    if (!map.getLayer("spat-selected-lanes")) {
+      map.addLayer({
+        id: "spat-selected-lanes",
+        type: "line",
+        source: "lanes-src",
+        paint: { "line-color": "#22C55E", "line-width": 7, "line-opacity": 0.9 },
+        layout: { "line-cap": "round", "line-join": "round" },
+        filter: ["==", "id", -1],
+      });
     }
     if (!map.getLayer("draw-line")) {
       map.addLayer({ id: "draw-line", type: "line", source: "draw-src", paint: { "line-color": "#ffffff", "line-width": 3, "line-dasharray": [2, 2] } });
@@ -604,6 +909,33 @@ function GeoFencingMap() {
     }
     if (!map.getLayer("connection-arrows-fill")) {
       map.addLayer({ id: "connection-arrows-fill", type: "fill", source: "connection-arrows-src", paint: { "fill-color": ["get", "color"], "fill-opacity": 0.9 } });
+    }
+    if (!map.getLayer("spat-zones-fill")) {
+      map.addLayer({ id: "spat-zones-fill", type: "fill", source: "spat-zones-src", paint: { "fill-color": "#7C3AED", "fill-opacity": 0.18 } });
+    }
+    if (!map.getLayer("spat-zones-outline")) {
+      map.addLayer({ id: "spat-zones-outline", type: "line", source: "spat-zones-src", paint: { "line-color": "#A78BFA", "line-width": 2 } });
+    }
+    if (!map.getLayer("spat-draft-zone-fill")) {
+      map.addLayer({ id: "spat-draft-zone-fill", type: "fill", source: "spat-draft-zone-src", paint: { "fill-color": "#0EA5E9", "fill-opacity": 0.16 } });
+    }
+    if (!map.getLayer("spat-draft-zone-outline")) {
+      map.addLayer({ id: "spat-draft-zone-outline", type: "line", source: "spat-draft-zone-src", paint: { "line-color": "#38BDF8", "line-width": 2.5 } });
+    }
+    if (!map.getLayer("spat-edges-line")) {
+      map.addLayer({ id: "spat-edges-line", type: "line", source: "spat-edges-src", paint: { "line-color": ["get", "color"], "line-width": 4 } });
+    }
+    if (!map.getLayer("spat-entry-line")) {
+      map.addLayer({ id: "spat-entry-line", type: "line", source: "spat-entry-src", paint: { "line-color": "#22C55E", "line-width": 3 } });
+    }
+    if (!map.getLayer("spat-exit-line")) {
+      map.addLayer({ id: "spat-exit-line", type: "line", source: "spat-exit-src", paint: { "line-color": "#EF4444", "line-width": 3 } });
+    }
+    if (!map.getLayer("spat-draft-entry-line")) {
+      map.addLayer({ id: "spat-draft-entry-line", type: "line", source: "spat-draft-entry-src", paint: { "line-color": "#22C55E", "line-width": 4, "line-dasharray": [1.5, 1] } });
+    }
+    if (!map.getLayer("spat-draft-exit-line")) {
+      map.addLayer({ id: "spat-draft-exit-line", type: "line", source: "spat-draft-exit-src", paint: { "line-color": "#EF4444", "line-width": 4, "line-dasharray": [1.5, 1] } });
     }
   }, []);
 
@@ -635,6 +967,13 @@ function GeoFencingMap() {
       }));
       const laneSrc = map.getSource("lanes-src");
       if (laneSrc) laneSrc.setData({ type: "FeatureCollection", features: laneFeatures });
+      if (map.getLayer("spat-selected-lanes")) {
+        const selected = Array.isArray(spatDraft.laneIds) ? spatDraft.laneIds : [];
+        map.setFilter(
+          "spat-selected-lanes",
+          selected.length > 0 ? ["in", "id", ...selected] : ["==", "id", -1],
+        );
+      }
 
       const phaseFeatures = lanes
         .filter((l) => l.phase != null && l.geometry?.coordinates?.length >= 1)
@@ -661,6 +1000,56 @@ function GeoFencingMap() {
         }));
       const intSrc = map.getSource("intersections-src");
       if (intSrc) intSrc.setData({ type: "FeatureCollection", features: intFeatures });
+
+      const zonesForIntAll = spatZones.filter((z) => String(z.intersectionId) === String(activeIntRef.current?.id));
+      const zonesForInt = spatEditingId ? zonesForIntAll.filter((z) => z.id !== spatEditingId) : zonesForIntAll;
+      const zoneFeatures = zonesForInt.map((z) => ({
+        type: "Feature", geometry: { type: "Polygon", coordinates: [z.polygon] },
+        properties: { id: z.id, name: z.name },
+      }));
+      const entryFeatures = zonesForInt.map((z) => ({
+        type: "Feature", geometry: { type: "LineString", coordinates: z.entryLine },
+        properties: { id: z.id, name: z.name },
+      }));
+      const exitFeatures = zonesForInt.map((z) => ({
+        type: "Feature", geometry: { type: "LineString", coordinates: z.exitLine },
+        properties: { id: z.id, name: z.name },
+      }));
+      const zoneSrc = map.getSource("spat-zones-src");
+      if (zoneSrc) zoneSrc.setData({ type: "FeatureCollection", features: zoneFeatures });
+      const entrySrc = map.getSource("spat-entry-src");
+      if (entrySrc) entrySrc.setData({ type: "FeatureCollection", features: entryFeatures });
+      const exitSrc = map.getSource("spat-exit-src");
+      if (exitSrc) exitSrc.setData({ type: "FeatureCollection", features: exitFeatures });
+
+      // Draft preview
+      const draftZoneSrc = map.getSource("spat-draft-zone-src");
+      if (draftZoneSrc && spatDraft.polygon?.type === "Polygon") {
+        draftZoneSrc.setData({
+          type: "FeatureCollection",
+          features: [{ type: "Feature", geometry: spatDraft.polygon, properties: {} }],
+        });
+      } else if (draftZoneSrc) {
+        draftZoneSrc.setData({ type: "FeatureCollection", features: [] });
+      }
+      const draftEntrySrc = map.getSource("spat-draft-entry-src");
+      if (draftEntrySrc && spatDraft.entryLine?.type === "LineString") {
+        draftEntrySrc.setData({
+          type: "FeatureCollection",
+          features: [{ type: "Feature", geometry: spatDraft.entryLine, properties: {} }],
+        });
+      } else if (draftEntrySrc) {
+        draftEntrySrc.setData({ type: "FeatureCollection", features: [] });
+      }
+      const draftExitSrc = map.getSource("spat-draft-exit-src");
+      if (draftExitSrc && spatDraft.exitLine?.type === "LineString") {
+        draftExitSrc.setData({
+          type: "FeatureCollection",
+          features: [{ type: "Feature", geometry: spatDraft.exitLine, properties: {} }],
+        });
+      } else if (draftExitSrc) {
+        draftExitSrc.setData({ type: "FeatureCollection", features: [] });
+      }
 
       // Re-populate connection data
       updateConnectionSources(map, connections, lanes, connectionColors);
@@ -689,6 +1078,14 @@ function GeoFencingMap() {
     }));
     const laneSrc = map.getSource("lanes-src");
     if (laneSrc) laneSrc.setData({ type: "FeatureCollection", features: laneFeatures });
+    // Highlight lanes selected for the current SPaT draft
+    if (map.getLayer("spat-selected-lanes")) {
+      const selected = Array.isArray(spatDraft.laneIds) ? spatDraft.laneIds : [];
+      map.setFilter(
+        "spat-selected-lanes",
+        selected.length > 0 ? ["in", "id", ...selected] : ["==", "id", -1],
+      );
+    }
 
     // Phase labels (point at the last coordinate of each lane that has a phase)
     const phaseFeatures = lanes
@@ -719,7 +1116,76 @@ function GeoFencingMap() {
     }));
     const cwSrc = map.getSource("crosswalks-src");
     if (cwSrc) cwSrc.setData({ type: "FeatureCollection", features: cwFeatures });
-  }, [lanes, crosswalks]);
+
+    // SPaT zones (only for active intersection). If editing a zone, hide it from the
+    // saved layers so the draft preview is the single source of truth on the map.
+    const zonesForIntAll = spatZones.filter((z) => String(z.intersectionId) === String(activeIntersection?.id));
+    const zonesForInt = spatEditingId ? zonesForIntAll.filter((z) => z.id !== spatEditingId) : zonesForIntAll;
+    const zoneFeatures = zonesForInt.map((z) => ({
+      type: "Feature",
+      geometry: { type: "Polygon", coordinates: [z.polygon] },
+      properties: { id: z.id, name: z.name },
+    }));
+    const entryFeatures = zonesForInt.map((z) => ({
+      type: "Feature",
+      geometry: { type: "LineString", coordinates: z.entryLine },
+      properties: { id: z.id, name: z.name },
+    }));
+    const exitFeatures = zonesForInt.map((z) => ({
+      type: "Feature",
+      geometry: { type: "LineString", coordinates: z.exitLine },
+      properties: { id: z.id, name: z.name },
+    }));
+
+    const zoneSrc = map.getSource("spat-zones-src");
+    if (zoneSrc) zoneSrc.setData({ type: "FeatureCollection", features: zoneFeatures });
+    const entrySrc = map.getSource("spat-entry-src");
+    if (entrySrc) entrySrc.setData({ type: "FeatureCollection", features: entryFeatures });
+    const exitSrc = map.getSource("spat-exit-src");
+    if (exitSrc) exitSrc.setData({ type: "FeatureCollection", features: exitFeatures });
+
+    // Draft preview (drawn/edited zone)
+    const draftZoneSrc = map.getSource("spat-draft-zone-src");
+    if (draftZoneSrc && spatDraft.polygon?.type === "Polygon") {
+      draftZoneSrc.setData({
+        type: "FeatureCollection",
+        features: [{ type: "Feature", geometry: spatDraft.polygon, properties: {} }],
+      });
+    } else if (draftZoneSrc) {
+      draftZoneSrc.setData({ type: "FeatureCollection", features: [] });
+    }
+    const draftEntrySrc = map.getSource("spat-draft-entry-src");
+    if (draftEntrySrc && spatDraft.entryLine?.type === "LineString") {
+      draftEntrySrc.setData({
+        type: "FeatureCollection",
+        features: [{ type: "Feature", geometry: spatDraft.entryLine, properties: {} }],
+      });
+    } else if (draftEntrySrc) {
+      draftEntrySrc.setData({ type: "FeatureCollection", features: [] });
+    }
+    const draftExitSrc = map.getSource("spat-draft-exit-src");
+    if (draftExitSrc && spatDraft.exitLine?.type === "LineString") {
+      draftExitSrc.setData({
+        type: "FeatureCollection",
+        features: [{ type: "Feature", geometry: spatDraft.exitLine, properties: {} }],
+      });
+    } else if (draftExitSrc) {
+      draftExitSrc.setData({ type: "FeatureCollection", features: [] });
+    }
+
+    // Draft edges for selection
+    const draftEdges = spatEdges.map((edge) => {
+      let color = "#A78BFA";
+      if (spatSelectMode && spatHoverEdgeId != null && edge.properties?.edge_id === spatHoverEdgeId) {
+        color = "#FDE047";
+      }
+      if (edge.properties?.key === "entry") color = "#22C55E";
+      if (edge.properties?.key === "exit") color = "#EF4444";
+      return { ...edge, properties: { ...edge.properties, color } };
+    });
+    const edgesSrc = map.getSource("spat-edges-src");
+    if (edgesSrc) edgesSrc.setData({ type: "FeatureCollection", features: draftEdges });
+  }, [lanes, crosswalks, spatZones, spatEditingId, activeIntersection, spatEdges, spatDraft.polygon, spatDraft.entryLine, spatDraft.exitLine, spatDraft.laneIds, spatSelectMode, spatHoverEdgeId]);
 
   // Update connection curves — uses lane endpoint (last coord, same as phase label)
   useEffect(() => {
@@ -796,14 +1262,14 @@ function GeoFencingMap() {
   // Update cursor when draw mode changes
   useEffect(() => {
     if (!mapRef.current) return;
-    mapRef.current.getCanvas().style.cursor = drawMode ? "crosshair" : "";
+    mapRef.current.getCanvas().style.cursor = drawMode ? "crosshair" : (spatSelectMode || spatLanePickMode) ? "pointer" : "";
     // Disable double-click zoom while drawing
     if (drawMode) {
       mapRef.current.doubleClickZoom.disable();
     } else {
       mapRef.current.doubleClickZoom.enable();
     }
-  }, [drawMode]);
+  }, [drawMode, spatSelectMode, spatLanePickMode]);
 
   // ── Drawing helpers ───────────────────────────────────────────
   function updateDrawSource(map, points, mode) {
@@ -823,7 +1289,7 @@ function GeoFencingMap() {
 
     // Line / polygon preview
     if (points.length >= 2) {
-      if (mode === "crosswalk") {
+      if (mode === "crosswalk" || mode === "spat-zone") {
         // Show as polygon preview (close the ring)
         const ring = [...points, points[0]];
         features.push({
@@ -857,16 +1323,30 @@ function GeoFencingMap() {
       geometry = { type: "Polygon", coordinates: [points] };
     }
 
-    const defaultValues =
-      mode === "lane"
-        ? { lane_type: "Vehicle", phase: "", name: "" }
-        : { approach_type: "Both", approach_id: "1", name: "" };
+    if (mode === "spat-zone") {
+      setSpatDraft((prev) => ({
+        ...prev,
+        polygon: geometry,
+        laneIds: [],
+        entryLine: null,
+        exitLine: null,
+        entryEdgeId: null,
+        exitEdgeId: null,
+      }));
+      setSpatSelectMode(null);
+      setSpatLanePickMode(false);
+    } else {
+      const defaultValues =
+        mode === "lane"
+          ? { lane_type: "Vehicle", phase: "", name: "" }
+          : { approach_type: "Both", approach_id: "1", name: "" };
 
-    setConfigPanel({
-      type: mode,
-      feature: { geometry },
-      values: defaultValues,
-    });
+      setConfigPanel({
+        type: mode,
+        feature: { geometry },
+        values: defaultValues,
+      });
+    }
 
     setDrawMode(null);
     setDrawPoints([]);
@@ -913,6 +1393,216 @@ function GeoFencingMap() {
     setConnectionFrom(null);
     setDrawMode("connection");
     showMessage("Click a FROM lane, then click a TO lane.", "info");
+  };
+
+  const startDrawSpatZone = () => {
+    if (!activeIntersection) {
+      showMessage("Select or create an intersection first.", "error");
+      return;
+    }
+    setConfigPanel(null);
+    setDrawPoints([]);
+    clearDrawSource();
+    setDrawMode("spat-zone");
+    setSpatLanePickMode(false);
+    setSpatSelectMode(null);
+    setSpatHoverEdgeId(null);
+    // If redrawing an existing zone, clear dependent selections so we don't
+    // accidentally keep stale lane/entry/exit mappings.
+    if (spatEditingId) {
+      setSpatDraft((prev) => ({
+        ...prev,
+        laneIds: [],
+        polygon: null,
+        entryLine: null,
+        exitLine: null,
+        entryEdgeId: null,
+        exitEdgeId: null,
+      }));
+    }
+    showMessage("Draw SPaT zone polygon. Double-click to close.", "info");
+  };
+
+  const toggleSpatLaneId = (laneId) => {
+    setSpatDraft((prev) => {
+      const existing = Array.isArray(prev.laneIds) ? prev.laneIds : [];
+      const next = existing.includes(laneId)
+        ? existing.filter((v) => v !== laneId)
+        : [...existing, laneId];
+      next.sort((a, b) => a - b);
+      return { ...prev, laneIds: next };
+    });
+  };
+
+  const resetSpatDraft = () => {
+    setSpatEditingId(null);
+    setSpatDraft({
+      name: "",
+      laneIds: [],
+      signalGroup: "",
+      polygon: null,
+      entryLine: null,
+      exitLine: null,
+      entryEdgeId: null,
+      exitEdgeId: null,
+      status: "active",
+    });
+    setSpatLanePickMode(false);
+    setSpatSelectMode(null);
+    setSpatHoverEdgeId(null);
+  };
+
+  // Switching intersections while editing can lead to updating the wrong zone.
+  // Reset draft/editor when the active intersection changes.
+  useEffect(() => {
+    resetSpatDraft();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeIntersection?.id]);
+
+  const loadZoneIntoDraft = (zone) => {
+    if (!zone) return;
+    const ring = zone.polygon;
+    const entry = zone.entryLine;
+    const exit = zone.exitLine;
+
+    setSpatEditingId(zone.id);
+    setSpatDraft({
+      name: zone.name || "",
+      laneIds: Array.isArray(zone.laneIds) ? zone.laneIds : [],
+      signalGroup: zone.signalGroup != null ? String(zone.signalGroup) : "",
+      polygon: ring ? { type: "Polygon", coordinates: [ring] } : null,
+      entryLine: entry ? { type: "LineString", coordinates: entry } : null,
+      exitLine: exit ? { type: "LineString", coordinates: exit } : null,
+      entryEdgeId: ring && entry ? findEdgeIdForLine(ring, entry) : null,
+      exitEdgeId: ring && exit ? findEdgeIdForLine(ring, exit) : null,
+      status: zone.status || "active",
+    });
+    setSpatLanePickMode(false);
+    setSpatSelectMode(null);
+    setSpatHoverEdgeId(null);
+
+    const center = bboxCenterFromRing(ring);
+    if (center && mapRef.current) {
+      mapRef.current.flyTo({ center, zoom: 18, duration: 700 });
+    }
+  };
+
+  const buildSpatPayload = () => {
+    if (!activeIntersection) {
+      return { error: "Select or create an intersection first." };
+    }
+    if (!spatDraft.name.trim()) {
+      return { error: "SPaT zone name is required." };
+    }
+    if (!spatDraft.polygon || !spatDraft.entryLine || !spatDraft.exitLine) {
+      return { error: "Draw zone polygon, entry line, and exit line." };
+    }
+
+    const laneIds = Array.isArray(spatDraft.laneIds) ? spatDraft.laneIds : [];
+    if (laneIds.length === 0) {
+      return { error: "Select at least one lane." };
+    }
+
+    const signalGroup = Number(spatDraft.signalGroup);
+    if (!Number.isFinite(signalGroup)) {
+      return { error: "Signal group must be a number." };
+    }
+
+    return {
+      payload: {
+        name: spatDraft.name.trim(),
+        lane_ids: laneIds,
+        signal_group: signalGroup,
+        status: spatDraft.status || "active",
+        polygon: spatDraft.polygon,
+        entry_line: spatDraft.entryLine,
+        exit_line: spatDraft.exitLine,
+        ...(spatEditingId ? {} : { intersection_id: activeIntersection.id }),
+      },
+    };
+  };
+
+  const openSpatPreview = () => {
+    const { payload, error } = buildSpatPayload();
+    if (error) {
+      showMessage(error, "error");
+      return;
+    }
+    setSpatPreviewPayload(payload);
+    setSpatPreviewOpen(true);
+  };
+
+  const confirmSaveSpatZone = async () => {
+    if (!spatPreviewPayload || !activeIntersection) return;
+    if (!activeIntersection) {
+      showMessage("Select or create an intersection first.", "error");
+      return;
+    }
+
+    try {
+      if (spatEditingId) {
+        await updateSpatZone(spatEditingId, spatPreviewPayload);
+        showMessage("SPaT zone updated.");
+      } else {
+        await createSpatZone(spatPreviewPayload);
+        showMessage("SPaT zone saved.");
+      }
+
+      resetSpatDraft();
+      setSpatPreviewPayload(null);
+      setSpatPreviewOpen(false);
+      await loadSpatZones(activeIntersection.id);
+    } catch (err) {
+      showMessage(`Error: ${err.message}`, "error");
+    }
+  };
+
+  const confirmDeleteSpatZone = async () => {
+    if (!spatEditingId || !activeIntersection) return;
+    try {
+      await deleteSpatZone(spatEditingId);
+      resetSpatDraft();
+      setSpatDeleteOpen(false);
+      await loadSpatZones(activeIntersection.id);
+      showMessage("SPaT zone deleted.");
+    } catch (err) {
+      showMessage(`Error: ${err.message}`, "error");
+    }
+  };
+
+  const clearSpatEntry = () => {
+    setSpatDraft((prev) => ({ ...prev, entryLine: null, entryEdgeId: null }));
+    setSpatHoverEdgeId(null);
+  };
+
+  const clearSpatExit = () => {
+    setSpatDraft((prev) => ({ ...prev, exitLine: null, exitEdgeId: null }));
+    setSpatHoverEdgeId(null);
+  };
+
+  const clearSpatLanes = () => {
+    setSpatDraft((prev) => ({ ...prev, laneIds: [] }));
+  };
+
+  const selectSpatEdge = (edge) => {
+    const mode = spatSelectModeRef.current;
+    if (!edge || !mode) return;
+    const edgeId = edge.properties?.edge_id ?? null;
+    if (mode === "entry") {
+      if (edgeId != null && edgeId === spatExitEdgeIdRef.current) {
+        showMessage("Entry and exit cannot be the same edge.", "error");
+        return;
+      }
+      setSpatDraft((prev) => ({ ...prev, entryLine: edge.geometry, entryEdgeId: edgeId }));
+    } else if (mode === "exit") {
+      if (edgeId != null && edgeId === spatEntryEdgeIdRef.current) {
+        showMessage("Entry and exit cannot be the same edge.", "error");
+        return;
+      }
+      setSpatDraft((prev) => ({ ...prev, exitLine: edge.geometry, exitEdgeId: edgeId }));
+    }
+    setSpatSelectMode(null);
+    setSpatHoverEdgeId(null);
   };
 
   const createConnection = async (fromLaneId, toLaneId) => {
@@ -1166,7 +1856,22 @@ function GeoFencingMap() {
       <div ref={mapContainerRef} style={{ width: "100%", height: "100%" }} />
 
       {/* ── Top-Left Control Panel ─────────────────────────────── */}
-      <div style={{ position: "absolute", top: 16, left: 16, zIndex: 10, display: "flex", flexDirection: "column", gap: 8, maxWidth: 320 }}>
+      <div
+        className="scrollbar-dark"
+        style={{
+          position: "absolute",
+          top: 16,
+          left: 16,
+          zIndex: 10,
+          display: "flex",
+          flexDirection: "column",
+          gap: 8,
+          maxWidth: 320,
+          maxHeight: "calc(100vh - 32px)",
+          overflowY: "auto",
+          paddingRight: 4,
+        }}
+      >
         {/* Intersection selector */}
         <Card className="dark bg-zinc-900/95 border-zinc-700 backdrop-blur">
           <CardHeader className="pb-2 pt-4 px-4">
@@ -1248,6 +1953,187 @@ function GeoFencingMap() {
                 <Button size="sm" variant="outline" className="text-xs h-8 bg-red-600/10 text-red-400 border-red-500/30 hover:bg-red-600/20" onClick={() => setDeleteConfirmTarget(activeIntersection)}>
                   Delete
                 </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* SPaT Zones */}
+        {activeIntersection && (
+          <Card className="dark bg-zinc-900/95 border-zinc-700 backdrop-blur">
+            <CardHeader className="pb-2 pt-3 px-4">
+              <div className="flex items-center justify-between gap-2">
+                <CardTitle className="text-sm text-white">SPaT Zones</CardTitle>
+                {spatEditingId && (
+                  <Badge className="bg-sky-500/15 text-sky-300 border-sky-500/30 text-xs">
+                    Editing #{spatEditingId}
+                  </Badge>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent className="px-4 pb-3 space-y-3">
+              {spatEditingId && (
+                <div className="flex items-center justify-between gap-2 bg-sky-500/10 border border-sky-500/20 rounded px-2 py-1">
+                  <div className="text-xs text-zinc-200 truncate">
+                    Editing: <span className="text-white font-medium">{spatDraft.name || "(unnamed)"}</span>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-[11px] h-7 bg-zinc-800 text-white border border-zinc-600 hover:bg-zinc-700"
+                    onClick={resetSpatDraft}
+                  >
+                    Cancel Edit
+                  </Button>
+                </div>
+              )}
+              <div>
+                <label className="text-xs text-zinc-400 mb-1 block">Zone Name</label>
+                <Input
+                  value={spatDraft.name}
+                  onChange={(e) => setSpatDraft((p) => ({ ...p, name: e.target.value }))}
+                  placeholder="e.g. Georgia Lanes 4 & 5"
+                  className="bg-zinc-800 border-zinc-700 text-white text-sm h-8"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  size="sm"
+                  className={drawMode === "spat-zone" ? "col-span-2 text-xs h-8 bg-purple-600 hover:bg-purple-700" : "col-span-2 text-xs h-8 bg-zinc-800 text-white border border-zinc-600 hover:bg-zinc-700"}
+                  onClick={drawMode === "spat-zone" ? cancelDraw : startDrawSpatZone}
+                >
+                  {drawMode === "spat-zone" ? "Cancel Draw" : (spatEditingId ? "Redraw Zone" : "Draw Zone")}
+                </Button>
+                <Button
+                  size="sm"
+                  className={spatSelectMode === "entry" ? "text-xs h-8 bg-green-600 hover:bg-green-700" : "text-xs h-8 bg-zinc-800 text-white border border-zinc-600 hover:bg-zinc-700"}
+                  onClick={() => {
+                    const next = spatSelectMode === "entry" ? null : "entry";
+                    setSpatSelectMode(next);
+                    setSpatLanePickMode(false);
+                    setSpatHoverEdgeId(null);
+                  }}
+                  disabled={!spatDraft.polygon}
+                >
+                  {spatSelectMode === "entry" ? "Selecting..." : "Pick Entry"}
+                </Button>
+                <Button
+                  size="sm"
+                  className={spatSelectMode === "exit" ? "text-xs h-8 bg-red-600 hover:bg-red-700" : "text-xs h-8 bg-zinc-800 text-white border border-zinc-600 hover:bg-zinc-700"}
+                  onClick={() => {
+                    const next = spatSelectMode === "exit" ? null : "exit";
+                    setSpatSelectMode(next);
+                    setSpatLanePickMode(false);
+                    setSpatHoverEdgeId(null);
+                  }}
+                  disabled={!spatDraft.polygon}
+                >
+                  {spatSelectMode === "exit" ? "Selecting..." : "Pick Exit"}
+                </Button>
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs text-zinc-400">Lanes</label>
+                  <span className="text-[11px] text-zinc-500">{(spatDraft.laneIds || []).length} selected</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    size="sm"
+                    className={spatLanePickMode ? "text-xs h-8 bg-green-600 hover:bg-green-700" : "text-xs h-8 bg-zinc-800 text-white border border-zinc-600 hover:bg-zinc-700"}
+                    onClick={() => {
+                      if (!spatDraft.polygon) return;
+                      const next = !spatLanePickMode;
+                      setSpatLanePickMode(next);
+                      if (next) setSpatSelectMode(null);
+                    }}
+                    disabled={!spatDraft.polygon}
+                    title={!spatDraft.polygon ? "Draw the zone polygon first" : "Click lanes on the map to toggle"}
+                  >
+                    {spatLanePickMode ? "Picking..." : "Pick Lanes"}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-xs h-8 bg-zinc-800 text-white border border-zinc-600 hover:bg-zinc-700"
+                    onClick={clearSpatLanes}
+                    disabled={(spatDraft.laneIds || []).length === 0}
+                  >
+                    Clear Lanes
+                  </Button>
+                </div>
+                <div className="text-[11px] text-zinc-500 break-words">
+                  IDs: {(spatDraft.laneIds || []).length ? (spatDraft.laneIds || []).join(", ") : "—"}
+                </div>
+                {spatLanePickMode && (
+                  <div className="text-xs text-zinc-500">
+                    Click lanes on the map to select/unselect (selected lanes highlight green).
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label className="text-xs text-zinc-400 mb-1 block">Signal Group</label>
+                <Input
+                  value={spatDraft.signalGroup}
+                  onChange={(e) => setSpatDraft((p) => ({ ...p, signalGroup: e.target.value }))}
+                  placeholder="2"
+                  className="bg-zinc-800 border-zinc-700 text-white text-sm h-8"
+                />
+              </div>
+
+              <div className="text-xs text-zinc-400">
+                {spatDraft.polygon ? "Zone: ✓" : "Zone: ✕"} | {spatDraft.entryLine ? `Entry: ✓ (edge ${spatDraft.entryEdgeId ?? "?"})` : "Entry: ✕"} | {spatDraft.exitLine ? `Exit: ✓ (edge ${spatDraft.exitEdgeId ?? "?"})` : "Exit: ✕"} | Lanes: {(spatDraft.laneIds || []).length || 0}
+              </div>
+              {spatSelectMode && (
+                <div className="text-xs text-zinc-500">
+                  Click an edge to set {spatSelectMode === "entry" ? "Entry" : "Exit"} (hovered edge turns yellow).
+                </div>
+              )}
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" className="flex-1 text-xs h-8 bg-zinc-800 text-white border border-zinc-600 hover:bg-zinc-700" onClick={clearSpatEntry} disabled={!spatDraft.entryLine}>
+                  Clear Entry
+                </Button>
+                <Button size="sm" variant="outline" className="flex-1 text-xs h-8 bg-zinc-800 text-white border border-zinc-600 hover:bg-zinc-700" onClick={clearSpatExit} disabled={!spatDraft.exitLine}>
+                  Clear Exit
+                </Button>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <Button size="sm" className="text-xs h-8 bg-purple-700 hover:bg-purple-800 text-white" onClick={openSpatPreview}>
+                  {spatEditingId ? "Update Zone" : "Save Zone"}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="text-xs h-8 bg-zinc-800 text-white border border-zinc-600 hover:bg-zinc-700"
+                  onClick={resetSpatDraft}
+                >
+                  New
+                </Button>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                className="w-full text-xs h-8 bg-zinc-800 text-white border border-zinc-600 hover:bg-zinc-700"
+                onClick={() => setSpatManageOpen(true)}
+              >
+                Browse / Edit Saved Zones
+              </Button>
+
+              {spatEditingId && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="w-full text-xs h-8 bg-red-600/10 text-red-400 border-red-500/30 hover:bg-red-600/20"
+                  onClick={() => setSpatDeleteOpen(true)}
+                >
+                  Delete Zone
+                </Button>
+              )}
+
+              <div className="text-xs text-zinc-500">
+                Saved zones: {spatZones.filter((z) => String(z.intersectionId) === String(activeIntersection.id)).length}
               </div>
             </CardContent>
           </Card>
@@ -1379,6 +2265,101 @@ function GeoFencingMap() {
               className="bg-red-600 text-white hover:bg-red-700"
             >
               Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* ── SPaT Zone Preview (DB payload) ───────────────────── */}
+      <AlertDialog open={spatPreviewOpen} onOpenChange={(open) => { if (!open) setSpatPreviewOpen(false); }}>
+        <AlertDialogContent className="dark bg-zinc-900 border-zinc-800 text-white max-w-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-white">{spatEditingId ? "Update SPaT Zone" : "Save SPaT Zone"}</AlertDialogTitle>
+            <AlertDialogDescription className="text-zinc-400">
+              Review payload that will be saved to DB.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <pre className="text-xs text-zinc-300 bg-zinc-800 rounded p-3 overflow-auto max-h-96 whitespace-pre-wrap">
+            {spatPreviewPayload ? JSON.stringify(spatPreviewPayload, null, 2) : ""}
+          </pre>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              className="bg-zinc-800 text-white border-zinc-700 hover:bg-zinc-700"
+              onClick={() => { setSpatPreviewOpen(false); setSpatPreviewPayload(null); }}
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmSaveSpatZone}
+              className="bg-purple-700 text-white hover:bg-purple-800"
+            >
+              {spatEditingId ? "Confirm Update" : "Confirm Save"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* ── Delete SPaT Zone Confirmation ─────────────────────── */}
+      <AlertDialog open={spatDeleteOpen} onOpenChange={setSpatDeleteOpen}>
+        <AlertDialogContent className="dark bg-zinc-900 border-zinc-800 text-white">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-white">Delete SPaT Zone?</AlertDialogTitle>
+            <AlertDialogDescription className="text-zinc-400">
+              This will permanently delete "{spatDraft.name || "this zone"}". This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="bg-zinc-800 text-white border-zinc-700 hover:bg-zinc-700">Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteSpatZone} className="bg-red-600 text-white hover:bg-red-700">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* ── Browse SPaT Zones ─────────────────────────────────── */}
+      <AlertDialog open={spatManageOpen} onOpenChange={setSpatManageOpen}>
+        <AlertDialogContent className="dark bg-zinc-900 border-zinc-800 text-white max-w-xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-white">Saved SPaT Zones</AlertDialogTitle>
+            <AlertDialogDescription className="text-zinc-400">
+              {activeIntersection ? `Intersection: ${activeIntersection.name} (DB id ${activeIntersection.id}, number ${activeIntersection.intersection_id})` : "Select an intersection first."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          {activeIntersection && (
+            <div className="space-y-2">
+              <div className="text-xs text-zinc-500">
+                Click a zone to load it into the editor.
+              </div>
+              <div className="space-y-1 scrollbar-dark" style={{ maxHeight: 320, overflowY: "auto", paddingRight: 4 }}>
+                {spatZones
+                  .filter((z) => String(z.intersectionId) === String(activeIntersection.id))
+                  .map((z) => (
+                    <button
+                      key={z.id}
+                      type="button"
+                      onClick={() => { loadZoneIntoDraft(z); setSpatManageOpen(false); }}
+                      className="w-full text-left text-xs px-2 py-1 rounded bg-zinc-800/60 border border-zinc-700 text-zinc-200 hover:bg-zinc-800"
+                      title="Load into editor"
+                    >
+                      {z.name} • SG {z.signalGroup} • lanes {Array.isArray(z.laneIds) ? z.laneIds.length : 0}
+                    </button>
+                  ))}
+                {spatZones.filter((z) => String(z.intersectionId) === String(activeIntersection.id)).length === 0 && (
+                  <div className="text-xs text-zinc-600">No zones yet.</div>
+                )}
+              </div>
+            </div>
+          )}
+
+          <AlertDialogFooter>
+            <AlertDialogCancel className="bg-zinc-800 text-white border-zinc-700 hover:bg-zinc-700">Close</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => { resetSpatDraft(); setSpatManageOpen(false); }}
+              className="bg-zinc-800 text-white border border-zinc-700 hover:bg-zinc-700"
+            >
+              New Zone
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
