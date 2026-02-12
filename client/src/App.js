@@ -14,7 +14,7 @@ import HomeView from "./components/dashboard/pages/HomeView";
 import GeofenceZones from "./components/dashboard/pages/GeofenceZones";
 import LanesPage from "./components/dashboard/pages/LanesPage";
 import CrosswalksPage from "./components/dashboard/pages/CrosswalksPage";
-import AnalyticsTraffic from "./components/dashboard/pages/AnalyticsTraffic";
+import AnalyticsPage from "./components/dashboard/pages/analytics/AnalyticsPage";
 import Settings from "./components/dashboard/pages/Settings";
 import NotFound from "./error/404NotFound";
 
@@ -31,7 +31,7 @@ const reducers = combineReducers({
 const store = createStore(reducers, {}, applyMiddleware(taskMiddleware));
 
 // Expose store for debugging
-if (typeof window !== 'undefined') {
+if (typeof window !== "undefined") {
   window.store = store;
 }
 
@@ -55,8 +55,8 @@ export default function App() {
             <Route path="geofences/zones" element={<GeofenceZones />} />
             <Route path="lanes" element={<LanesPage />} />
             <Route path="crosswalks" element={<CrosswalksPage />} />
-            <Route path="analytics/traffic" element={<AnalyticsTraffic />} />
-            <Route path="/dashboard/settings/data" element={<Settings/>} />
+            <Route path="analytics" element={<AnalyticsPage />} />
+            <Route path="/dashboard/settings/data" element={<Settings />} />
           </Route>
 
           {/* Other routes */}

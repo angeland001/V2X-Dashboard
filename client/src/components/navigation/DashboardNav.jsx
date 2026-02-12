@@ -40,27 +40,6 @@ const geofenceFeatures = [
   },
 ]
 
-const analyticsFeatures = [
-  {
-    title: "Traffic Patterns",
-    href: "/dashboard/analytics/traffic",
-    description:
-      "Visualize traffic flow patterns and congestion hotspots on the map.",
-  },
-  {
-    title: "Heat Maps",
-    href: "/dashboard/analytics/heatmaps",
-    description:
-      "View density maps showing high-traffic areas and movement trends.",
-  },
-  {
-    title: "Route Analysis",
-    href: "/dashboard/analytics/routes",
-    description:
-      "Analyze common routes and travel paths between locations.",
-  },
- 
-]
 
 function ListItem({ title, children, href, ...props }) {
   return (
@@ -108,20 +87,9 @@ export function DashboardNav() {
             </NavigationMenuContent>
           </NavigationMenuItem>
           <NavigationMenuItem>
-            <NavigationMenuTrigger>Analytics</NavigationMenuTrigger>
-            <NavigationMenuContent>
-              <ul className="grid gap-2 p-4 sm:w-[400px] md:w-[500px] md:grid-cols-2 lg:w-[600px]">
-                {analyticsFeatures.map((feature) => (
-                  <ListItem
-                    key={feature.title}
-                    title={feature.title}
-                    href={feature.href}
-                  >
-                    {feature.description}
-                  </ListItem>
-                ))}
-              </ul>
-            </NavigationMenuContent>
+            <Link to="/dashboard/analytics">
+              <NavigationMenuTrigger>Analytics</NavigationMenuTrigger>
+            </Link>
           </NavigationMenuItem>
           <NavigationMenuItem>
             <NavigationMenuTrigger>Rules & Triggers</NavigationMenuTrigger>
