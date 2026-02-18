@@ -60,6 +60,20 @@ export function TrafficOverview() {
     )
   }
 
+  // --- Error state (before loading so failed intersection fetch is shown) ---
+  if (error && dailyData.length === 0) {
+    return (
+      <div className="space-y-4">
+        <div className="rounded-lg border border-red-800 bg-red-950/30 p-6 text-center">
+          <p className="text-red-400 font-medium text-lg mb-1">
+            Failed to load data
+          </p>
+          <p className="text-red-500/70 text-sm">{error}</p>
+        </div>
+      </div>
+    )
+  }
+
   // --- Loading state ---
   if (loading && dailyData.length === 0) {
     return (
@@ -73,20 +87,6 @@ export function TrafficOverview() {
           ))}
         </div>
         <div className="h-[350px] rounded-lg border border-neutral-800 bg-black animate-pulse" />
-      </div>
-    )
-  }
-
-  // --- Error state ---
-  if (error && dailyData.length === 0) {
-    return (
-      <div className="space-y-4">
-        <div className="rounded-lg border border-red-800 bg-red-950/30 p-6 text-center">
-          <p className="text-red-400 font-medium text-lg mb-1">
-            Failed to load data
-          </p>
-          <p className="text-red-500/70 text-sm">{error}</p>
-        </div>
       </div>
     )
   }

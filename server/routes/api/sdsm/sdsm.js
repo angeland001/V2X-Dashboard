@@ -8,15 +8,9 @@
 const express = require("express");
 const router = express.Router();
 const db = require("../../../database/postgis");
+const { SDSM_BASE_URL, INTERSECTIONS } = require("../../../config/sdsm");
 // Using built-in fetch (Node.js 18+) or require node-fetch for older versions
 const fetch = globalThis.fetch || require("node-fetch");
-
-// Base URL for SDSM events API
-const SDSM_BASE_URL =
-  "http://roadaware.cuip.research.utc.edu/cv2x/latest/sdsm_events";
-
-// Available intersections
-const INTERSECTIONS = ["MLK_Georgia", "MLK_Lindsay"];
 
 /**
  * GET /api/sdsm/latest/:intersection

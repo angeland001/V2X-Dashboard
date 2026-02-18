@@ -39,23 +39,6 @@ export async function fetchDailySummary(intersection, days = 90) {
 }
 
 /**
- * Fetch latest live SDSM events for a given intersection.
- * Useful for a "live count" badge or real-time indicator.
- *
- * @param {string} intersection - Intersection ID
- * @returns {Promise<Object>}
- */
-export async function fetchLatestEvents(intersection) {
-  const res = await fetch(
-    `${API_URL}/api/sdsm/latest/${intersection}`
-  );
-  if (!res.ok) {
-    throw new Error(`Failed to load latest events (${res.status})`);
-  }
-  return res.json();
-}
-
-/**
  * Quick connectivity check — hits the health endpoint.
  * Returns true if the server is reachable, false otherwise.
  *

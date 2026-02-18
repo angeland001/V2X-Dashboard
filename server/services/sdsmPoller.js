@@ -11,11 +11,7 @@
 
 const db = require("../database/postgis");
 const fetch = globalThis.fetch || require("node-fetch");
-
-const SDSM_BASE_URL =
-  "http://roadaware.cuip.research.utc.edu/cv2x/latest/sdsm_events";
-
-const INTERSECTIONS = ["MLK_Georgia", "MLK_Lindsay"];
+const { SDSM_BASE_URL, INTERSECTIONS } = require("../config/sdsm");
 
 const POLL_INTERVAL_MS = 30_000; // 30 seconds
 

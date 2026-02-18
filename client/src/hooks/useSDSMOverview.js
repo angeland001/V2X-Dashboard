@@ -62,10 +62,14 @@ export function useSDSMOverview({
       // Auto-select the first intersection if none is selected
       if (list.length > 0) {
         setSelectedIntersection((prev) => prev ?? list[0].id);
+      } else {
+        // No intersections → loadDailySummary never runs, so clear loading here
+        setLoading(false);
       }
     } catch (err) {
       console.error("Failed to load intersections:", err);
       setError(err.message);
+      setLoading(false);
     }
   }, []);
 
