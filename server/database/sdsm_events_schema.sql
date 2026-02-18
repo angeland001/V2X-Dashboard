@@ -22,6 +22,12 @@ CREATE TABLE IF NOT EXISTS public.sdsm_events (
     created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW()
 );
 
+-- Prevent duplicate events: same intersection + object + timestamp = same event.
+-- This makes ON CONFLICT DO NOTHING work correctly, so multiple server
+-- instances (or re-polls) never insert the same event twice.
+CREATE UNIQUE INDEX IF NOT EXISTS sdsm_events_unique_event_idx
+  ON public.sdsm_events (intersection_name, object_id, timestamp);
+
 -- Create indexes for efficient querying
 CREATE INDEX IF NOT EXISTS sdsm_events_intersection_id_idx ON public.sdsm_events USING btree (intersection_id);
 CREATE INDEX IF NOT EXISTS sdsm_events_timestamp_idx ON public.sdsm_events USING btree (timestamp);
