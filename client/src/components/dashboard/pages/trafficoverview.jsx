@@ -160,9 +160,9 @@ export function TrafficOverview() {
         <StatCard
           title="Daily Average"
           value={avgDailyTraffic}
-          trend={((avgDailyTraffic / 2000) * 100).toFixed(1)}
-          primaryDescription="Steady performance increase"
-          secondaryDescription="Meets traffic projections"
+          trend={trafficTrend}
+          primaryDescription={parseFloat(trafficTrend) >= 0 ? 'Daily average trending up' : 'Daily average trending down'}
+          secondaryDescription={parseFloat(trafficTrend) >= 0 ? 'Higher recent daily volume' : 'Lower recent daily volume'}
         />
       </div>
 
