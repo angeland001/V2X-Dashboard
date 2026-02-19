@@ -28,6 +28,14 @@ module.exports = function override(config) {
     }),
   ]);
 
+  // Allow .mjs files in node_modules to use non-fully-specified imports
+  // (fixes motion-utils "Can't resolve 'process/browser'" error)
+  config.module.rules.push({
+    test: /\.mjs$/,
+    include: /node_modules/,
+    resolve: { fullySpecified: false },
+  });
+
   // Ignore source map warnings from node_modules
   config.ignoreWarnings = [/Failed to parse source map/];
 

@@ -183,6 +183,10 @@ CREATE TABLE IF NOT EXISTS public.sdsm_events (
     created_at        TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW()
 );
 
+-- Prevent duplicate events: same intersection + object + timestamp = same event
+CREATE UNIQUE INDEX IF NOT EXISTS sdsm_events_unique_event_idx
+  ON public.sdsm_events (intersection_name, object_id, timestamp);
+
 CREATE INDEX IF NOT EXISTS sdsm_events_intersection_id_idx ON public.sdsm_events USING btree (intersection_id);
 CREATE INDEX IF NOT EXISTS sdsm_events_timestamp_idx ON public.sdsm_events USING btree (timestamp);
 CREATE INDEX IF NOT EXISTS sdsm_events_object_type_idx ON public.sdsm_events USING btree (object_type);
