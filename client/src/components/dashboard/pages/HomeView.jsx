@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react"
-import { TrafficOverview } from "@/components/dashboard/pages/trafficoverview"
+import { TrafficOverview } from "@/components/dashboard/pages/SDSM"
 
 export function HomeView() {
   const [user, setUser] = useState(null);

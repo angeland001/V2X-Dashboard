@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import {
   fetchIntersections,
   fetchDailySummary,
+  fetchOverviewSummary,
   checkServerHealth,
 } from "../services/sdsm";
 
@@ -41,6 +42,10 @@ export function useSDSMOverview({
   const [selectedIntersection, setSelectedIntersection] = useState(null);
   const [days, setDays] = useState(90);
   const [dailyData, setDailyData] = useState([]);
+  const [summaryScope, setSummaryScope] = useState("today"); // "today" | "lifetime"
+  const [summary, setSummary] = useState(null);
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [summaryError, setSummaryError] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -92,6 +97,24 @@ export function useSDSMOverview({
     }
   }, [selectedIntersection, days]);
 
+  // --- 3b. Fetch summary totals for stat cards ---
+  const loadSummary = useCallback(async () => {
+    if (!selectedIntersection) return;
+
+    try {
+      setSummaryLoading(true);
+      setSummaryError(null);
+      const result = await fetchOverviewSummary(selectedIntersection, summaryScope);
+      setSummary(result);
+    } catch (err) {
+      console.error("Failed to load summary:", err);
+      setSummaryError(err.message);
+      setSummary(null);
+    } finally {
+      setSummaryLoading(false);
+    }
+  }, [selectedIntersection, summaryScope]);
+
   // --- 4. Initial boot sequence ---
   useEffect(() => {
     let cancelled = false;
@@ -118,6 +141,13 @@ export function useSDSMOverview({
     }
   }, [serverOnline, selectedIntersection, days, loadDailySummary]);
 
+  // --- 5b. Fetch summary whenever intersection or scope changes ---
+  useEffect(() => {
+    if (serverOnline && selectedIntersection) {
+      loadSummary();
+    }
+  }, [serverOnline, selectedIntersection, summaryScope, loadSummary]);
+
   // --- 6. Polling ---
   useEffect(() => {
     if (!serverOnline || !selectedIntersection) return;
@@ -127,11 +157,19 @@ export function useSDSMOverview({
       const online = await checkConnection();
       if (online) {
         loadDailySummary();
+        loadSummary();
       }
     }, pollInterval);
 
     return () => clearInterval(intervalRef.current);
-  }, [serverOnline, selectedIntersection, pollInterval, checkConnection, loadDailySummary]);
+  }, [
+    serverOnline,
+    selectedIntersection,
+    pollInterval,
+    checkConnection,
+    loadDailySummary,
+    loadSummary,
+  ]);
 
   // --- Public API ---
   return {
@@ -142,6 +180,11 @@ export function useSDSMOverview({
     days,
     setDays,
     dailyData,           // [{ date, vehicles, pedestrians }] — for chart + stats
+    summaryScope,
+    setSummaryScope,
+    summary,             // { vehicles, pedestrians, ... } — for stat cards toggle
+    summaryLoading,
+    summaryError,
     loading,
     error,
     refresh: loadDailySummary,

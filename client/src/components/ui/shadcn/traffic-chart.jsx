@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/shadcn/dropdown-menu"
 import { Button } from "@/components/ui/shadcn/button"
 import { ButtonGroup } from "@/components/ui/shadcn/button-group"
+import MagicCard from "@/components/ui/MagicBento/MagicCard"
 
 const chartConfig = {
   pedestrians: {
@@ -47,7 +48,8 @@ export function TrafficChart({
   locations
 }) {
   return (
-    <Card className="pt-0 bg-black border-neutral-800 shadow-[0_4px_6px_rgba(255,255,255,0.1)]">
+    <MagicCard glowRadius={400}>
+    <Card className="pt-0 bg-black border-neutral-800">
       <CardHeader className="flex items-center gap-2 space-y-0 border-b border-neutral-800 py-5 sm:flex-row">
         <div className="grid flex-1 gap-1">
           <CardTitle className="flex items-center gap-2 text-white">
@@ -180,5 +182,6 @@ export function TrafficChart({
         </ChartContainer>
       </CardContent>
     </Card>
+    </MagicCard>
   )
 }

@@ -7,6 +7,7 @@ import {
   PieChart, Pie, Cell, Area, AreaChart, RadialBarChart, RadialBar, PolarGrid,
 } from "recharts"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/shadcn/card"
+import MagicCard from "@/components/ui/MagicBento/MagicCard"
 import {
   ChartContainer,
   ChartTooltip,
@@ -200,7 +201,8 @@ export function AnalyticsTraffic() {
       {/* Stat Cards Row */}
       <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-4">
         {statCards.map((stat) => (
-          <Card key={stat.title} className="bg-black-900 border-neutral-800 shadow-[0_4px_6px_rgba(255,255,255,0.3)] h-[340px] flex flex-col">
+          <MagicCard key={stat.title} enableStars glowRadius={260}>
+          <Card className="bg-black-900 border-neutral-800 h-[340px] flex flex-col">
             <CardContent className="p-5 flex-1 flex flex-col">
               <div className="flex items-center justify-between mb-3">
                 <p className="text-sm text-neutral-400">{stat.title}</p>
@@ -263,10 +265,12 @@ export function AnalyticsTraffic() {
               </div>
             </CardContent>
           </Card>
+          </MagicCard>
         ))}
 
         {/* Views Radial Card */}
-        <Card className="bg-black-900 border-neutral-800 shadow-[0_4px_6px_rgba(255,255,255,0.3)] row-span-2">
+        <MagicCard className="row-span-2">
+        <Card className="bg-black-900 border-neutral-800">
           <CardContent className="p-5">
             <div className="flex items-center justify-between mb-2">
               <p className="text-sm text-neutral-400">Views</p>
@@ -295,12 +299,14 @@ export function AnalyticsTraffic() {
             </div>
           </CardContent>
         </Card>
+        </MagicCard>
       </div>
 
       {/* Traffic Channel & Maps Row */}
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Traffic Channel Bar Chart */}
-        <Card className="bg-black-900 border-neutral-800 shadow-[0_4px_6px_rgba(255,255,255,0.3)] lg:col-span-2">
+        <MagicCard className="lg:col-span-2">
+        <Card className="bg-black-900 border-neutral-800">
           <CardHeader className="pb-2">
             <CardTitle className="text-neutral-100 text-base">Traffic Channel</CardTitle>
             <p className="text-xs text-neutral-500 mt-1">January - June 2024</p>
@@ -327,11 +333,13 @@ export function AnalyticsTraffic() {
             </ChartContainer>
           </CardContent>
         </Card>
+        </MagicCard>
 
         {/* Side Column - Devices & Viewers */}
         <div className="space-y-4">
           {/* Views From Devices */}
-          <Card className="bg-black-900 border-neutral-800 shadow-[0_4px_6px_rgba(255,255,255,0.3)]">
+          <MagicCard>
+          <Card className="bg-black-900 border-neutral-800">
             <CardContent className="p-5">
               <p className="text-sm font-medium text-neutral-100 mb-3">Views From Devices</p>
               <div className="flex items-center gap-2 mb-3">
@@ -353,9 +361,11 @@ export function AnalyticsTraffic() {
               </div>
             </CardContent>
           </Card>
+          </MagicCard>
 
           {/* Viewers Age Distribution */}
-          <Card className="bg-black-900 border-neutral-800 shadow-[0_4px_6px_rgba(255,255,255,0.3)]">
+          <MagicCard>
+          <Card className="bg-black-900 border-neutral-800">
             <CardContent className="p-5">
               <p className="text-sm font-medium text-neutral-100 mb-3">Viewers Age Distribution</p>
               <ChartContainer config={viewersAgeConfig} className="h-[180px] w-full">
@@ -417,11 +427,13 @@ export function AnalyticsTraffic() {
               </ChartContainer>
             </CardContent>
           </Card>
+          </MagicCard>
         </div>
       </div>
 
       {/* Kepler Map */}
-      <Card className="bg-black-900 border-neutral-800 shadow-[0_4px_6px_rgba(255,255,255,0.3)]">
+      <MagicCard>
+      <Card className="bg-black-900 border-neutral-800">
         <CardHeader className="pb-2">
           <CardTitle className="text-neutral-100 text-base">Peak Traffic Hours</CardTitle>
         </CardHeader>
@@ -436,8 +448,8 @@ export function AnalyticsTraffic() {
           </div>
         </CardContent>
       </Card>
+      </MagicCard>
 
-      
     </div>
   )
 }

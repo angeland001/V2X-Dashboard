@@ -4,6 +4,7 @@ import {
   
 } from "recharts"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/shadcn/card"
+import MagicCard from "@/components/ui/MagicBento/MagicCard"
 import {
   ChartContainer,
   ChartTooltip,
@@ -116,7 +117,8 @@ const summaryCards = [
 export function AnalyticsEnvironmental() {
   return (
     <div className="space-y-6">
-      <Card className="bg-black-900 border-neutral-800 shadow-[0_4px_6px_rgba(255,255,255,0.3)]">
+      <MagicCard>
+      <Card className="bg-black-900 border-neutral-800">
         <CardHeader>
           <CardTitle className="text-neutral-100 text-lg">Environmental Impact Monitoring</CardTitle>
           <p className="text-sm text-neutral-500">
@@ -169,7 +171,8 @@ export function AnalyticsEnvironmental() {
           {/* Horizontal Bar Charts Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {environmentalMetrics.map((metric) => (
-              <div key={metric.title} className="bg-[#2a2b30] rounded-lg border border-[#3a3b40] p-4">
+              <MagicCard key={metric.title} borderRadius="8px">
+              <div className="bg-[#2a2b30] rounded-lg border border-[#3a3b40] p-4">
                 <h3 className="text-neutral-200 text-sm font-medium mb-3">{metric.title}</h3>
                 <div className="space-y-3">
                   {metric.data.map((item) => (
@@ -191,21 +194,25 @@ export function AnalyticsEnvironmental() {
                   ))}
                 </div>
               </div>
+              </MagicCard>
             ))}
           </div>
 
           {/* Summary Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {summaryCards.map((card) => (
-              <div key={card.title} className="bg-black-900 border border-neutral-800 shadow-[0_4px_6px_rgba(255,255,255,0.3)] rounded-lg p-5">
+              <MagicCard key={card.title} borderRadius="8px">
+              <div className="bg-black-900 border border-neutral-800 rounded-lg p-5">
                 <p className={`text-sm ${card.textColor}`}>{card.title}</p>
                 <p className="text-xl font-bold text-neutral-100 mt-1">{card.value}</p>
                 <p className="text-sm text-neutral-400 mt-1">{card.subtitle}</p>
               </div>
+              </MagicCard>
             ))}
           </div>
         </CardContent>
       </Card>
+      </MagicCard>
     </div>
   )
 }

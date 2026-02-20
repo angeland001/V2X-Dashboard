@@ -20,6 +20,7 @@ import {
   EmptyAction,
 } from "@/components/ui/shadcn/empty"
 import { MapPin, Trash2, FileJson, Layers, Upload, Eye } from "lucide-react"
+import MagicCard from "@/components/ui/MagicBento/MagicCard"
 import { Input } from "@/components/ui/shadcn/input"
 import IntersectionPreviewMap from "@/components/maps/IntersectionPreviewMap"
 
@@ -205,8 +206,8 @@ export function GeofenceZones() {
           {intersections.map((int) => {
             const coords = int.ref_point?.coordinates
             return (
+              <MagicCard key={int.id} borderRadius="8px">
               <div
-                key={int.id}
                 className="bg-black border border-neutral-800 rounded-lg overflow-hidden hover:border-primary/50 transition-colors"
               >
                 {coords && (
@@ -290,6 +291,7 @@ export function GeofenceZones() {
                   </div>
                 </div>
               </div>
+              </MagicCard>
             )
           })}
         </div>

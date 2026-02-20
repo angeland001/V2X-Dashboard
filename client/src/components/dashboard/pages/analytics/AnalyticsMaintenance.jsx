@@ -1,5 +1,6 @@
 import React from "react"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/shadcn/card"
+import MagicCard from "@/components/ui/MagicBento/MagicCard"
 
 // Maintenance schedule data  
 const maintenanceData = [
@@ -84,7 +85,8 @@ const taskBorderColors = {
 export function AnalyticsMaintenance() {
   return (
     <div className="space-y-6">
-      <Card className="bg-black-900 border-neutral-800 shadow-[0_4px_6px_rgba(255,255,255,0.3)]">
+      <MagicCard>
+      <Card className="bg-black-900 border-neutral-800">
         <CardHeader>
           <CardTitle className="text-neutral-100 text-lg">Predictive Maintenance Schedule</CardTitle>
         </CardHeader>
@@ -157,6 +159,7 @@ export function AnalyticsMaintenance() {
           </div>
         </CardContent>
       </Card>
+      </MagicCard>
     </div>
   )
 }

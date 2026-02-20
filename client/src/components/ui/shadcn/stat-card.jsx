@@ -9,13 +9,15 @@ import {
 } from "@/components/ui/shadcn/card"
 import { Badge } from "@/components/ui/shadcn/badge"
 import Counter from "@/components/ui/counter/Counter"
+import MagicCard from "@/components/ui/MagicBento/MagicCard"
 
 export function StatCard({ title, value, trend, primaryDescription, secondaryDescription }) {
   const isPositive = parseFloat(trend) >= 0
   const numericValue = typeof value === "number" ? value : parseInt(String(value).replace(/,/g, ""), 10) || 0
 
   return (
-    <Card className="bg-black-900 border-neutral-800 shadow-[0_4px_6px_rgba(255,255,255,0.3)] h-[220px] flex flex-col">
+    <MagicCard enableStars glowRadius={280}>
+    <Card className="bg-black-900 border-neutral-800 h-[220px] flex flex-col">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-sm font-medium text-white">{title}</CardTitle>
         <Badge variant="outline" className={`flex items-center gap-0.5 text-[10px] font-medium rounded-full px-2 py-0.5 ${isPositive ? 'border-green-500 text-green-500' : 'border-red-500 text-red-500'}`}>
@@ -44,5 +46,6 @@ export function StatCard({ title, value, trend, primaryDescription, secondaryDes
         </p>
       </CardContent>
     </Card>
+    </MagicCard>
   )
 }

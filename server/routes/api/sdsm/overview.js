@@ -6,6 +6,7 @@
  *
  * GET /intersections                  - List available intersections
  * GET /daily-summary/:intersection    - Daily vehicle/VRU counts
+ * GET /summary/:intersection          - Today vs lifetime totals (stat cards)
  */
 
 const express = require("express");
@@ -99,6 +100,57 @@ router.get("/daily-summary/:intersection", async (req, res) => {
     });
   } catch (error) {
     console.error("Error fetching daily summary:", error);
+    res.status(error.status || 500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/sdsm/overview/summary/:intersection?scope=today|lifetime
+ *
+ * Returns totals for stat cards without requiring full time-series.
+ * - scope=today: counts for CURRENT_DATE (server timezone)
+ * - scope=lifetime: counts across all recorded events
+ */
+router.get("/summary/:intersection", async (req, res) => {
+  try {
+    const { intersection } = req.params;
+    const scope = String(req.query.scope || "today").toLowerCase();
+
+    if (!["today", "lifetime"].includes(scope)) {
+      return res.status(400).json({
+        error: "Invalid scope. Use 'today' or 'lifetime'.",
+      });
+    }
+
+    const dateFilter = scope === "today" ? "AND DATE(timestamp) = CURRENT_DATE" : "";
+
+    const result = await db.query(
+      `
+      SELECT
+        COUNT(*) FILTER (WHERE object_type = 'vehicle') AS vehicles,
+        COUNT(*) FILTER (WHERE object_type = 'vru')     AS pedestrians,
+        COUNT(DISTINCT DATE(timestamp))                 AS day_count,
+        MIN(DATE(timestamp))                            AS first_date,
+        MAX(DATE(timestamp))                            AS last_date
+      FROM sdsm_events
+      WHERE intersection_name = $1
+        ${dateFilter};
+      `,
+      [intersection]
+    );
+
+    const row = result.rows[0] || {};
+    res.json({
+      intersection,
+      scope,
+      vehicles: parseInt(row.vehicles || 0, 10),
+      pedestrians: parseInt(row.pedestrians || 0, 10),
+      dayCount: parseInt(row.day_count || 0, 10),
+      firstDate: row.first_date || null,
+      lastDate: row.last_date || null,
+    });
+  } catch (error) {
+    console.error("Error fetching summary:", error);
     res.status(error.status || 500).json({ error: error.message });
   }
 });
