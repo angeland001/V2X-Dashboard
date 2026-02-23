@@ -39,6 +39,27 @@ export async function fetchDailySummary(intersection, days = 90) {
 }
 
 /**
+ * Fetch summary totals for stat cards for a given intersection.
+ * scope:
+ *  - "today": counts for server CURRENT_DATE
+ *  - "lifetime": counts for all recorded events
+ *
+ * @param {string} intersection
+ * @param {"today"|"lifetime"} [scope="today"]
+ * @returns {Promise<{ intersection: string, scope: string, vehicles: number, pedestrians: number, dayCount: number, firstDate: string|null, lastDate: string|null }>}
+ */
+export async function fetchOverviewSummary(intersection, scope = "today") {
+  const params = new URLSearchParams({ scope });
+  const res = await fetch(
+    `${API_URL}/api/sdsm/overview/summary/${intersection}?${params.toString()}`
+  );
+  if (!res.ok) {
+    throw new Error(`Failed to load summary (${res.status})`);
+  }
+  return res.json();
+}
+
+/**
  * Quick connectivity check — hits the health endpoint.
  * Returns true if the server is reachable, false otherwise.
  *

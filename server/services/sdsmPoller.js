@@ -27,14 +27,18 @@ async function ingestIntersection(intersection) {
 
   if (!response.ok) {
     console.warn(
-      `[SDSM Poller] ${intersection}: API returned ${response.status}`
+      `[SDSM Poller] ${intersection}: API returned ${response.status}`,
     );
     return 0;
   }
 
   const data = await response.json();
 
-  if (!data.objects || !Array.isArray(data.objects) || data.objects.length === 0) {
+  if (
+    !data.objects ||
+    !Array.isArray(data.objects) ||
+    data.objects.length === 0
+  ) {
     return 0;
   }
 
@@ -78,7 +82,7 @@ async function ingestIntersection(intersection) {
         obj.size?.width || null,
         obj.size?.length || null,
         JSON.stringify(obj),
-      ]
+      ],
     );
   });
 
@@ -95,7 +99,7 @@ async function pollOnce() {
       const inserted = await ingestIntersection(intersection);
       if (inserted > 0) {
         console.log(
-          `[SDSM Poller] ${intersection}: ingested ${inserted} new events`
+          `[SDSM Poller] ${intersection}: ingested ${inserted} new events`,
         );
       }
     } catch (err) {
@@ -111,7 +115,7 @@ function start() {
   if (intervalId) return; // already running
 
   console.log(
-    `[SDSM Poller] Starting — polling every ${POLL_INTERVAL_MS / 1000}s for ${INTERSECTIONS.join(", ")}`
+    `[SDSM Poller] Starting — polling every ${POLL_INTERVAL_MS / 1000}s for ${INTERSECTIONS.join(", ")}`,
   );
 
   // Run immediately on startup, then on interval

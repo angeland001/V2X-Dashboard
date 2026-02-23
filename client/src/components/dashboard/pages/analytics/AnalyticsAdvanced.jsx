@@ -3,6 +3,7 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
 } from "recharts"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/shadcn/card"
+import MagicCard from "@/components/ui/MagicBento/MagicCard"
 import {
   ChartContainer,
   ChartTooltip,
@@ -88,20 +89,23 @@ export function AnalyticsAdvanced() {
       {/* Stat Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {statCards.map((stat) => (
-          <Card key={stat.title} className="bg-black-900 border-neutral-800 shadow-[0_4px_6px_rgba(255,255,255,0.3)]">
+          <MagicCard key={stat.title} enableStars glowRadius={240}>
+          <Card className="bg-black-900 border-neutral-800">
             <CardContent className="p-5">
               <p className="text-sm text-neutral-400">{stat.title}</p>
               <p className="text-2xl font-bold text-neutral-100 mt-1">{stat.value}</p>
               <p className={`text-sm mt-1 ${stat.changeColor}`}>{stat.change}</p>
             </CardContent>
           </Card>
+          </MagicCard>
         ))}
       </div>
 
       {/* Heatmap & Line Chart Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Traffic Density Heatmap */}
-        <Card className="bg-black-900 border-neutral-800 shadow-[0_4px_6px_rgba(255,255,255,0.3)]">
+        <MagicCard>
+        <Card className="bg-black-900 border-neutral-800">
           <CardHeader>
             <CardTitle className="text-neutral-100 text-base">Traffic Density Heatmap</CardTitle>
           </CardHeader>
@@ -151,9 +155,11 @@ export function AnalyticsAdvanced() {
             </div>
           </CardContent>
         </Card>
+        </MagicCard>
 
         {/* Comparative Traffic Flow */}
-        <Card className="bg-black-900 border-neutral-800 shadow-[0_4px_6px_rgba(255,255,255,0.3)]">
+        <MagicCard>
+        <Card className="bg-black-900 border-neutral-800">
           <CardHeader>
             <CardTitle className="text-neutral-100 text-base">Comparative Traffic Flow</CardTitle>
           </CardHeader>
@@ -172,6 +178,7 @@ export function AnalyticsAdvanced() {
             </ChartContainer>
           </CardContent>
         </Card>
+        </MagicCard>
       </div>
     </div>
   )

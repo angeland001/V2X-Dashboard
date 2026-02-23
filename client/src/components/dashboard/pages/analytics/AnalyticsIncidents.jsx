@@ -4,6 +4,7 @@ import {
   PieChart, Pie, Cell, Legend, Label, Sector, LabelList
 } from "recharts"
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/shadcn/card"
+import MagicCard from "@/components/ui/MagicBento/MagicCard"
 import {
   ChartContainer,
   ChartTooltip,
@@ -203,7 +204,8 @@ export function AnalyticsIncidents() {
   return (
     <div className="space-y-6">
       {/* Incident Response Time Analysis */}
-      <Card className="bg-black-900 border-neutral-800 shadow-[0_4px_6px_rgba(255,255,255,0.3)]">
+      <MagicCard>
+      <Card className="bg-black-900 border-neutral-800">
         <CardHeader>
           <CardTitle className="text-neutral-100 text-lg">Incident Response Time Analysis</CardTitle>
         </CardHeader>
@@ -233,7 +235,8 @@ export function AnalyticsIncidents() {
             <h3 className="text-neutral-300 text-sm font-medium mb-4">Response Time by Incident Type</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               {incidentTypes.map((type) => (
-                <div key={type.title} className="bg-black-900 rounded-lg border border-neutral-800 shadow-[0_4px_6px_rgba(255,255,255,0.3)] p-4">
+                <MagicCard key={type.title} borderRadius="8px">
+                <div className="bg-black-900 rounded-lg border border-neutral-800 p-4">
                   <h4 className="text-neutral-200 text-sm font-medium mb-3">{type.title}</h4>
                   <div className="space-y-2 mb-4">
                     {type.stats.map((stat) => (
@@ -253,14 +256,17 @@ export function AnalyticsIncidents() {
                     </ResponsiveContainer>
                   </div>
                 </div>
+                </MagicCard>
               ))}
             </div>
           </div>
         </CardContent>
       </Card>
+      </MagicCard>
 
       {/* Road Defects Overview */}
-      <Card data-chart={id} className="bg-black-900 border-neutral-800 shadow-[0_4px_6px_rgba(255,255,255,0.3)]">
+      <MagicCard>
+      <Card data-chart={id} className="bg-black-900 border-neutral-800">
         <ChartStyle id={id} config={interactiveDefectConfig} />
         <CardHeader>
           <div className="flex items-start justify-between">
@@ -476,14 +482,17 @@ export function AnalyticsIncidents() {
           {/* Severity Summary Cards */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {severitySummary.map((item) => (
-              <div key={item.label} className="bg-black-900 border border-neutral-800 shadow-[0_4px_6px_rgba(255,255,255,0.3)] rounded-lg p-4">
+              <MagicCard key={item.label} borderRadius="8px">
+              <div className="bg-black-900 border border-neutral-800 rounded-lg p-4">
                 <p className={`text-sm ${item.textColor}`}>{item.label}</p>
                 <p className="text-2xl font-bold text-neutral-100 mt-1">{item.count}</p>
               </div>
+              </MagicCard>
             ))}
           </div>
         </CardContent>
       </Card>
+      </MagicCard>
     </div>
   )
 }
