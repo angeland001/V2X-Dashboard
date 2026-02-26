@@ -15,6 +15,8 @@ const intersectionRoutes = require("./routes/intersections");
 const laneRoutes = require("./routes/lanes");
 const crosswalkRoutes = require("./routes/crosswalks");
 const laneConnectionRoutes = require("./routes/lane_connections");
+const spatZoneRoutes = require("./routes/spat_zones");
+const preemptionZoneConfigRoutes = require("./routes/preemption_zone_configs");
 const db = require("./database/postgis");
 
 const app = express();
@@ -37,6 +39,8 @@ app.use("/api/intersections", intersectionRoutes);
 app.use("/api/lanes", laneRoutes);
 app.use("/api/crosswalks", crosswalkRoutes);
 app.use("/api/lane-connections", laneConnectionRoutes);
+app.use("/api/spat-zones", spatZoneRoutes);
+app.use("/api/preemption-zone-config", preemptionZoneConfigRoutes);
 
 // Health check endpoint
 app.get("/health", (req, res) => {
@@ -68,4 +72,6 @@ app.listen(PORT, () => {
   console.log(`Lanes API: http://localhost:${PORT}/api/lanes`);
   console.log(`Crosswalks API: http://localhost:${PORT}/api/crosswalks`);
   console.log(`Lane Connections API: http://localhost:${PORT}/api/lane-connections`);
+  console.log(`SPaT Zones API: http://localhost:${PORT}/api/spat-zones`);
+  console.log(`Preemption Zone Config API: http://localhost:${PORT}/api/preemption-zone-config`);
 });
