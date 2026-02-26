@@ -1,0 +1,108 @@
+/* ─── MagicCard ─────────────────────────────────────────────────────────────
+   Wrapper that adds cursor-tracked border glow, inner spotlight, click ripple,
+   and optional star particles to any card child.
+   All colour is driven by --mc-glow (R, G, B triplet).
+────────────────────────────────────────────────────────────────────────────── */
+
+.magic-card {
+  position: relative;
+  /* border-radius is applied via inline style from the borderRadius prop */
+  overflow: hidden;
+  --mc-glow: 255, 255, 255;
+  --mc-x: 50%;
+  --mc-y: 50%;
+  --mc-radius: 300px;
+}
+
+/* ── Inner spotlight ─────────────────────────────────────────────── */
+.magic-card__spotlight {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(
+    var(--mc-radius) circle at var(--mc-x) var(--mc-y),
+    rgba(var(--mc-glow), 0.07) 0%,
+    transparent 65%
+  );
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  z-index: 2;
+}
+
+.magic-card:hover .magic-card__spotlight {
+  opacity: 1;
+}
+
+/* ── Border glow (follows cursor along the card edge) ───────────── */
+.magic-card__border {
+  position: absolute;
+  inset: 0;
+  padding: 1px;
+  border-radius: inherit;
+  background: radial-gradient(
+    var(--mc-radius) circle at var(--mc-x) var(--mc-y),
+    rgba(var(--mc-glow), 0.9) 0%,
+    rgba(var(--mc-glow), 0.35) 40%,
+    transparent 65%
+  );
+  /* Mask trick: show only the 1-px border region */
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  z-index: 3;
+}
+
+.magic-card:hover .magic-card__border {
+  opacity: 1;
+}
+
+/* ── Click ripple ───────────────────────────────────────────────── */
+.magic-card__ripple {
+  position: absolute;
+  border-radius: 50%;
+  width: 4px;
+  height: 4px;
+  background: rgba(var(--mc-glow), 0.35);
+  transform: translate(-50%, -50%) scale(0);
+  animation: magic-card-ripple 0.7s ease-out forwards;
+  pointer-events: none;
+  z-index: 5;
+}
+
+@keyframes magic-card-ripple {
+  to {
+    transform: translate(-50%, -50%) scale(90);
+    opacity: 0;
+  }
+}
+
+/* ── Star particles ─────────────────────────────────────────────── */
+.magic-card__star {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(var(--mc-glow), 0.65);
+  pointer-events: none;
+  animation: magic-card-twinkle linear infinite;
+  z-index: 1;
+}
+
+@keyframes magic-card-twinkle {
+  0%,
+  100% {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  50% {
+    opacity: 0.9;
+    transform: scale(1);
+  }
+}

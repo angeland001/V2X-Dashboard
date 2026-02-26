@@ -20,13 +20,13 @@ import { Button } from "@/components/ui/shadcn/button"
 import { Badge } from "@/components/ui/shadcn/badge"
 import { Checkbox } from "@/components/ui/shadcn/checkbox"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/shadcn/toggle-group"
-import SpinnerCircle3 from "@/components/ui/shadcn/spinner-circle"
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "@/components/ui/shadcn/dropdown-menu"
+import SpinnerCircle3 from "@/components/ui/shadcn/spinner-circle"
 import {
   ArchiveIcon,
   FileTextIcon,
@@ -37,9 +37,8 @@ import {
 export function TrafficDataTable({ data, location }) {
   const [columnVisibility, setColumnVisibility] = React.useState({
     date: true,
-    time: true,
     vehicles: true,
-    pedestrians: true,
+    vru: true,
     total: true,
     status: true,
     processStatus: true,
@@ -54,21 +53,22 @@ export function TrafficDataTable({ data, location }) {
     return "Normal"
   }
 
+  const todayStr = new Date().toDateString()
+
   const recentData = data.slice(-7).reverse().map((item, index) => {
     const total = item.vehicles + item.pedestrians
     const status = getTrafficStatus(item.vehicles, item.pedestrians)
-    const time = `${8 + Math.floor(index * 2)}:00 AM`
-    // Randomly assign "In progress" or "Done" for demo purposes
-    const processStatus = index % 3 === 0 ? "In progress" : "Done"
+    const itemDate = new Date(item.date)
+    const isToday = itemDate.toDateString() === todayStr
+
     return {
       id: `row-${index}`,
-      date: new Date(item.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
-      time,
+      date: itemDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
       vehicles: item.vehicles,
-      pedestrians: item.pedestrians,
+      vru: item.pedestrians,
       total,
       status,
-      processStatus,
+      processStatus: isToday ? "Collecting" : "Complete",
     }
   })
 
@@ -90,12 +90,17 @@ export function TrafficDataTable({ data, location }) {
     }
   }
 
+  const dayCount = Math.min(data.length, 7)
+
   return (
     <Card className="bg-black border-neutral-800 shadow-[0_4px_6px_rgba(255,255,255,0.1)]">
       <CardHeader>
         <CardTitle className="text-white">Recent Traffic Data</CardTitle>
         <CardDescription className="text-black-400">
-          Last 7 days of traffic records for {location}
+          {dayCount === 0
+            ? `No recorded days yet for ${location}`
+            : `Last ${dayCount} recorded day${dayCount === 1 ? '' : 's'} for ${location}`
+          }
         </CardDescription>
       </CardHeader>
 
@@ -128,13 +133,6 @@ export function TrafficDataTable({ data, location }) {
               Date
             </DropdownMenuCheckboxItem>
             <DropdownMenuCheckboxItem
-              checked={columnVisibility.time}
-              onCheckedChange={(value) => setColumnVisibility({ ...columnVisibility, time: value })}
-              className="text-gray-300 focus:bg-neutral-800 focus:text-white"
-            >
-              Time
-            </DropdownMenuCheckboxItem>
-            <DropdownMenuCheckboxItem
               checked={columnVisibility.vehicles}
               onCheckedChange={(value) => setColumnVisibility({ ...columnVisibility, vehicles: value })}
               className="text-gray-300 focus:bg-neutral-800 focus:text-white"
@@ -142,11 +140,11 @@ export function TrafficDataTable({ data, location }) {
               Vehicles
             </DropdownMenuCheckboxItem>
             <DropdownMenuCheckboxItem
-              checked={columnVisibility.pedestrians}
-              onCheckedChange={(value) => setColumnVisibility({ ...columnVisibility, pedestrians: value })}
+              checked={columnVisibility.vru}
+              onCheckedChange={(value) => setColumnVisibility({ ...columnVisibility, vru: value })}
               className="text-gray-300 focus:bg-neutral-800 focus:text-white"
             >
-              Pedestrians
+              VRU
             </DropdownMenuCheckboxItem>
             <DropdownMenuCheckboxItem
               checked={columnVisibility.total}
@@ -185,53 +183,59 @@ export function TrafficDataTable({ data, location }) {
                 />
               </TableHead>
               {columnVisibility.date && <TableHead className="text-gray-300">Date</TableHead>}
-              {columnVisibility.time && <TableHead className="text-gray-300">Time</TableHead>}
               {columnVisibility.vehicles && <TableHead className="text-right text-gray-300">Vehicles</TableHead>}
-              {columnVisibility.pedestrians && <TableHead className="text-right text-gray-300">Pedestrians</TableHead>}
+              {columnVisibility.vru && <TableHead className="text-right text-gray-300">VRU</TableHead>}
               {columnVisibility.total && <TableHead className="text-right text-gray-300">Total</TableHead>}
               {columnVisibility.status && <TableHead className="text-gray-300">Traffic Status</TableHead>}
               {columnVisibility.processStatus && <TableHead className="text-gray-300">Status</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
-            {recentData.map((row, index) => (
-              <TableRow key={row.id} className="border-neutral-800 hover:bg-neutral-900">
-                <TableCell>
-                  <Checkbox
-                    checked={selectedRows.has(row.id)}
-                    onCheckedChange={() => toggleRowSelection(row.id)}
-                    aria-label={`Select row ${index + 1}`}
-                  />
+            {recentData.length === 0 ? (
+              <TableRow className="border-neutral-800">
+                <TableCell colSpan={7} className="text-center text-gray-500 py-8">
+                  No data recorded yet — the poller is collecting events.
                 </TableCell>
-                {columnVisibility.date && <TableCell className="font-medium text-white">{row.date}</TableCell>}
-                {columnVisibility.time && <TableCell className="text-gray-300">{row.time}</TableCell>}
-                {columnVisibility.vehicles && <TableCell className="text-right text-white">{row.vehicles.toLocaleString()}</TableCell>}
-                {columnVisibility.pedestrians && <TableCell className="text-right text-white">{row.pedestrians.toLocaleString()}</TableCell>}
-                {columnVisibility.total && <TableCell className="text-right font-medium text-white">{row.total.toLocaleString()}</TableCell>}
-                {columnVisibility.status && (
-                  <TableCell>
-                    <Badge variant="outline" className="w-fit border-gray-700 text-gray-400 rounded-full px-2.5 py-0.5 text-xs">
-                      {row.status}
-                    </Badge>
-                  </TableCell>
-                )}
-                {columnVisibility.processStatus && (
-                  <TableCell>
-                    {row.processStatus === "In progress" ? (
-                      <Badge variant="outline" className="flex items-center gap-1.5 w-fit border-gray-700 rounded-full px-2.5 py-0.5">
-                        <SpinnerCircle3 />
-                        <span className="text-gray-400 text-xs">In progress</span>
-                      </Badge>
-                    ) : (
-                      <Badge variant="outline" className="flex items-center gap-1.5 w-fit border-green-500 rounded-full px-2.5 py-0.5">
-                        <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
-                        <span className="text-green-500 text-xs">Done</span>
-                      </Badge>
-                    )}
-                  </TableCell>
-                )}
               </TableRow>
-            ))}
+            ) : (
+              recentData.map((row, index) => (
+                <TableRow key={row.id} className="border-neutral-800 hover:bg-neutral-900">
+                  <TableCell>
+                    <Checkbox
+                      checked={selectedRows.has(row.id)}
+                      onCheckedChange={() => toggleRowSelection(row.id)}
+                      aria-label={`Select row ${index + 1}`}
+                    />
+                  </TableCell>
+                  {columnVisibility.date && <TableCell className="font-medium text-white">{row.date}</TableCell>}
+                  {columnVisibility.vehicles && <TableCell className="text-right text-white">{row.vehicles.toLocaleString()}</TableCell>}
+                  {columnVisibility.vru && <TableCell className="text-right text-white">{row.vru.toLocaleString()}</TableCell>}
+                  {columnVisibility.total && <TableCell className="text-right font-medium text-white">{row.total.toLocaleString()}</TableCell>}
+                  {columnVisibility.status && (
+                    <TableCell>
+                      <Badge variant="outline" className="w-fit border-gray-700 text-gray-400 rounded-full px-2.5 py-0.5 text-xs">
+                        {row.status}
+                      </Badge>
+                    </TableCell>
+                  )}
+                  {columnVisibility.processStatus && (
+                    <TableCell>
+                      {row.processStatus === "Collecting" ? (
+                        <Badge variant="outline" className="flex items-center gap-1.5 w-fit border-gray-700 rounded-full px-2.5 py-0.5">
+                          <SpinnerCircle3 />
+                          <span className="text-gray-400 text-xs">Collecting</span>
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="flex items-center gap-1.5 w-fit border-green-500 rounded-full px-2.5 py-0.5">
+                          <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
+                          <span className="text-green-500 text-xs">Complete</span>
+                        </Badge>
+                      )}
+                    </TableCell>
+                  )}
+                </TableRow>
+              ))
+            )}
           </TableBody>
         </Table>
       </CardContent>

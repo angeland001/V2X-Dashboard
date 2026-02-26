@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const db = require("../database/postgis");
+const db = require("../../database/postgis");
 
 // ─── Delta to Coordinates Conversion ──────────────────────────────
 
