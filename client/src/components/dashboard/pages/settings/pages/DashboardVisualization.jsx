@@ -7,11 +7,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/shadcn/select'
-import { Switch } from '@/components/ui/shadcn/switch'
+import { ToggleButton } from '@/components/ui/ToggleButton'
 import { Separator } from '@/components/ui/shadcn/separator'
 import { Label } from '@/components/ui/label'
 
-function SectionHeader({ title, description }) {
+export function SectionHeader({ title, description }) {
   return (
     <div className="mb-4">
       <h2 className="text-base font-semibold text-neutral-100">{title}</h2>
@@ -29,7 +29,7 @@ function ToggleRow({ label, description, checked, onCheckedChange }) {
           <p className="text-xs text-neutral-500 mt-0.5">{description}</p>
         )}
       </div>
-      <Switch checked={checked} onCheckedChange={onCheckedChange} />
+      <ToggleButton checked={checked} onCheckedChange={onCheckedChange} />
     </div>
   )
 }
@@ -63,7 +63,7 @@ export function DashboardVisualization() {
             description="Choose which analytics screen loads first"
           />
           <Select value={defaultDashboard} onValueChange={setDefaultDashboard}>
-            <SelectTrigger className="w-full bg-neutral-800 border-neutral-700 text-neutral-200">
+            <SelectTrigger className="w-24 bg-neutral-800 border-neutral-700 text-neutral-200">
               <SelectValue />
             </SelectTrigger>
             <SelectContent className="bg-neutral-800 border-neutral-700">
@@ -83,8 +83,8 @@ export function DashboardVisualization() {
             title="Theme"
             description="Choose your preferred color scheme"
           />
-          <Select value={theme} onValueChange={setTheme}>
-            <SelectTrigger className="w-full bg-neutral-800 border-neutral-700 text-neutral-200">
+          <Select  value={theme} onValueChange={setTheme}>
+            <SelectTrigger className="w-24 bg-neutral-800 border-neutral-700 text-neutral-200">
               <SelectValue />
             </SelectTrigger>
             <SelectContent className="bg-neutral-800 border-neutral-700">
@@ -139,7 +139,7 @@ export function DashboardVisualization() {
                 Color Palette
               </Label>
               <Select value={colorPalette} onValueChange={setColorPalette}>
-                <SelectTrigger className="w-full bg-neutral-800 border-neutral-700 text-neutral-200">
+                <SelectTrigger className="w-48 bg-neutral-800 border-neutral-700 text-neutral-200">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="bg-neutral-800 border-neutral-700">
@@ -176,7 +176,7 @@ export function DashboardVisualization() {
                 Time Zone
               </Label>
               <Select value={timeZone} onValueChange={setTimeZone}>
-                <SelectTrigger className="w-full bg-neutral-800 border-neutral-700 text-neutral-200">
+                <SelectTrigger className="w-48 bg-neutral-800 border-neutral-700 text-neutral-200">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="bg-neutral-800 border-neutral-700">

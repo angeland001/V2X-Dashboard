@@ -18,6 +18,7 @@ import AnalyticsPage from "./components/dashboard/pages/analytics/AnalyticsPage"
 import SettingsLayout from "./components/dashboard/pages/settings/nav/SettingsNav";
 import DashboardVisualization from "./components/dashboard/pages/settings/pages/DashboardVisualization";
 import NotFound from "./error/404NotFound";
+import { NotificationsAlerts } from "./components/dashboard/pages/settings/pages/NotificationsAlerts";
 
 const customKeplerReducer = keplerGlReducer.initialState({
   uiState: {
@@ -59,6 +60,7 @@ export default function App() {
             <Route path="analytics" element={<AnalyticsPage />} />
             <Route path="settings" element={<SettingsLayout />}>
               <Route path="dashboard-visualization" element={<DashboardVisualization />} />
+              <Route path="notifications" element={<NotificationsAlerts />} />
             </Route>
           </Route>
 
