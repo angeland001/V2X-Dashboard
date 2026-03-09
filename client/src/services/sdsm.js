@@ -30,7 +30,7 @@ export async function fetchIntersections() {
  */
 export async function fetchDailySummary(intersection, days = 90) {
   const res = await fetch(
-    `${API_URL}/api/sdsm/overview/daily-summary/${intersection}?days=${days}`
+    `${API_URL}/api/sdsm/overview/daily-summary/${intersection}?days=${days}`,
   );
   if (!res.ok) {
     throw new Error(`Failed to load daily summary (${res.status})`);
@@ -51,7 +51,7 @@ export async function fetchDailySummary(intersection, days = 90) {
 export async function fetchOverviewSummary(intersection, scope = "today") {
   const params = new URLSearchParams({ scope });
   const res = await fetch(
-    `${API_URL}/api/sdsm/overview/summary/${intersection}?${params.toString()}`
+    `${API_URL}/api/sdsm/overview/summary/${intersection}?${params.toString()}`,
   );
   if (!res.ok) {
     throw new Error(`Failed to load summary (${res.status})`);

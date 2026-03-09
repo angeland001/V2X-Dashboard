@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Checkbox as CheckboxPrimitive } from "@base-ui/react/checkbox"
+import * as CheckboxPrimitive from "@radix-ui/react-checkbox"
 import { cn } from "@/lib/utils"
 
 const Checkbox = React.forwardRef(({ className, ...props }, ref) => (
@@ -12,12 +12,12 @@ const Checkbox = React.forwardRef(({ className, ...props }, ref) => (
       "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-400",
       "disabled:cursor-not-allowed disabled:opacity-50",
       "hover:border-neutral-300",
-      "data-[checked]:bg-white data-[checked]:border-white",
+      "data-[state=checked]:bg-white data-[state=checked]:border-white",
       className
     )}
     {...props}
   >
-    <CheckboxPrimitive.Indicator className="flex text-neutral-950 data-[unchecked]:hidden">
+    <CheckboxPrimitive.Indicator className="flex text-neutral-950 data-[state=unchecked]:hidden">
       <svg
         fill="currentColor"
         width="10"

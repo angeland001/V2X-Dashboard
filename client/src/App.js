@@ -19,7 +19,10 @@ import SettingsLayout from "./components/dashboard/pages/settings/nav/SettingsNa
 import DashboardVisualization from "./components/dashboard/pages/settings/pages/DashboardVisualization";
 import NotFound from "./error/404NotFound";
 import { NotificationsAlerts } from "./components/dashboard/pages/settings/pages/NotificationsAlerts";
-
+import { UserProfiles } from "./components/dashboard/pages/settings/pages/UserProfiles";
+import { DataAnalytics } from "./components/dashboard/pages/settings/pages/DataAnalytics";
+import { SecurityPrivacy } from "./components/dashboard/pages/settings/pages/Security&Privacy";
+import { Support } from "./components/dashboard/pages/settings/pages/Support";
 const customKeplerReducer = keplerGlReducer.initialState({
   uiState: {
     currentModal: null,
@@ -59,8 +62,15 @@ export default function App() {
             <Route path="crosswalks" element={<CrosswalksPage />} />
             <Route path="analytics" element={<AnalyticsPage />} />
             <Route path="settings" element={<SettingsLayout />}>
-              <Route path="dashboard-visualization" element={<DashboardVisualization />} />
+              <Route
+                path="dashboard-visualization"
+                element={<DashboardVisualization />}
+              />
               <Route path="notifications" element={<NotificationsAlerts />} />
+              <Route path="users" element={<UserProfiles />} />
+              <Route path="data" element={<DataAnalytics />} />
+              <Route path="security" element={<SecurityPrivacy />} />
+              <Route path="support" element={<Support />} />
             </Route>
           </Route>
 
