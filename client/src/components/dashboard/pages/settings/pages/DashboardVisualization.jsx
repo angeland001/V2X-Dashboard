@@ -31,10 +31,10 @@ export function DashboardVisualization() {
           description="Choose which analytics screen loads first"
         />
         <Select value={defaultDashboard} onValueChange={setDefaultDashboard}>
-          <SelectTrigger className="w-24 bg-neutral-800 border-neutral-700 text-neutral-200">
+          <SelectTrigger className="w-48 bg-neutral-800 border-neutral-700 text-neutral-200">
             <SelectValue />
           </SelectTrigger>
-          <SelectContent className="bg-neutral-800 border-neutral-700 text-neutral-200">
+          <SelectContent className="w-48 bg-neutral-800 border-neutral-700 text-neutral-200">
             <SelectItem value="sdsm">SDSM</SelectItem>
             <SelectItem value="analytics">Traffic Analytics</SelectItem>
             <SelectItem value="geofences">Geofences</SelectItem>
