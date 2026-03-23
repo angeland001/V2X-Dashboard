@@ -146,6 +146,55 @@ CREATE INDEX IF NOT EXISTS idx_lane_connections_from ON lane_connections(from_la
 CREATE INDEX IF NOT EXISTS idx_lane_connections_to ON lane_connections(to_lane_id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_lane_connections_unique ON lane_connections(from_lane_id, to_lane_id);
 
+-- ============================================================
+-- 6. SPaT ZONES
+-- ============================================================
+CREATE TABLE IF NOT EXISTS spat_zones (
+    id              SERIAL PRIMARY KEY,
+    intersection_id INTEGER NOT NULL REFERENCES intersections(id) ON DELETE CASCADE,
+    name            VARCHAR(255) NOT NULL,
+    lane_ids        INTEGER[] NOT NULL,
+    signal_group    INTEGER NOT NULL,
+    polygon         GEOMETRY(Polygon, 4326) NOT NULL,
+    entry_line      GEOMETRY(LineString, 4326) NOT NULL,
+    exit_line       GEOMETRY(LineString, 4326) NOT NULL,
+    status          VARCHAR(20) DEFAULT 'active',
+    created_at      TIMESTAMPTZ DEFAULT NOW(),
+    updated_at      TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_spat_zones_intersection ON spat_zones(intersection_id);
+CREATE INDEX IF NOT EXISTS idx_spat_zones_polygon ON spat_zones USING GIST(polygon);
+CREATE INDEX IF NOT EXISTS idx_spat_zones_entry_line ON spat_zones USING GIST(entry_line);
+CREATE INDEX IF NOT EXISTS idx_spat_zones_exit_line ON spat_zones USING GIST(exit_line);
+
+DROP TRIGGER IF EXISTS trg_spat_zones_updated ON spat_zones;
+CREATE TRIGGER trg_spat_zones_updated
+    BEFORE UPDATE ON spat_zones
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- ============================================================
+-- 7. PREEMPTION ZONE CONFIG
+-- ============================================================
+CREATE TABLE IF NOT EXISTS preemption_zone_configs (
+    id              SERIAL PRIMARY KEY,
+    intersection_id INTEGER NOT NULL REFERENCES intersections(id) ON DELETE CASCADE,
+    spat_zone_id    INTEGER NOT NULL REFERENCES spat_zones(id) ON DELETE CASCADE,
+    created_at      TIMESTAMPTZ DEFAULT NOW(),
+    updated_at      TIMESTAMPTZ DEFAULT NOW(),
+    CONSTRAINT preemption_zone_configs_intersection_unique UNIQUE (intersection_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_preemption_zone_configs_intersection
+    ON preemption_zone_configs(intersection_id);
+CREATE INDEX IF NOT EXISTS idx_preemption_zone_configs_spat_zone
+    ON preemption_zone_configs(spat_zone_id);
+
+DROP TRIGGER IF EXISTS trg_preemption_zone_configs_updated ON preemption_zone_configs;
+CREATE TRIGGER trg_preemption_zone_configs_updated
+    BEFORE UPDATE ON preemption_zone_configs
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
 -- Triggers for updated_at
 DROP TRIGGER IF EXISTS trg_intersections_updated ON intersections;
 CREATE TRIGGER trg_intersections_updated

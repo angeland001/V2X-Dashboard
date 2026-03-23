@@ -1,6 +1,7 @@
 import "mapbox-gl/dist/mapbox-gl.css";
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { fetchSpatZones, createSpatZone, updateSpatZone, deleteSpatZone } from "../../services/spatZones";
+import { fetchPreemptionZoneConfig, savePreemptionZoneConfig } from "../../services/preemptionZoneConfig";
 import { Button } from "../ui/shadcn/button";
 import {
   Select,
@@ -192,7 +193,7 @@ function GeoFencingMap() {
   const [deleteConfirmTarget, setDeleteConfirmTarget] = useState(null);
 
   // Connection colors
-  const [connectionColor, setConnectionColor] = useState("#FF9500");
+  const connectionColor = CONNECTION_COLOR;
   const [connectionColors, setConnectionColors] = useState({});
 
   // Toast
@@ -220,6 +221,16 @@ function GeoFencingMap() {
   const [spatPreviewPayload, setSpatPreviewPayload] = useState(null);
   const [spatDeleteOpen, setSpatDeleteOpen] = useState(false);
   const [spatManageOpen, setSpatManageOpen] = useState(false);
+  const [zoneEditorTab, setZoneEditorTab] = useState("spat");
+  const [selectedPreemptionZoneId, setSelectedPreemptionZoneId] = useState(null);
+  const [spatZonesLoadedIntersectionId, setSpatZonesLoadedIntersectionId] = useState(null);
+
+  const zonesForActiveIntersection = activeIntersection
+    ? spatZones.filter((z) => String(z.intersectionId) === String(activeIntersection.id))
+    : [];
+  const selectedPreemptionZone = selectedPreemptionZoneId
+    ? zonesForActiveIntersection.find((z) => String(z.id) === String(selectedPreemptionZoneId)) || null
+    : null;
 
   // Keep refs in sync for mapbox event handlers
   const drawModeRef = useRef(null);
@@ -230,6 +241,7 @@ function GeoFencingMap() {
   const spatLanePickModeRef = useRef(false);
   const spatEntryEdgeIdRef = useRef(null);
   const spatExitEdgeIdRef = useRef(null);
+  const selectedPreemptionZoneIdRef = useRef(null);
 
   useEffect(() => { drawModeRef.current = drawMode; }, [drawMode]);
   useEffect(() => { drawPointsRef.current = drawPoints; }, [drawPoints]);
@@ -239,9 +251,7 @@ function GeoFencingMap() {
   useEffect(() => { spatLanePickModeRef.current = spatLanePickMode; }, [spatLanePickMode]);
   useEffect(() => { spatEntryEdgeIdRef.current = spatDraft.entryEdgeId; }, [spatDraft.entryEdgeId]);
   useEffect(() => { spatExitEdgeIdRef.current = spatDraft.exitEdgeId; }, [spatDraft.exitEdgeId]);
-
-  const connectionColorRef = useRef("#FF9500");
-  useEffect(() => { connectionColorRef.current = connectionColor; }, [connectionColor]);
+  useEffect(() => { selectedPreemptionZoneIdRef.current = selectedPreemptionZoneId; }, [selectedPreemptionZoneId]);
 
   // ── Toast helper ──────────────────────────────────────────────
   const showMessage = useCallback((text, type = "info") => {
@@ -291,8 +301,22 @@ function GeoFencingMap() {
     try {
       const data = await fetchSpatZones(intId);
       setSpatZones(data);
+      setSpatZonesLoadedIntersectionId(String(intId));
     } catch (err) {
       console.error("Failed to load SPaT zones:", err);
+      setSpatZonesLoadedIntersectionId(null);
+    }
+  }, []);
+
+  const loadPreemptionZoneConfigForIntersection = useCallback(async (intId) => {
+    try {
+      const config = await fetchPreemptionZoneConfig(intId);
+      setSelectedPreemptionZoneId(
+        config?.spatZoneId != null ? String(config.spatZoneId) : null,
+      );
+    } catch (err) {
+      console.error("Failed to load preemption zone config:", err);
+      setSelectedPreemptionZoneId(null);
     }
   }, []);
 
@@ -300,17 +324,35 @@ function GeoFencingMap() {
 
   useEffect(() => {
     if (activeIntersection) {
+      setSpatZonesLoadedIntersectionId(null);
       loadLanes(activeIntersection.id);
       loadCrosswalks(activeIntersection.id);
       loadConnections(activeIntersection.id);
       loadSpatZones(activeIntersection.id);
+      loadPreemptionZoneConfigForIntersection(activeIntersection.id);
     } else {
       setLanes([]);
       setCrosswalks([]);
       setConnections([]);
       setSpatZones([]);
+      setSpatZonesLoadedIntersectionId(null);
+      setSelectedPreemptionZoneId(null);
     }
-  }, [activeIntersection, loadLanes, loadCrosswalks, loadConnections, loadSpatZones]);
+  }, [activeIntersection, loadLanes, loadCrosswalks, loadConnections, loadSpatZones, loadPreemptionZoneConfigForIntersection]);
+
+  useEffect(() => {
+    if (!activeIntersection || !selectedPreemptionZoneId) return;
+    if (String(spatZonesLoadedIntersectionId) !== String(activeIntersection.id)) return;
+    const exists = spatZones.some((z) => (
+      String(z.intersectionId) === String(activeIntersection.id) &&
+      String(z.id) === String(selectedPreemptionZoneId)
+    ));
+    if (exists) return;
+    setSelectedPreemptionZoneId(null);
+    savePreemptionZoneConfig(activeIntersection.id, null).catch((err) => {
+      console.error("Failed to clear stale preemption zone config:", err);
+    });
+  }, [activeIntersection, spatZones, selectedPreemptionZoneId, spatZonesLoadedIntersectionId]);
 
   useEffect(() => {
     const poly = spatDraft.polygon?.coordinates?.[0] || null;
@@ -426,6 +468,10 @@ function GeoFencingMap() {
         data: { type: "FeatureCollection", features: [] },
       });
       map.addSource("spat-exit-src", {
+        type: "geojson",
+        data: { type: "FeatureCollection", features: [] },
+      });
+      map.addSource("preemption-zone-src", {
         type: "geojson",
         data: { type: "FeatureCollection", features: [] },
       });
@@ -591,6 +637,24 @@ function GeoFencingMap() {
         paint: {
           "line-color": "#A78BFA",
           "line-width": 2,
+        },
+      });
+      map.addLayer({
+        id: "preemption-zone-fill",
+        type: "fill",
+        source: "preemption-zone-src",
+        paint: {
+          "fill-color": "#F97316",
+          "fill-opacity": 0.2,
+        },
+      });
+      map.addLayer({
+        id: "preemption-zone-outline",
+        type: "line",
+        source: "preemption-zone-src",
+        paint: {
+          "line-color": "#FB923C",
+          "line-width": 3,
         },
       });
       // Draft zone preview (used when creating/editing a single zone)
@@ -866,6 +930,9 @@ function GeoFencingMap() {
     if (!map.getSource("spat-exit-src")) {
       map.addSource("spat-exit-src", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
     }
+    if (!map.getSource("preemption-zone-src")) {
+      map.addSource("preemption-zone-src", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+    }
 
     if (!map.getLayer("crosswalks-fill")) {
       map.addLayer({ id: "crosswalks-fill", type: "fill", source: "crosswalks-src", paint: { "fill-color": ["get", "color"], "fill-opacity": 0.25 } });
@@ -915,6 +982,12 @@ function GeoFencingMap() {
     }
     if (!map.getLayer("spat-zones-outline")) {
       map.addLayer({ id: "spat-zones-outline", type: "line", source: "spat-zones-src", paint: { "line-color": "#A78BFA", "line-width": 2 } });
+    }
+    if (!map.getLayer("preemption-zone-fill")) {
+      map.addLayer({ id: "preemption-zone-fill", type: "fill", source: "preemption-zone-src", paint: { "fill-color": "#F97316", "fill-opacity": 0.2 } });
+    }
+    if (!map.getLayer("preemption-zone-outline")) {
+      map.addLayer({ id: "preemption-zone-outline", type: "line", source: "preemption-zone-src", paint: { "line-color": "#FB923C", "line-width": 3 } });
     }
     if (!map.getLayer("spat-draft-zone-fill")) {
       map.addLayer({ id: "spat-draft-zone-fill", type: "fill", source: "spat-draft-zone-src", paint: { "fill-color": "#0EA5E9", "fill-opacity": 0.16 } });
@@ -1021,6 +1094,20 @@ function GeoFencingMap() {
       if (entrySrc) entrySrc.setData({ type: "FeatureCollection", features: entryFeatures });
       const exitSrc = map.getSource("spat-exit-src");
       if (exitSrc) exitSrc.setData({ type: "FeatureCollection", features: exitFeatures });
+      const preemptionZoneId = selectedPreemptionZoneIdRef.current;
+      const preemptionZone = preemptionZoneId
+        ? zonesForIntAll.find((z) => String(z.id) === String(preemptionZoneId))
+        : null;
+      const preemptionFeatures =
+        preemptionZone?.polygon
+          ? [{
+              type: "Feature",
+              geometry: { type: "Polygon", coordinates: [preemptionZone.polygon] },
+              properties: { id: preemptionZone.id, name: preemptionZone.name },
+            }]
+          : [];
+      const preemptionSrc = map.getSource("preemption-zone-src");
+      if (preemptionSrc) preemptionSrc.setData({ type: "FeatureCollection", features: preemptionFeatures });
 
       // Draft preview
       const draftZoneSrc = map.getSource("spat-draft-zone-src");
@@ -1143,6 +1230,20 @@ function GeoFencingMap() {
     if (entrySrc) entrySrc.setData({ type: "FeatureCollection", features: entryFeatures });
     const exitSrc = map.getSource("spat-exit-src");
     if (exitSrc) exitSrc.setData({ type: "FeatureCollection", features: exitFeatures });
+    const preemptionZoneId = selectedPreemptionZoneId;
+    const preemptionZone = preemptionZoneId
+      ? zonesForIntAll.find((z) => String(z.id) === String(preemptionZoneId))
+      : null;
+    const preemptionFeatures =
+      preemptionZone?.polygon
+        ? [{
+            type: "Feature",
+            geometry: { type: "Polygon", coordinates: [preemptionZone.polygon] },
+            properties: { id: preemptionZone.id, name: preemptionZone.name },
+          }]
+        : [];
+    const preemptionSrc = map.getSource("preemption-zone-src");
+    if (preemptionSrc) preemptionSrc.setData({ type: "FeatureCollection", features: preemptionFeatures });
 
     // Draft preview (drawn/edited zone)
     const draftZoneSrc = map.getSource("spat-draft-zone-src");
@@ -1185,7 +1286,7 @@ function GeoFencingMap() {
     });
     const edgesSrc = map.getSource("spat-edges-src");
     if (edgesSrc) edgesSrc.setData({ type: "FeatureCollection", features: draftEdges });
-  }, [lanes, crosswalks, spatZones, spatEditingId, activeIntersection, spatEdges, spatDraft.polygon, spatDraft.entryLine, spatDraft.exitLine, spatDraft.laneIds, spatSelectMode, spatHoverEdgeId]);
+  }, [lanes, crosswalks, spatZones, spatEditingId, selectedPreemptionZoneId, activeIntersection, spatEdges, spatDraft.polygon, spatDraft.entryLine, spatDraft.exitLine, spatDraft.laneIds, spatSelectMode, spatHoverEdgeId]);
 
   // Update connection curves — uses lane endpoint (last coord, same as phase label)
   useEffect(() => {
@@ -1584,6 +1685,23 @@ function GeoFencingMap() {
     setSpatDraft((prev) => ({ ...prev, laneIds: [] }));
   };
 
+  const setActivePreemptionZone = async (zoneId) => {
+    if (!activeIntersection) return;
+    try {
+      const result = await savePreemptionZoneConfig(activeIntersection.id, zoneId);
+      setSelectedPreemptionZoneId(
+        result?.spatZoneId != null ? String(result.spatZoneId) : null,
+      );
+      if (zoneId == null) {
+        showMessage("Preemption zone cleared.");
+      } else {
+        showMessage("Preemption zone saved.");
+      }
+    } catch (err) {
+      showMessage(`Error: ${err.message}`, "error");
+    }
+  };
+
   const selectSpatEdge = (edge) => {
     const mode = spatSelectModeRef.current;
     if (!edge || !mode) return;
@@ -1615,7 +1733,7 @@ function GeoFencingMap() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       // Store the currently selected color for this new connection
-      const color = connectionColorRef.current;
+      const color = CONNECTION_COLOR;
       setConnectionColors(prev => ({ ...prev, [data.id]: color }));
       const intId = activeIntRef.current?.id;
       if (intId) await loadConnections(intId);
@@ -1958,227 +2076,273 @@ function GeoFencingMap() {
           </Card>
         )}
 
-        {/* SPaT Zones */}
+        {/* Zone Editor */}
         {activeIntersection && (
           <Card className="dark bg-zinc-900/95 border-zinc-700 backdrop-blur">
             <CardHeader className="pb-2 pt-3 px-4">
               <div className="flex items-center justify-between gap-2">
-                <CardTitle className="text-sm text-white">SPaT Zones</CardTitle>
-                {spatEditingId && (
+                <CardTitle className="text-sm text-white">Zone Editor</CardTitle>
+                {zoneEditorTab === "spat" && spatEditingId && (
                   <Badge className="bg-sky-500/15 text-sky-300 border-sky-500/30 text-xs">
                     Editing #{spatEditingId}
                   </Badge>
                 )}
               </div>
+              <div className="grid grid-cols-2 gap-2 pt-2">
+                <Button
+                  size="sm"
+                  className={zoneEditorTab === "spat" ? "text-xs h-8 bg-purple-700 hover:bg-purple-800 text-white" : "text-xs h-8 bg-zinc-800 text-white border border-zinc-600 hover:bg-zinc-700"}
+                  onClick={() => setZoneEditorTab("spat")}
+                >
+                  SPaT Zones
+                </Button>
+                <Button
+                  size="sm"
+                  className={zoneEditorTab === "preemption" ? "text-xs h-8 bg-orange-600 hover:bg-orange-700 text-white" : "text-xs h-8 bg-zinc-800 text-white border border-zinc-600 hover:bg-zinc-700"}
+                  onClick={() => setZoneEditorTab("preemption")}
+                >
+                  Preemption
+                </Button>
+              </div>
             </CardHeader>
             <CardContent className="px-4 pb-3 space-y-3">
-              {spatEditingId && (
-                <div className="flex items-center justify-between gap-2 bg-sky-500/10 border border-sky-500/20 rounded px-2 py-1">
-                  <div className="text-xs text-zinc-200 truncate">
-                    Editing: <span className="text-white font-medium">{spatDraft.name || "(unnamed)"}</span>
-                  </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="text-[11px] h-7 bg-zinc-800 text-white border border-zinc-600 hover:bg-zinc-700"
-                    onClick={resetSpatDraft}
-                  >
-                    Cancel Edit
-                  </Button>
-                </div>
-              )}
-              <div>
-                <label className="text-xs text-zinc-400 mb-1 block">Zone Name</label>
-                <Input
-                  value={spatDraft.name}
-                  onChange={(e) => setSpatDraft((p) => ({ ...p, name: e.target.value }))}
-                  placeholder="e.g. Georgia Lanes 4 & 5"
-                  className="bg-zinc-800 border-zinc-700 text-white text-sm h-8"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <Button
-                  size="sm"
-                  className={drawMode === "spat-zone" ? "col-span-2 text-xs h-8 bg-purple-600 hover:bg-purple-700" : "col-span-2 text-xs h-8 bg-zinc-800 text-white border border-zinc-600 hover:bg-zinc-700"}
-                  onClick={drawMode === "spat-zone" ? cancelDraw : startDrawSpatZone}
-                >
-                  {drawMode === "spat-zone" ? "Cancel Draw" : (spatEditingId ? "Redraw Zone" : "Draw Zone")}
-                </Button>
-                <Button
-                  size="sm"
-                  className={spatSelectMode === "entry" ? "text-xs h-8 bg-green-600 hover:bg-green-700" : "text-xs h-8 bg-zinc-800 text-white border border-zinc-600 hover:bg-zinc-700"}
-                  onClick={() => {
-                    const next = spatSelectMode === "entry" ? null : "entry";
-                    setSpatSelectMode(next);
-                    setSpatLanePickMode(false);
-                    setSpatHoverEdgeId(null);
-                  }}
-                  disabled={!spatDraft.polygon}
-                >
-                  {spatSelectMode === "entry" ? "Selecting..." : "Pick Entry"}
-                </Button>
-                <Button
-                  size="sm"
-                  className={spatSelectMode === "exit" ? "text-xs h-8 bg-red-600 hover:bg-red-700" : "text-xs h-8 bg-zinc-800 text-white border border-zinc-600 hover:bg-zinc-700"}
-                  onClick={() => {
-                    const next = spatSelectMode === "exit" ? null : "exit";
-                    setSpatSelectMode(next);
-                    setSpatLanePickMode(false);
-                    setSpatHoverEdgeId(null);
-                  }}
-                  disabled={!spatDraft.polygon}
-                >
-                  {spatSelectMode === "exit" ? "Selecting..." : "Pick Exit"}
-                </Button>
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs text-zinc-400">Lanes</label>
-                  <span className="text-[11px] text-zinc-500">{(spatDraft.laneIds || []).length} selected</span>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <Button
-                    size="sm"
-                    className={spatLanePickMode ? "text-xs h-8 bg-green-600 hover:bg-green-700" : "text-xs h-8 bg-zinc-800 text-white border border-zinc-600 hover:bg-zinc-700"}
-                    onClick={() => {
-                      if (!spatDraft.polygon) return;
-                      const next = !spatLanePickMode;
-                      setSpatLanePickMode(next);
-                      if (next) setSpatSelectMode(null);
-                    }}
-                    disabled={!spatDraft.polygon}
-                    title={!spatDraft.polygon ? "Draw the zone polygon first" : "Click lanes on the map to toggle"}
-                  >
-                    {spatLanePickMode ? "Picking..." : "Pick Lanes"}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="text-xs h-8 bg-zinc-800 text-white border border-zinc-600 hover:bg-zinc-700"
-                    onClick={clearSpatLanes}
-                    disabled={(spatDraft.laneIds || []).length === 0}
-                  >
-                    Clear Lanes
-                  </Button>
-                </div>
-                <div className="text-[11px] text-zinc-500 break-words">
-                  IDs: {(spatDraft.laneIds || []).length ? (spatDraft.laneIds || []).join(", ") : "—"}
-                </div>
-                {spatLanePickMode && (
-                  <div className="text-xs text-zinc-500">
-                    Click lanes on the map to select/unselect (selected lanes highlight green).
-                  </div>
-                )}
-              </div>
-
-              <div>
-                <label className="text-xs text-zinc-400 mb-1 block">Signal Group</label>
-                <Input
-                  value={spatDraft.signalGroup}
-                  onChange={(e) => setSpatDraft((p) => ({ ...p, signalGroup: e.target.value }))}
-                  placeholder="2"
-                  className="bg-zinc-800 border-zinc-700 text-white text-sm h-8"
-                />
-              </div>
-
-              <div className="text-xs text-zinc-400">
-                {spatDraft.polygon ? "Zone: ✓" : "Zone: ✕"} | {spatDraft.entryLine ? `Entry: ✓ (edge ${spatDraft.entryEdgeId ?? "?"})` : "Entry: ✕"} | {spatDraft.exitLine ? `Exit: ✓ (edge ${spatDraft.exitEdgeId ?? "?"})` : "Exit: ✕"} | Lanes: {(spatDraft.laneIds || []).length || 0}
-              </div>
-              {spatSelectMode && (
-                <div className="text-xs text-zinc-500">
-                  Click an edge to set {spatSelectMode === "entry" ? "Entry" : "Exit"} (hovered edge turns yellow).
-                </div>
-              )}
-              <div className="flex gap-2">
-                <Button size="sm" variant="outline" className="flex-1 text-xs h-8 bg-zinc-800 text-white border border-zinc-600 hover:bg-zinc-700" onClick={clearSpatEntry} disabled={!spatDraft.entryLine}>
-                  Clear Entry
-                </Button>
-                <Button size="sm" variant="outline" className="flex-1 text-xs h-8 bg-zinc-800 text-white border border-zinc-600 hover:bg-zinc-700" onClick={clearSpatExit} disabled={!spatDraft.exitLine}>
-                  Clear Exit
-                </Button>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <Button size="sm" className="text-xs h-8 bg-purple-700 hover:bg-purple-800 text-white" onClick={openSpatPreview}>
-                  {spatEditingId ? "Update Zone" : "Save Zone"}
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="text-xs h-8 bg-zinc-800 text-white border border-zinc-600 hover:bg-zinc-700"
-                  onClick={resetSpatDraft}
-                >
-                  New
-                </Button>
-              </div>
-              <Button
-                size="sm"
-                variant="outline"
-                className="w-full text-xs h-8 bg-zinc-800 text-white border border-zinc-600 hover:bg-zinc-700"
-                onClick={() => setSpatManageOpen(true)}
-              >
-                Browse / Edit Saved Zones
-              </Button>
-
-              {spatEditingId && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="w-full text-xs h-8 bg-red-600/10 text-red-400 border-red-500/30 hover:bg-red-600/20"
-                  onClick={() => setSpatDeleteOpen(true)}
-                >
-                  Delete Zone
-                </Button>
-              )}
-
-              <div className="text-xs text-zinc-500">
-                Saved zones: {spatZones.filter((z) => String(z.intersectionId) === String(activeIntersection.id)).length}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Connection Color Picker */}
-        {activeIntersection && (
-          <Card className="dark bg-zinc-900/95 border-zinc-700 backdrop-blur">
-            <CardHeader className="pb-1 pt-3 px-4">
-              <CardTitle className="text-xs text-zinc-400">Connection Color</CardTitle>
-            </CardHeader>
-            <CardContent className="px-4 pb-3 space-y-2">
-              <div className="flex items-center gap-2">
-                <input
-                  type="color"
-                  value={connectionColor}
-                  onChange={(e) => setConnectionColor(e.target.value)}
-                  className="w-8 h-8 rounded border border-zinc-600 cursor-pointer bg-transparent p-0"
-                />
-                <span className="text-xs text-zinc-300 font-mono">{connectionColor}</span>
-              </div>
-              <p className="text-xs text-zinc-500">New connections will use this color</p>
-              {connections.length > 0 && (
-                <div className="space-y-1 pt-1 border-t border-zinc-700">
-                  <p className="text-xs text-zinc-500 pt-1">Existing connections:</p>
-                  <div className={connections.length >= 5 ? "scrollbar-dark" : ""} style={connections.length >= 5 ? { maxHeight: 140, overflowY: "auto", paddingRight: 4 } : undefined}>
-                  {connections.map((conn) => {
-                    const fromLane = lanes.find(l => l.id === conn.from_lane_id);
-                    const toLane = lanes.find(l => l.id === conn.to_lane_id);
-                    return (
-                      <div key={conn.id} className="flex items-center gap-2">
-                        <input
-                          type="color"
-                          value={connectionColors[conn.id] || CONNECTION_COLOR}
-                          onChange={(e) => setConnectionColors(prev => ({ ...prev, [conn.id]: e.target.value }))}
-                          className="w-5 h-5 rounded border border-zinc-600 cursor-pointer bg-transparent p-0"
-                        />
-                        <span className="text-xs text-zinc-400 truncate">
-                          {fromLane?.name || `Lane ${fromLane?.lane_number || '?'}`} &rarr; {toLane?.name || `Lane ${toLane?.lane_number || '?'}`}
-                        </span>
+              {zoneEditorTab === "spat" ? (
+                <>
+                  {spatEditingId && (
+                    <div className="flex items-center justify-between gap-2 bg-sky-500/10 border border-sky-500/20 rounded px-2 py-1">
+                      <div className="text-xs text-zinc-200 truncate">
+                        Editing: <span className="text-white font-medium">{spatDraft.name || "(unnamed)"}</span>
                       </div>
-                    );
-                  })}
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-[11px] h-7 bg-zinc-800 text-white border border-zinc-600 hover:bg-zinc-700"
+                        onClick={resetSpatDraft}
+                      >
+                        Cancel Edit
+                      </Button>
+                    </div>
+                  )}
+                  <div>
+                    <label className="text-xs text-zinc-400 mb-1 block">Zone Name</label>
+                    <Input
+                      value={spatDraft.name}
+                      onChange={(e) => setSpatDraft((p) => ({ ...p, name: e.target.value }))}
+                      placeholder="e.g. Georgia Lanes 4 & 5"
+                      className="bg-zinc-800 border-zinc-700 text-white text-sm h-8"
+                    />
                   </div>
-                </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      size="sm"
+                      className={drawMode === "spat-zone" ? "col-span-2 text-xs h-8 bg-purple-600 hover:bg-purple-700" : "col-span-2 text-xs h-8 bg-zinc-800 text-white border border-zinc-600 hover:bg-zinc-700"}
+                      onClick={drawMode === "spat-zone" ? cancelDraw : startDrawSpatZone}
+                    >
+                      {drawMode === "spat-zone" ? "Cancel Draw" : (spatEditingId ? "Redraw Zone" : "Draw Zone")}
+                    </Button>
+                    <Button
+                      size="sm"
+                      className={spatSelectMode === "entry" ? "text-xs h-8 bg-green-600 hover:bg-green-700" : "text-xs h-8 bg-zinc-800 text-white border border-zinc-600 hover:bg-zinc-700"}
+                      onClick={() => {
+                        const next = spatSelectMode === "entry" ? null : "entry";
+                        setSpatSelectMode(next);
+                        setSpatLanePickMode(false);
+                        setSpatHoverEdgeId(null);
+                      }}
+                      disabled={!spatDraft.polygon}
+                    >
+                      {spatSelectMode === "entry" ? "Selecting..." : "Pick Entry"}
+                    </Button>
+                    <Button
+                      size="sm"
+                      className={spatSelectMode === "exit" ? "text-xs h-8 bg-red-600 hover:bg-red-700" : "text-xs h-8 bg-zinc-800 text-white border border-zinc-600 hover:bg-zinc-700"}
+                      onClick={() => {
+                        const next = spatSelectMode === "exit" ? null : "exit";
+                        setSpatSelectMode(next);
+                        setSpatLanePickMode(false);
+                        setSpatHoverEdgeId(null);
+                      }}
+                      disabled={!spatDraft.polygon}
+                    >
+                      {spatSelectMode === "exit" ? "Selecting..." : "Pick Exit"}
+                    </Button>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs text-zinc-400">Lanes</label>
+                      <span className="text-[11px] text-zinc-500">{(spatDraft.laneIds || []).length} selected</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button
+                        size="sm"
+                        className={spatLanePickMode ? "text-xs h-8 bg-green-600 hover:bg-green-700" : "text-xs h-8 bg-zinc-800 text-white border border-zinc-600 hover:bg-zinc-700"}
+                        onClick={() => {
+                          if (!spatDraft.polygon) return;
+                          const next = !spatLanePickMode;
+                          setSpatLanePickMode(next);
+                          if (next) setSpatSelectMode(null);
+                        }}
+                        disabled={!spatDraft.polygon}
+                        title={!spatDraft.polygon ? "Draw the zone polygon first" : "Click lanes on the map to toggle"}
+                      >
+                        {spatLanePickMode ? "Picking..." : "Pick Lanes"}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-xs h-8 bg-zinc-800 text-white border border-zinc-600 hover:bg-zinc-700"
+                        onClick={clearSpatLanes}
+                        disabled={(spatDraft.laneIds || []).length === 0}
+                      >
+                        Clear Lanes
+                      </Button>
+                    </div>
+                    <div className="text-[11px] text-zinc-500 break-words">
+                      IDs: {(spatDraft.laneIds || []).length ? (spatDraft.laneIds || []).join(", ") : "—"}
+                    </div>
+                    {spatLanePickMode && (
+                      <div className="text-xs text-zinc-500">
+                        Click lanes on the map to select/unselect (selected lanes highlight green).
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="text-xs text-zinc-400 mb-1 block">Signal Group</label>
+                    <Input
+                      value={spatDraft.signalGroup}
+                      onChange={(e) => setSpatDraft((p) => ({ ...p, signalGroup: e.target.value }))}
+                      placeholder="2"
+                      className="bg-zinc-800 border-zinc-700 text-white text-sm h-8"
+                    />
+                  </div>
+
+                  <div className="text-xs text-zinc-400">
+                    {spatDraft.polygon ? "Zone: ✓" : "Zone: ✕"} | {spatDraft.entryLine ? `Entry: ✓ (edge ${spatDraft.entryEdgeId ?? "?"})` : "Entry: ✕"} | {spatDraft.exitLine ? `Exit: ✓ (edge ${spatDraft.exitEdgeId ?? "?"})` : "Exit: ✕"} | Lanes: {(spatDraft.laneIds || []).length || 0}
+                  </div>
+                  {spatSelectMode && (
+                    <div className="text-xs text-zinc-500">
+                      Click an edge to set {spatSelectMode === "entry" ? "Entry" : "Exit"} (hovered edge turns yellow).
+                    </div>
+                  )}
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="outline" className="flex-1 text-xs h-8 bg-zinc-800 text-white border border-zinc-600 hover:bg-zinc-700" onClick={clearSpatEntry} disabled={!spatDraft.entryLine}>
+                      Clear Entry
+                    </Button>
+                    <Button size="sm" variant="outline" className="flex-1 text-xs h-8 bg-zinc-800 text-white border border-zinc-600 hover:bg-zinc-700" onClick={clearSpatExit} disabled={!spatDraft.exitLine}>
+                      Clear Exit
+                    </Button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button size="sm" className="text-xs h-8 bg-purple-700 hover:bg-purple-800 text-white" onClick={openSpatPreview}>
+                      {spatEditingId ? "Update Zone" : "Save Zone"}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-xs h-8 bg-zinc-800 text-white border border-zinc-600 hover:bg-zinc-700"
+                      onClick={resetSpatDraft}
+                    >
+                      New
+                    </Button>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="w-full text-xs h-8 bg-zinc-800 text-white border border-zinc-600 hover:bg-zinc-700"
+                    onClick={() => setSpatManageOpen(true)}
+                  >
+                    Browse / Edit Saved Zones
+                  </Button>
+
+                  {spatEditingId && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="w-full text-xs h-8 bg-red-600/10 text-red-400 border-red-500/30 hover:bg-red-600/20"
+                      onClick={() => setSpatDeleteOpen(true)}
+                    >
+                      Delete Zone
+                    </Button>
+                  )}
+
+                  <div className="text-xs text-zinc-500">
+                    Saved zones: {zonesForActiveIntersection.length}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="text-xs text-zinc-400">
+                    Preemption zone uses the same polygon as an existing SPaT zone. Choose one zone below.
+                  </div>
+                  <div>
+                    <label className="text-xs text-zinc-400 mb-1 block">Preemption Zone</label>
+                    <Select
+                      value={selectedPreemptionZoneId ? String(selectedPreemptionZoneId) : "none"}
+                      onValueChange={(value) => {
+                        if (value === "none") {
+                          setActivePreemptionZone(null);
+                          return;
+                        }
+                        setActivePreemptionZone(value);
+                      }}
+                    >
+                      <SelectTrigger className="bg-zinc-800 border-zinc-600 text-white text-xs h-8">
+                        <SelectValue placeholder="Select an existing SPaT zone..." />
+                      </SelectTrigger>
+                      <SelectContent className="dark bg-zinc-800 border-zinc-600">
+                        <SelectItem value="none" className="text-zinc-300 text-xs">
+                          None
+                        </SelectItem>
+                        {zonesForActiveIntersection.map((zone) => (
+                          <SelectItem key={zone.id} value={String(zone.id)} className="text-white text-xs">
+                            {zone.name} (SG {zone.signalGroup})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {!zonesForActiveIntersection.length && (
+                    <div className="text-xs text-zinc-500">
+                      No saved SPaT zones for this intersection yet. Create one in the SPaT tab first.
+                    </div>
+                  )}
+                  {selectedPreemptionZone && (
+                    <div className="rounded border border-orange-500/40 bg-orange-500/10 p-2 space-y-1">
+                      <div className="text-xs text-zinc-300">
+                        Active zone: <span className="text-white font-medium">{selectedPreemptionZone.name}</span>
+                      </div>
+                      <div className="text-xs text-zinc-400">
+                        SG {selectedPreemptionZone.signalGroup} • Lanes {Array.isArray(selectedPreemptionZone.laneIds) ? selectedPreemptionZone.laneIds.join(", ") : "—"}
+                      </div>
+                    </div>
+                  )}
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-xs h-8 bg-zinc-800 text-white border border-zinc-600 hover:bg-zinc-700"
+                      onClick={() => setSpatManageOpen(true)}
+                      disabled={!zonesForActiveIntersection.length}
+                    >
+                      Browse SPaT Zones
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-xs h-8 bg-zinc-800 text-white border border-zinc-600 hover:bg-zinc-700"
+                      onClick={() => setActivePreemptionZone(null)}
+                      disabled={!selectedPreemptionZone}
+                    >
+                      Clear
+                    </Button>
+                  </div>
+                  <div className="text-xs text-zinc-500">
+                    The selected preemption zone is highlighted on the map in orange.
+                  </div>
+                </>
               )}
             </CardContent>
           </Card>
