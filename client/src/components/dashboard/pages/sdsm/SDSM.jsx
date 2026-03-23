@@ -3,7 +3,7 @@
 import * as React from "react"
 import { StatCard } from "@/components/ui/shadcn/stat-card"
 import { TrafficChart } from "@/components/ui/shadcn/traffic-chart"
-import { TrafficDataTable } from "@/components/dashboard/pages/traffic-data-table"
+import { TrafficDataTable } from "@/components/dashboard/pages/overview/traffic-data-table"
 import { useSDSMOverview } from "@/hooks/useSDSMOverview"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/shadcn/toggle-group"
 

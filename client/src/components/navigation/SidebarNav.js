@@ -243,7 +243,11 @@ function AppSidebar() {
       <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton tooltip="Settings">
+            <SidebarMenuButton
+              onClick={() => navigate("/dashboard/settings/dashboard-visualization")}
+              isActive={location.pathname.startsWith("/dashboard/settings")}
+              tooltip="Settings"
+            >
               <Settings className="h-4 w-4" />
               <span className="normal-case">Settings</span>
             </SidebarMenuButton>
