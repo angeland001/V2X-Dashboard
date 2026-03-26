@@ -4,6 +4,7 @@ import { createStore, combineReducers, applyMiddleware } from "redux";
 import { taskMiddleware } from "react-palm/tasks";
 import { Provider } from "react-redux";
 import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
+import { SettingsProvider } from "./contexts/SettingsContext";
 import Login from "./auth/Login";
 import DashboardLayout from "./components/navigation/SidebarNav";
 import GeoFencingMap from "./components/maps/GeoFencingMap";
@@ -32,55 +33,57 @@ if (typeof window !== 'undefined') {
 export default function App() {
   return (
     <Provider store={store}>
-      <Router>
-        <Routes>
-          <Route path="/" element={<Login />} />
+      <SettingsProvider>
+        <Router>
+          <Routes>
+            <Route path="/" element={<Login />} />
 
-          {/* Dashboard with nested routes */}
-          <Route
-            path="/dashboard"
-            element={
-              <DashboardLayout>
-                <Dashboard />
-              </DashboardLayout>
-            }
-          >
-            <Route index element={<HomeView />} />
-            <Route path="geofences/zones" element={<GeofenceZones />} />
-            <Route path="lanes" element={<LanesPage />} />
-            <Route path="crosswalks" element={<CrosswalksPage />} />
-            <Route path="analytics/traffic" element={<AnalyticsTraffic />} />
-            <Route path="/dashboard/settings/data" element={<Settings/>} />
-          </Route>
+            {/* Dashboard with nested routes */}
+            <Route
+              path="/dashboard"
+              element={
+                <DashboardLayout>
+                  <Dashboard />
+                </DashboardLayout>
+              }
+            >
+              <Route index element={<HomeView />} />
+              <Route path="geofences/zones" element={<GeofenceZones />} />
+              <Route path="lanes" element={<LanesPage />} />
+              <Route path="crosswalks" element={<CrosswalksPage />} />
+              <Route path="analytics/traffic" element={<AnalyticsTraffic />} />
+              <Route path="/dashboard/settings/data" element={<Settings />} />
+            </Route>
 
-          {/* Other routes */}
-          <Route
-            path="/geofencing"
-            element={
-              <DashboardLayout>
-                <GeoFencingMap />
-              </DashboardLayout>
-            }
-          />
-          <Route
-            path="/data-layers"
-            element={
-              <DashboardLayout>
-                <DataLayersMap />
-              </DashboardLayout>
-            }
-          />
-          <Route
-            path="/sdsm-events"
-            element={
-              <DashboardLayout>
-                <SDSMEventsMap />
-              </DashboardLayout>
-            }
-          />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </Router>
+            {/* Other routes */}
+            <Route
+              path="/geofencing"
+              element={
+                <DashboardLayout>
+                  <GeoFencingMap />
+                </DashboardLayout>
+              }
+            />
+            <Route
+              path="/data-layers"
+              element={
+                <DashboardLayout>
+                  <DataLayersMap />
+                </DashboardLayout>
+              }
+            />
+            <Route
+              path="/sdsm-events"
+              element={
+                <DashboardLayout>
+                  <SDSMEventsMap />
+                </DashboardLayout>
+              }
+            />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </Router>
+      </SettingsProvider>
     </Provider>
   );
 }
