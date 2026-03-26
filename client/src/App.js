@@ -37,7 +37,6 @@ const reducers = combineReducers({
 
 const store = createStore(reducers, {}, applyMiddleware(taskMiddleware));
 
-// Expose store for debugging
 if (typeof window !== "undefined") {
   window.store = store;
 }
@@ -50,7 +49,6 @@ export default function App() {
           <Routes>
             <Route path="/" element={<Login />} />
 
-            {/* Dashboard with nested routes */}
             <Route
               path="/dashboard"
               element={
@@ -77,7 +75,6 @@ export default function App() {
               </Route>
             </Route>
 
-            {/* Other routes */}
             <Route
               path="/geofencing"
               element={

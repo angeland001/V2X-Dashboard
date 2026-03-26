@@ -7,7 +7,7 @@
 
 const express = require('express');
 const router = express.Router();
-const db = require('../database/postgis');
+const db = require('../../database/postgis');
 
 /**
  * GET /api/geofences
