@@ -89,6 +89,16 @@ export const updateUserSettings = async (settings) => {
   return response.json();
 };
 
+
+export const fetchUserProfile = async (userId) => {
+  const token = localStorage.getItem('authToken');
+  const res = await fetch(`${API_BASE}/api/users/${userId}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error(`Failed to fetch user profile (${res.status})`);
+  return res.json();
+}
+
 /**
  * API endpoint for SWR to use
  * Returns the merged settings endpoint

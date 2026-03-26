@@ -1,21 +1,43 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { UserIcon } from 'lucide-react'
 import { ToggleButton } from '@/components/ui/ToggleButton'
 import { Separator } from '@/components/ui/shadcn/separator'
-import { Input } from '@/components/ui/shadcn/input'
 import { SettingsPageWrapper, ToggleRow } from '../components'
-import { Card, CardHeader, CardBody, FieldLabel, TextInput, OutlineButton, StatusBadge } from '@/components/ui/global/subcomponents'
-
+import {
+  Card,
+  CardHeader,
+  CardBody,
+  FieldLabel,
+  TextInput,
+  OutlineButton,
+  PrimaryButton,
+  DangerButton,
+  SelectDropdown,
+  StatusBadge,
+} from '@/components/ui/global/subcomponents'
+import { useUserProfile } from '@/hooks/settings/user/useUserProfile'
+import { useSettings } from '@/hooks/settings/useSettings'
 
 
 /* ── Section: Profile Details ────────────────────────────────── */
 function ProfileDetails() {
-  const [firstName, setFirstName] = useState('John')
-  const [lastName, setLastName] = useState('Doe')
-  const [email, setEmail] = useState('john.doe@company.com')
-  const [organization, setOrganization] = useState('Acme Corporation')
-  const [role, setRole] = useState('Data Analyst')
+  const {profile, isLoading} = useUserProfile();
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [email, setEmail] = useState('');
+  const [organization, setOrganization] = useState('UTC')
 
+  //Sync form when data arrives 
+  useEffect(() => {
+      if (profile) {
+        setFirstName(profile.first_name ?? '')
+        setLastName(profile.last_name ?? '')
+        setEmail(profile.email ?? '')
+      }
+    }, [profile])
+    
+    if (isLoading) return <p>Loading...</p>
+    
   return (
     <Card>
       <CardHeader
@@ -33,12 +55,7 @@ function ProfileDetails() {
           </div>
           <div className="flex gap-3">
             <OutlineButton>Change Picture</OutlineButton>
-            <button
-              type="button"
-              className="rounded-lg px-3 h-8 text-sm font-medium text-[#fafafa]"
-            >
-              Remove Picture
-            </button>
+            <OutlineButton>Remove Picture</OutlineButton>
           </div>
         </div>
 
@@ -69,32 +86,15 @@ function ProfileDetails() {
         </div>
 
         {/* Role */}
-        <div>
-          <FieldLabel>Role</FieldLabel>
-          <div
-            className="flex items-center justify-between rounded-lg px-3 h-9 cursor-pointer"
-            style={{ background: 'rgba(38,38,38,0.3)', border: '1px solid #262626' }}
-          >
-            <span className="text-sm text-[#fafafa]">{role}</span>
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <path d="M4 6L8 10L12 6" stroke="#a1a1a1" strokeWidth="1.33" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </div>
-        </div>
+        <SelectDropdown label="Role" value="Data Analyst" />
 
         {/* Save */}
-        <div>
-          <button
-            type="button"
-            className="rounded-lg px-4 h-9 text-sm font-medium text-[#171717] bg-[#fafafa]"
-          >
-            Save Changes
-          </button>
-        </div>
+        <PrimaryButton>Save Changes</PrimaryButton>
       </CardBody>
     </Card>
   )
 }
+
 
 /* ── Section: Password & Security ────────────────────────────── */
 function PasswordSecurity() {
@@ -107,44 +107,46 @@ function PasswordSecurity() {
         description="Manage your password and enable two-factor authentication"
       />
       <CardBody>
-        {/* Change Password */}
         <OutlineButton className="w-full">Change Password</OutlineButton>
 
         <Separator className="bg-[#262626]" />
 
-        {/* 2FA row */}
-        <div className="flex items-center justify-between h-9">
+        {/* 2FA */}
+        <div className="flex items-center justify-between">
           <div className="space-y-0.5">
             <p className="text-sm font-medium text-[#fafafa] leading-none">Two-Factor Authentication</p>
             <p className="text-sm text-[#a1a1a1]">Add an extra layer of security to your account</p>
           </div>
-          <div className="flex items-center gap-2 flex-shrink-0">
+          <div className="flex items-center flex-shrink-0 gap-2">
             {twoFactorEnabled && <StatusBadge>Enabled</StatusBadge>}
             <ToggleButton checked={twoFactorEnabled} onCheckedChange={setTwoFactorEnabled} />
           </div>
         </div>
 
-        {/* Manage 2FA */}
         <OutlineButton className="w-fit">Manage 2FA Settings</OutlineButton>
       </CardBody>
     </Card>
   )
 }
 
+
 /* ── Section: Connected Accounts ─────────────────────────────── */
+const CONNECTED_ACCOUNTS = [
+  { icon: { bg: '#155dfc', letter: 'G' }, name: 'Google',    detail: 'john.doe@gmail.com',    connected: true  },
+  { icon: { bg: '#000000', letter: 'M' }, name: 'Microsoft', detail: 'john.doe@outlook.com',  connected: true  },
+  { icon: { bg: '#1e2939', letter: 'G' }, name: 'GitHub',    detail: 'Not connected',          connected: false },
+  { icon: { bg: '#9810fa', letter: 'S' }, name: 'Slack',     detail: 'Not connected',          connected: false },
+]
+
 function ConnectedAccountRow({ icon, name, detail, connected }) {
   return (
     <div
       className="flex items-center justify-between rounded-[10px] px-3 h-[70px]"
-      style={{
-        border: '1px solid #262626',
-        opacity: connected ? 1 : 0.6,
-      }}
+      style={{ border: '1px solid #262626', opacity: connected ? 1 : 0.6 }}
     >
-      {/* Left */}
       <div className="flex items-center gap-3">
         <div
-          className="flex items-center justify-center rounded flex-shrink-0 text-white text-sm font-normal"
+          className="flex items-center justify-center flex-shrink-0 text-sm font-normal text-white rounded"
           style={{ width: 32, height: 32, background: icon.bg }}
         >
           {icon.letter}
@@ -155,8 +157,7 @@ function ConnectedAccountRow({ icon, name, detail, connected }) {
         </div>
       </div>
 
-      {/* Right */}
-      <div className="flex items-center gap-2 flex-shrink-0">
+      <div className="flex items-center flex-shrink-0 gap-2">
         {connected && <StatusBadge>Connected</StatusBadge>}
         <OutlineButton className="h-8 text-sm">
           {connected ? 'Disconnect' : 'Connect'}
@@ -167,13 +168,6 @@ function ConnectedAccountRow({ icon, name, detail, connected }) {
 }
 
 function ConnectedAccounts() {
-  const accounts = [
-    { icon: { bg: '#155dfc', letter: 'G' }, name: 'Google', detail: 'john.doe@gmail.com', connected: true },
-    { icon: { bg: '#000000', letter: 'M' }, name: 'Microsoft', detail: 'john.doe@outlook.com', connected: true },
-    { icon: { bg: '#1e2939', letter: 'G' }, name: 'GitHub', detail: 'Not connected', connected: false },
-    { icon: { bg: '#9810fa', letter: 'S' }, name: 'Slack', detail: 'Not connected', connected: false },
-  ]
-
   return (
     <Card>
       <CardHeader
@@ -182,7 +176,7 @@ function ConnectedAccounts() {
       />
       <CardBody>
         <div className="space-y-3">
-          {accounts.map(acc => (
+          {CONNECTED_ACCOUNTS.map(acc => (
             <ConnectedAccountRow key={acc.name} {...acc} />
           ))}
         </div>
@@ -191,12 +185,18 @@ function ConnectedAccounts() {
   )
 }
 
+
 /* ── Section: Notification Preferences ──────────────────────── */
 function NotificationPreferences() {
-  const [emailEnabled, setEmailEnabled] = useState(true)
-  const [smsEnabled, setSmsEnabled] = useState(false)
+  // emailNotifications is a global setting — read + write via context
+  const { globalSettings, updateGlobal, isLoading } = useSettings()
+  const emailEnabled = globalSettings.emailNotifications ?? true
+
+  const [smsEnabled, setSmsEnabled]     = useState(false)
   const [inAppEnabled, setInAppEnabled] = useState(true)
-  const [phone, setPhone] = useState('+1 (555) 123-4567')
+  const [phone, setPhone]               = useState('+1 (555) 123-4567')
+
+  if (isLoading) return null
 
   return (
     <Card>
@@ -209,7 +209,7 @@ function NotificationPreferences() {
           label="Email Notifications"
           description="Receive notifications via email"
           checked={emailEnabled}
-          onCheckedChange={setEmailEnabled}
+          onCheckedChange={val => updateGlobal({ emailNotifications: val })}
         />
         <Separator className="bg-[#262626]" />
         <ToggleRow
@@ -239,6 +239,7 @@ function NotificationPreferences() {
   )
 }
 
+
 /* ── Section: Account Actions ────────────────────────────────── */
 function AccountActions() {
   return (
@@ -254,13 +255,7 @@ function AccountActions() {
         <Separator className="bg-[#262626]" />
 
         <div className="space-y-2">
-          <button
-            type="button"
-            className="w-full rounded-lg h-9 text-sm font-medium text-white flex items-center justify-center"
-            style={{ background: 'rgba(130,24,26,0.6)' }}
-          >
-            Delete Account
-          </button>
+          <DangerButton>Delete Account</DangerButton>
           <p className="text-xs text-[#a1a1a1] text-center">
             This action cannot be undone. All your data will be permanently deleted.
           </p>
@@ -269,6 +264,7 @@ function AccountActions() {
     </Card>
   )
 }
+
 
 /* ── Root export ─────────────────────────────────────────────── */
 export function UserProfiles() {

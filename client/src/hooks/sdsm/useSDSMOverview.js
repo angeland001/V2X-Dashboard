@@ -4,7 +4,7 @@ import {
   fetchDailySummary,
   fetchOverviewSummary,
   checkServerHealth,
-} from "../services/sdsm";
+} from "../../services/sdsm/sdsm";
 
 /**
  * useSDSMOverview
