@@ -97,7 +97,35 @@ export const fetchUserProfile = async (userId) => {
   });
   if (!res.ok) throw new Error(`Failed to fetch user profile (${res.status})`);
   return res.json();
-}
+};
+
+export const updateUserProfile = async (userId, data) => {
+  const token = localStorage.getItem('authToken');
+  const res = await fetch(`${API_BASE}/api/users/${userId}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error(`Failed to update user profile (${res.status})`);
+  return res.json();
+};
+
+export const uploadProfilePicture = async (userId, file) => {
+  const token = localStorage.getItem('authToken');
+  const formData = new FormData();
+  formData.append('profile_picture', file);
+
+  const res = await fetch(`${API_BASE}/api/users/${userId}/profile-picture`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: formData,
+  });
+  if (!res.ok) throw new Error(`Failed to upload profile picture (${res.status})`);
+  return res.json();
+};
 
 /**
  * API endpoint for SWR to use

@@ -1,6 +1,6 @@
 import * as React from "react"
 import { Link } from "react-router-dom"
-import { User } from "lucide-react"
+
 
 import { useIsMobile } from "@/hooks/use-mobile"
 import {
