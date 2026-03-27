@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
   Sidebar,
@@ -49,38 +49,21 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/shadcn/dropdown-menu";
 
-const API_URL = process.env.REACT_APP_API_URL || "http://localhost:3001";
+import { useUserProfile } from "@/hooks/settings/user/useUserProfile";
 
 function AppSidebar() {
   const navigate = useNavigate();
   const location = useLocation();
-  const [user, setUser] = useState(null);
+  const { profile } = useUserProfile();
 
   const isActive = (path) => location.pathname === path;
 
-  // Load user data from localStorage
-  useEffect(() => {
-    loadUserData();
-  }, []);
-
-  const loadUserData = () => {
-    const storedUser = localStorage.getItem("user");
-    if (storedUser) {
-      try {
-        const parsedUser = JSON.parse(storedUser);
-        setUser(parsedUser);
-      } catch (error) {
-        console.error("Error parsing user data:", error);
-      }
-    }
-  };
-
   const getInitials = () => {
-    if (!user) return "U";
-    if (user.first_name && user.last_name) {
-      return `${user.first_name[0]}${user.last_name[0]}`.toUpperCase();
+    if (!profile) return "U";
+    if (profile.first_name && profile.last_name) {
+      return `${profile.first_name[0]}${profile.last_name[0]}`.toUpperCase();
     }
-    return user.username ? user.username.substring(0, 2).toUpperCase() : "U";
+    return profile.username ? profile.username.substring(0, 2).toUpperCase() : "U";
   };
 
   return (
@@ -266,10 +249,10 @@ function AppSidebar() {
                   className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
                 >
                   <Avatar className="w-8 h-8 rounded-lg">
-                    {user?.profile_picture ? (
+                    {profile?.profile_picture ? (
                       <AvatarImage
-                        src={`${API_URL}${user.profile_picture}`}
-                        alt={user.username || "User"}
+                        src={profile.profile_picture}
+                        alt={profile.username || "User"}
                       />
                     ) : null}
                     <AvatarFallback className="rounded-lg">
@@ -278,10 +261,10 @@ function AppSidebar() {
                   </Avatar>
                   <div className="grid flex-1 text-sm leading-tight text-left">
                     <span className="font-semibold truncate">
-                      {user?.username || "User"}
+                      {profile?.username || "User"}
                     </span>
                     <span className="text-xs text-gray-500 truncate">
-                      {user?.email || "No email"}
+                      {profile?.email || "No email"}
                     </span>
                   </div>
                   <MoreHorizontal className="w-4 h-4 ml-auto" />
