@@ -25,13 +25,14 @@ export function FieldLabel({ children }) {
   )
 }
 
-export function TextInput({ value, onChange, placeholder }) {
+export function TextInput({ value, onChange, placeholder, type = 'text' }) {
   return (
     <div
       className="flex items-center rounded-lg px-3 h-9 text-sm text-[#fafafa]"
       style={{ background: 'rgba(38,38,38,0.3)', border: '1px solid #262626' }}
     >
       <input
+        type={type}
         className="bg-transparent outline-none w-full text-sm text-[#fafafa] placeholder:text-[#a1a1a1]"
         value={value}
         onChange={onChange}
@@ -41,12 +42,13 @@ export function TextInput({ value, onChange, placeholder }) {
   )
 }
 
-export function OutlineButton({ children, className = '', onClick }) {
+export function OutlineButton({ children, className = '', onClick, disabled }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`rounded-lg px-3 h-9 text-sm font-medium text-[#fafafa] text-center ${className}`}
+      disabled={disabled}
+      className={`rounded-lg px-3 h-9 text-sm font-medium text-[#fafafa] text-center disabled:opacity-50 disabled:cursor-not-allowed ${className}`}
       style={{ background: 'rgba(38,38,38,0.3)', border: '1px solid #262626' }}
     >
       {children}

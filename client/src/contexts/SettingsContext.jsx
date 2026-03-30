@@ -25,7 +25,7 @@ import {
   updateUserSettings,
   updateGlobalSettings,
   MERGED_SETTINGS_URL,
-} from '../services/settingsApi';
+} from '../services/settingsapi/settingsApi';
 
 /**
  * Default settings used while loading or if fetch fails
