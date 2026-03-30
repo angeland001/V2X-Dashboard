@@ -113,6 +113,53 @@ export const updateUserProfile = async (userId, data) => {
   return res.json();
 };
 
+export const changeUserPassword = async (userId, currentPassword, newPassword) => {
+  const token = localStorage.getItem('authToken');
+  const res = await fetch(`${API_BASE}/api/users/${userId}/password`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || `Failed to change password (${res.status})`);
+  }
+  return res.json();
+};
+
+export const deleteAccount = async (userId, password) => {
+  const token = localStorage.getItem('authToken');
+  const res = await fetch(`${API_BASE}/api/users/${userId}`, {
+    method: 'DELETE',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ password }),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || `Failed to delete account (${res.status})`);
+  }
+  return res.json();
+};
+
+export const removeProfilePicture = async (userId) => {
+  const token = localStorage.getItem('authToken');
+  const res = await fetch(`${API_BASE}/api/users/${userId}/profile-picture`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || `Failed to remove profile picture (${res.status})`);
+  }
+  return res.json();
+};
+
 export const uploadProfilePicture = async (userId, file) => {
   const token = localStorage.getItem('authToken');
   const formData = new FormData();

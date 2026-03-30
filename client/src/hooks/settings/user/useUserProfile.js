@@ -3,6 +3,7 @@ import {
   fetchUserProfile,
   updateUserProfile,
   uploadProfilePicture,
+  removeProfilePicture,
 } from '../../../services/settingsapi/settingsApi';
 
 export function useUserProfile() {
@@ -27,9 +28,9 @@ export function useUserProfile() {
   };
 
   const removePicture = async () => {
-    const updated = await updateUserProfile(userId, { profile_picture: null });
-    mutate(updated, { revalidate: false });
-    return updated;
+    const result = await removeProfilePicture(userId);
+    mutate(result.user, { revalidate: false });
+    return result;
   };
 
   return { profile: data, isLoading, error, saveProfile, savePicture, removePicture, mutate };

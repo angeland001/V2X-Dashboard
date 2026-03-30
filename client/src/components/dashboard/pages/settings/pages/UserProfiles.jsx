@@ -17,6 +17,15 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/shadcn/dialog'
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogCancel,
+} from '@/components/ui/shadcn/alert-dialog'
 import { SettingsPageWrapper, ToggleRow } from '../components'
 import {
   Card,
@@ -30,6 +39,7 @@ import {
 } from '@/components/ui/global/subcomponents'
 import { useUserProfile } from '@/hooks/settings/user/useUserProfile'
 import { useSettings } from '@/hooks/settings/useSettings'
+import { changeUserPassword, deleteAccount } from '@/services/settingsapi/settingsApi'
 
 
 /* ── Profile Picture Upload Modal ────────────────────────────── */
@@ -98,12 +108,12 @@ function ProfilePictureModal({ open, onOpenChange, onUpload }) {
               <img
                 src={preview}
                 alt="Preview"
-                className="w-40 h-40 rounded-full object-cover border-2 border-neutral-700"
+                className="object-cover w-40 h-40 border-2 rounded-full border-neutral-700"
               />
               <button
                 type="button"
                 onClick={() => { setPreview(null); setFile(null) }}
-                className="absolute -top-1 -right-1 p-1 rounded-full bg-neutral-800 border border-neutral-700 hover:bg-neutral-700 transition-colors"
+                className="absolute p-1 transition-colors border rounded-full -top-1 -right-1 bg-neutral-800 border-neutral-700 hover:bg-neutral-700"
               >
                 <X className="w-3 h-3 text-neutral-300" />
               </button>
@@ -133,7 +143,7 @@ function ProfilePictureModal({ open, onOpenChange, onUpload }) {
               <p className="text-sm font-medium text-neutral-200">
                 {isDragging ? 'Drop image here' : 'Click to browse or drag and drop'}
               </p>
-              <p className="text-xs text-neutral-500 mt-1">JPG, PNG, GIF, WebP up to 5MB</p>
+              <p className="mt-1 text-xs text-neutral-500">JPG, PNG, GIF, WebP up to 5MB</p>
             </div>
           </div>
         )}
@@ -191,7 +201,7 @@ function ProfileDetails() {
     }
   }, [profile])
 
-  if (isLoading) return <p className="text-sm text-neutral-400 p-4">Loading...</p>
+  if (isLoading) return <p className="p-4 text-sm text-neutral-400">Loading...</p>
 
   const initials = (firstName?.[0] ?? '') + (lastName?.[0] ?? '')
 
@@ -323,7 +333,50 @@ function ProfileDetails() {
 
 /* ── Section: Password & Security ────────────────────────────── */
 function PasswordSecurity() {
+  const { profile } = useUserProfile()
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(true)
+  const [showForm, setShowForm] = useState(false)
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [isSaving, setIsSaving] = useState(false)
+  const [status, setStatus] = useState(null) // 'success' | 'error'
+  const [errorMsg, setErrorMsg] = useState('')
+
+  const handleCancel = () => {
+    setShowForm(false)
+    setCurrentPassword('')
+    setNewPassword('')
+    setConfirmPassword('')
+    setStatus(null)
+    setErrorMsg('')
+  }
+
+  const handleChangePassword = async () => {
+    if (newPassword !== confirmPassword) {
+      setStatus('error')
+      setErrorMsg('New passwords do not match')
+      return
+    }
+    if (newPassword.length < 6) {
+      setStatus('error')
+      setErrorMsg('Password must be at least 6 characters')
+      return
+    }
+    setIsSaving(true)
+    setStatus(null)
+    setErrorMsg('')
+    try {
+      await changeUserPassword(profile.id, currentPassword, newPassword)
+      setStatus('success')
+      setTimeout(handleCancel, 1500)
+    } catch (err) {
+      setStatus('error')
+      setErrorMsg(err.message || 'Failed to change password')
+    } finally {
+      setIsSaving(false)
+    }
+  }
 
   return (
     <Card>
@@ -332,7 +385,58 @@ function PasswordSecurity() {
         description="Manage your password and enable two-factor authentication"
       />
       <CardBody>
-        <OutlineButton className="w-full">Change Password</OutlineButton>
+        {!showForm ? (
+          <OutlineButton className="w-full" onClick={() => setShowForm(true)}>
+            Change Password
+          </OutlineButton>
+        ) : (
+          <div className="space-y-3">
+            <div>
+              <FieldLabel>Current Password</FieldLabel>
+              <TextInput
+                type="password"
+                value={currentPassword}
+                onChange={e => setCurrentPassword(e.target.value)}
+                placeholder="Enter current password"
+              />
+            </div>
+            <div>
+              <FieldLabel>New Password</FieldLabel>
+              <TextInput
+                type="password"
+                value={newPassword}
+                onChange={e => setNewPassword(e.target.value)}
+                placeholder="At least 6 characters"
+              />
+            </div>
+            <div>
+              <FieldLabel>Confirm New Password</FieldLabel>
+              <TextInput
+                type="password"
+                value={confirmPassword}
+                onChange={e => setConfirmPassword(e.target.value)}
+                placeholder="Repeat new password"
+              />
+            </div>
+            {status === 'error' && (
+              <p className="text-xs text-red-400">{errorMsg}</p>
+            )}
+            {status === 'success' && (
+              <p className="text-xs text-green-400">Password changed successfully</p>
+            )}
+            <div className="flex gap-2">
+              <button
+                type="button"
+                disabled={isSaving || !currentPassword || !newPassword || !confirmPassword}
+                onClick={handleChangePassword}
+                className="rounded-lg px-4 h-9 text-sm font-medium text-[#171717] bg-[#fafafa] disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isSaving ? 'Saving...' : 'Update Password'}
+              </button>
+              <OutlineButton onClick={handleCancel}>Cancel</OutlineButton>
+            </div>
+          </div>
+        )}
 
         <Separator className="bg-[#262626]" />
 
@@ -355,72 +459,45 @@ function PasswordSecurity() {
 }
 
 
-/* ── Section: Connected Accounts ─────────────────────────────── */
-const CONNECTED_ACCOUNTS = [
-  { icon: { bg: '#155dfc', letter: 'G' }, name: 'Google',    detail: 'john.doe@gmail.com',    connected: true  },
-  { icon: { bg: '#000000', letter: 'M' }, name: 'Microsoft', detail: 'john.doe@outlook.com',  connected: true  },
-  { icon: { bg: '#1e2939', letter: 'G' }, name: 'GitHub',    detail: 'Not connected',          connected: false },
-  { icon: { bg: '#9810fa', letter: 'S' }, name: 'Slack',     detail: 'Not connected',          connected: false },
-]
-
-function ConnectedAccountRow({ icon, name, detail, connected }) {
-  return (
-    <div
-      className="flex items-center justify-between rounded-[10px] px-3 h-[70px]"
-      style={{ border: '1px solid #262626', opacity: connected ? 1 : 0.6 }}
-    >
-      <div className="flex items-center gap-3">
-        <div
-          className="flex items-center justify-center flex-shrink-0 text-sm font-normal text-white rounded"
-          style={{ width: 32, height: 32, background: icon.bg }}
-        >
-          {icon.letter}
-        </div>
-        <div>
-          <p className="text-base font-medium text-[#fafafa] leading-[1.5]">{name}</p>
-          <p className="text-sm text-[#a1a1a1]">{detail}</p>
-        </div>
-      </div>
-
-      <div className="flex items-center flex-shrink-0 gap-2">
-        {connected && <StatusBadge>Connected</StatusBadge>}
-        <OutlineButton className="h-8 text-sm">
-          {connected ? 'Disconnect' : 'Connect'}
-        </OutlineButton>
-      </div>
-    </div>
-  )
-}
-
-function ConnectedAccounts() {
-  return (
-    <Card>
-      <CardHeader
-        title="Connected Accounts"
-        description="Manage your connected third-party accounts and integrations"
-      />
-      <CardBody>
-        <div className="space-y-3">
-          {CONNECTED_ACCOUNTS.map(acc => (
-            <ConnectedAccountRow key={acc.name} {...acc} />
-          ))}
-        </div>
-      </CardBody>
-    </Card>
-  )
-}
-
-
 /* ── Section: Notification Preferences ──────────────────────── */
 function NotificationPreferences() {
   const { globalSettings, updateGlobal, isLoading } = useSettings()
+  const { profile, saveProfile } = useUserProfile()
   const emailEnabled = globalSettings.emailNotifications ?? true
 
-  const [smsEnabled, setSmsEnabled]     = useState(false)
-  const [inAppEnabled, setInAppEnabled] = useState(true)
-  const [phone, setPhone]               = useState('+1 (555) 123-4567')
+  const [smsEnabled, setSmsEnabled]         = useState(false)
+  const [inAppEnabled, setInAppEnabled]     = useState(true)
+  const [phone, setPhone]                   = useState('')
+  const [isSavingPhone, setIsSavingPhone]   = useState(false)
+  const [phoneSaveStatus, setPhoneSaveStatus] = useState(null) // 'success' | 'error'
+
+  useEffect(() => {
+    if (profile?.phone_number != null) {
+      setPhone(profile.phone_number)
+    }
+  }, [profile])
 
   if (isLoading) return null
+
+  const handleSavePhone = async () => {
+    setIsSavingPhone(true)
+    setPhoneSaveStatus(null)
+    try {
+      await saveProfile({
+        first_name: profile.first_name,
+        last_name: profile.last_name,
+        email: profile.email,
+        role: profile.role,
+        phone_number: phone,
+      })
+      setPhoneSaveStatus('success')
+    } catch {
+      setPhoneSaveStatus('error')
+    } finally {
+      setIsSavingPhone(false)
+      setTimeout(() => setPhoneSaveStatus(null), 3000)
+    }
+  }
 
   return (
     <Card>
@@ -452,11 +529,24 @@ function NotificationPreferences() {
         <Separator className="bg-[#262626]" />
         <div>
           <FieldLabel>Phone Number (for SMS)</FieldLabel>
-          <TextInput
-            value={phone}
-            onChange={e => setPhone(e.target.value)}
-            placeholder="+1 (555) 000-0000"
-          />
+          <div className="flex gap-2">
+            <div className="flex-1">
+              <TextInput
+                value={phone}
+                onChange={e => setPhone(e.target.value)}
+                placeholder="+1 (555) 000-0000"
+              />
+            </div>
+            <OutlineButton onClick={handleSavePhone} disabled={isSavingPhone}>
+              {isSavingPhone ? 'Saving…' : 'Save'}
+            </OutlineButton>
+          </div>
+          {phoneSaveStatus === 'success' && (
+            <p className="text-xs text-green-400 mt-1">Phone number saved</p>
+          )}
+          {phoneSaveStatus === 'error' && (
+            <p className="text-xs text-red-400 mt-1">Failed to save phone number</p>
+          )}
         </div>
       </CardBody>
     </Card>
@@ -466,6 +556,34 @@ function NotificationPreferences() {
 
 /* ── Section: Account Actions ────────────────────────────────── */
 function AccountActions() {
+  const [open, setOpen]         = useState(false)
+  const [password, setPassword] = useState('')
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [errorMsg, setErrorMsg] = useState('')
+
+  const handleOpenChange = (val) => {
+    if (!val) {
+      setPassword('')
+      setErrorMsg('')
+    }
+    setOpen(val)
+  }
+
+  const handleDelete = async () => {
+    if (!password) return
+    setIsDeleting(true)
+    setErrorMsg('')
+    try {
+      const stored = JSON.parse(localStorage.getItem('user') || '{}')
+      await deleteAccount(stored.id, password)
+      localStorage.clear()
+      window.location.href = '/'
+    } catch (err) {
+      setErrorMsg(err.message || 'Incorrect password or server error')
+      setIsDeleting(false)
+    }
+  }
+
   return (
     <Card>
       <CardHeader
@@ -479,12 +597,57 @@ function AccountActions() {
         <Separator className="bg-[#262626]" />
 
         <div className="space-y-2">
-          <DangerButton>Delete Account</DangerButton>
+          <DangerButton onClick={() => setOpen(true)}>Delete Account</DangerButton>
           <p className="text-xs text-[#a1a1a1] text-center">
             This action cannot be undone. All your data will be permanently deleted.
           </p>
         </div>
       </CardBody>
+
+      <AlertDialog open={open} onOpenChange={handleOpenChange}>
+        <AlertDialogContent className="bg-[#0a0a0a] border border-[#262626] sm:max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-[#fafafa]">
+              Delete Account
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-[#a1a1a1]">
+              This action is permanent and cannot be undone. All your data will be
+              deleted. Enter your password to confirm.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          <div className="space-y-2">
+            <FieldLabel>Password</FieldLabel>
+            <TextInput
+              type="password"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              placeholder="Enter your password"
+            />
+            {errorMsg && (
+              <p className="text-xs text-red-400">{errorMsg}</p>
+            )}
+          </div>
+
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              className="rounded-lg px-3 h-9 text-sm font-medium text-[#fafafa] border-[#262626] mt-0 hover:bg-[#262626] hover:text-[#fafafa]"
+              style={{ background: 'rgba(38,38,38,0.3)' }}
+            >
+              Cancel
+            </AlertDialogCancel>
+            <button
+              type="button"
+              disabled={!password || isDeleting}
+              onClick={handleDelete}
+              className="rounded-lg px-4 h-9 text-sm font-medium text-white disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{ background: 'rgba(130,24,26,0.6)' }}
+            >
+              {isDeleting ? 'Deleting…' : 'Delete Account'}
+            </button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   )
 }
@@ -496,7 +659,6 @@ export function UserProfiles() {
     <SettingsPageWrapper icon={UserIcon} title="User Profiles &amp; Accounts">
       <ProfileDetails />
       <PasswordSecurity />
-      <ConnectedAccounts />
       <NotificationPreferences />
       <AccountActions />
     </SettingsPageWrapper>
