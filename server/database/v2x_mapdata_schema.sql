@@ -168,6 +168,7 @@ CREATE TABLE IF NOT EXISTS preemption_zone_configs (
     id              SERIAL PRIMARY KEY,
     intersection_id INTEGER NOT NULL REFERENCES intersections(id) ON DELETE CASCADE,
     spat_zone_id    INTEGER NOT NULL REFERENCES spat_zones(id) ON DELETE CASCADE,
+    controller_ip   VARCHAR(255),
     created_at      TIMESTAMPTZ DEFAULT NOW(),
     updated_at      TIMESTAMPTZ DEFAULT NOW(),
     CONSTRAINT preemption_zone_configs_intersection_unique UNIQUE (intersection_id)
@@ -177,6 +178,8 @@ CREATE INDEX IF NOT EXISTS idx_preemption_zone_configs_intersection
     ON preemption_zone_configs(intersection_id);
 CREATE INDEX IF NOT EXISTS idx_preemption_zone_configs_spat_zone
     ON preemption_zone_configs(spat_zone_id);
+CREATE INDEX IF NOT EXISTS idx_preemption_zone_configs_controller_ip
+    ON preemption_zone_configs(controller_ip);
 
 DROP TRIGGER IF EXISTS trg_preemption_zone_configs_updated ON preemption_zone_configs;
 CREATE TRIGGER trg_preemption_zone_configs_updated

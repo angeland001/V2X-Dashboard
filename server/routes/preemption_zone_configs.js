@@ -39,12 +39,15 @@ async function fetchConfig(intersectionId) {
     `SELECT
        c.intersection_id,
        c.spat_zone_id,
+       c.controller_ip,
+       c.lane_ids,
+       c.signal_group,
        c.updated_at,
        z.name AS zone_name,
-       z.lane_ids,
-       z.signal_group
+       i.intersection_id AS sae_intersection_id
      FROM preemption_zone_configs c
      JOIN spat_zones z ON z.id = c.spat_zone_id
+     JOIN intersections i ON i.id = c.intersection_id
      WHERE c.intersection_id = $1
      LIMIT 1`,
     [intersectionId],
@@ -82,6 +85,7 @@ router.get("/", async (req, res) => {
 // Body:
 //   - intersection_id (required)
 //   - spat_zone_id (required; pass null to clear)
+//   - controller_ip (optional; string or null)
 router.put("/", async (req, res) => {
   try {
     const intersectionId = parseFiniteNumber(req.body.intersection_id);
@@ -102,6 +106,15 @@ router.put("/", async (req, res) => {
       return res.status(400).json({ error: "spat_zone_id is required (use null to clear)" });
     }
 
+    // Parse controller_ip (optional)
+    let controllerIp = null;
+    if (Object.prototype.hasOwnProperty.call(req.body, "controller_ip") && req.body.controller_ip != null) {
+      controllerIp = String(req.body.controller_ip).trim();
+      if (controllerIp === "") {
+        controllerIp = null;
+      }
+    }
+
     // Clear selection
     if (req.body.spat_zone_id == null) {
       await db.query(
@@ -111,6 +124,7 @@ router.put("/", async (req, res) => {
       return res.json({
         intersection_id: intersectionId,
         spat_zone_id: null,
+        controller_ip: null,
       });
     }
 
@@ -120,7 +134,7 @@ router.put("/", async (req, res) => {
     }
 
     const zoneRow = await db.query(
-      "SELECT id, intersection_id FROM spat_zones WHERE id = $1 LIMIT 1",
+      "SELECT id, intersection_id, lane_ids, signal_group FROM spat_zones WHERE id = $1 LIMIT 1",
       [spatZoneId],
     );
     if (zoneRow.rows.length === 0) {
@@ -132,14 +146,21 @@ router.put("/", async (req, res) => {
       });
     }
 
+    // Get lane_ids and signal_group from the SPaT zone
+    const laneIds = zoneRow.rows[0].lane_ids;
+    const signalGroup = zoneRow.rows[0].signal_group;
+
     await db.query(
-      `INSERT INTO preemption_zone_configs (intersection_id, spat_zone_id)
-       VALUES ($1, $2)
+      `INSERT INTO preemption_zone_configs (intersection_id, spat_zone_id, controller_ip, lane_ids, signal_group)
+       VALUES ($1, $2, $3, $4, $5)
        ON CONFLICT (intersection_id)
        DO UPDATE SET
          spat_zone_id = EXCLUDED.spat_zone_id,
+         controller_ip = EXCLUDED.controller_ip,
+         lane_ids = EXCLUDED.lane_ids,
+         signal_group = EXCLUDED.signal_group,
          updated_at = NOW()`,
-      [intersectionId, spatZoneId],
+      [intersectionId, spatZoneId, controllerIp, laneIds, signalGroup],
     );
 
     const config = await fetchConfig(intersectionId);
