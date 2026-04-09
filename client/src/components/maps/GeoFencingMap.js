@@ -41,7 +41,7 @@ import {
 /**
  * GeoFencingMap — V2X MapData editor
  *
- * Uses mapbox-gl (already bundled with kepler.gl) directly for the base map,
+ * Uses mapbox-gl directly for the base map,
  * with manual click-based drawing for lanes (LineString) and crosswalks (Polygon).
  *
  */
@@ -185,12 +185,10 @@ function findEdgeIdForLine(polygonRing, lineCoords) {
   return null;
 }
 
-// We import mapboxgl from the copy kepler.gl ships so there's no extra install
 let mapboxgl;
 try {
   mapboxgl = require("mapbox-gl");
 } catch {
-  // fallback – shouldn't happen because kepler.gl depends on it
   console.error("mapbox-gl not found");
 }
 
