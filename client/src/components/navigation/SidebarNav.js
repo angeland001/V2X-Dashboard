@@ -29,8 +29,6 @@ import {
   MoreHorizontal,
   FileText,
   Waypoints,
-  Route,
-  Footprints,
 } from "lucide-react";
 import {
   Collapsible,
@@ -173,14 +171,6 @@ function AppSidebar() {
                   </CollapsibleTrigger>
                   <CollapsibleContent>
                     <SidebarMenuSub>
-                      <SidebarMenuSubItem>
-                        <SidebarMenuSubButton
-                          onClick={() => navigate("/data-layers")}
-                          isActive={isActive("/data-layers")}
-                        >
-                          <span className="normal-case">Traffic Routes</span>
-                        </SidebarMenuSubButton>
-                      </SidebarMenuSubItem>
                       <SidebarMenuSubItem>
                         <SidebarMenuSubButton
                           onClick={() => navigate("/sdsm-events")}

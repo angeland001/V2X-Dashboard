@@ -1,7 +1,6 @@
-import React, { useRef, useState, useEffect } from "react"
-import { useDispatch } from "react-redux"
-import KeplerGL from "@kepler.gl/components"
-import { addDataToMap, wrapTo } from "@kepler.gl/actions"
+import React, { useRef, useEffect } from "react"
+import mapboxgl from "mapbox-gl"
+import "mapbox-gl/dist/mapbox-gl.css"
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Area, AreaChart, RadialBarChart, RadialBar, PolarGrid,
@@ -149,52 +148,25 @@ const viewersAgeConfig = {
 
 
 export function AnalyticsTraffic() {
-  const dispatch = useDispatch();
-  const containerRef = useRef(null);
-  const [dimensions, setDimensions] = useState({
-    width: window.innerWidth,
-    height: window.innerHeight,
-  });
+  const mapContainerRef = useRef(null);
+  const mapRef = useRef(null);
 
   useEffect(() => {
-    const updateDimensions = () => {
-      if (!containerRef.current) return;
-      const { clientWidth, clientHeight } = containerRef.current;
-      setDimensions({ width: clientWidth, height: clientHeight });
+    if (mapRef.current) return;
+    mapboxgl.accessToken = process.env.REACT_APP_MAPBOX_API;
+    mapRef.current = new mapboxgl.Map({
+      container: mapContainerRef.current,
+      style: "mapbox://styles/mapbox/dark-v11",
+      center: [-85.3097, 35.0456],
+      zoom: 12,
+      pitch: 0,
+      bearing: 0,
+    });
+    return () => {
+      mapRef.current?.remove();
+      mapRef.current = null;
     };
-    updateDimensions();
-    window.addEventListener("resize", updateDimensions);
-    return () => window.removeEventListener("resize", updateDimensions);
   }, []);
-
-  useEffect(() => {
-    dispatch(
-      wrapTo(
-        "traffic_flow_patterns",
-        addDataToMap({
-          datasets: {
-            info: { label: "Empty", id: "traffic_flow_patterns" },
-            data: { fields: [], rows: [] },
-          },
-          options: {
-            centerMap: true,
-            readOnly: false,
-            keepExistingConfig: false,
-          },
-          config: {
-            mapState: {
-              latitude: 35.0456,
-              longitude: -85.3097,
-              zoom: 12,
-              pitch: 0,
-              bearing: 0,
-            },
-            mapStyle: { styleType: "dark" },
-          },
-        })
-      )
-    );
-  }, [dispatch]);
 
   return (
     <div className="space-y-6">
@@ -431,21 +403,14 @@ export function AnalyticsTraffic() {
         </div>
       </div>
 
-      {/* Kepler Map */}
+      {/* Map */}
       <MagicCard>
       <Card className="bg-black-900 border-neutral-800">
         <CardHeader className="pb-2">
           <CardTitle className="text-neutral-100 text-base">Peak Traffic Hours</CardTitle>
         </CardHeader>
         <CardContent>
-          <div ref={containerRef} className="h-[500px] w-full rounded overflow-hidden">
-            <KeplerGL
-              id="traffic_flow_patterns"
-              mapboxApiAccessToken={process.env.REACT_APP_MAPBOX_API}
-              width={dimensions.width}
-              height={dimensions.height}
-            />
-          </div>
+          <div ref={mapContainerRef} className="h-[500px] w-full rounded overflow-hidden" />
         </CardContent>
       </Card>
       </MagicCard>
