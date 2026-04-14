@@ -39,6 +39,23 @@ export const DEFAULT_SETTINGS = {
     refreshInterval: 30,       // seconds
     exportFormat: 'csv',       // 'csv' | 'json' | 'xlsx'
     timezone: 'America/Chicago',
+    autoRefresh: true,
+    includeRawData: false,
+    defaultDashboard: 'sdsm',
+    gridView: true,
+    compactView: false,
+    expandedView: true,
+    colorPalette: 'mocha-latte',
+    showDataLabels: true,
+    dateFormat: 'iso',
+    thresholdAlertsEnabled: true,
+    trafficDropEnabled: true,
+    trafficDropValue: '10',
+    trafficSpikeEnabled: false,
+    trafficSpikeValue: '20',
+    priorityLow: false,
+    priorityMedium: false,
+    priorityHigh: true,
   },
   // Global settings (notifications.*, security.*)
   global: {

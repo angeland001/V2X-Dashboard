@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React from 'react'
 import { BarChart2 } from 'lucide-react'
 import {
   Select,
@@ -10,17 +10,20 @@ import {
 import { Separator } from '@/components/ui/shadcn/separator'
 import { Label } from '@/components/ui/label'
 import { SettingsPageWrapper, SectionHeader, ToggleRow } from '../components'
+import { useSettings } from '@/hooks/settings/useSettings'
 
 export function DashboardVisualization() {
-  const [defaultDashboard, setDefaultDashboard] = useState('sdsm')
-  const [theme, setTheme] = useState('dark')
-  const [gridView, setGridView] = useState(true)
-  const [compactView, setCompactView] = useState(false)
-  const [expandedView, setExpandedView] = useState(true)
-  const [colorPalette, setColorPalette] = useState('mocha-latte')
-  const [showDataLabels, setShowDataLabels] = useState(true)
-  const [timeZone, setTimeZone] = useState('utc')
-  const [dateFormat, setDateFormat] = useState('iso')
+  const { userSettings, updateUser } = useSettings()
+
+  const defaultDashboard = userSettings.defaultDashboard || 'sdsm'
+  const theme = userSettings.theme || 'system'
+  const gridView = userSettings.gridView !== false
+  const compactView = Boolean(userSettings.compactView)
+  const expandedView = userSettings.expandedView !== false
+  const colorPalette = userSettings.colorPalette || 'mocha-latte'
+  const showDataLabels = userSettings.showDataLabels !== false
+  const timeZone = userSettings.timezone || 'America/Chicago'
+  const dateFormat = userSettings.dateFormat || 'iso'
 
   return (
     <SettingsPageWrapper icon={BarChart2} title="Dashboard &amp; Visualization">
@@ -30,7 +33,7 @@ export function DashboardVisualization() {
           title="Default Dashboard"
           description="Choose which analytics screen loads first"
         />
-        <Select value={defaultDashboard} onValueChange={setDefaultDashboard}>
+        <Select value={defaultDashboard} onValueChange={(value) => updateUser({ defaultDashboard: value })}>
           <SelectTrigger className="w-48 bg-neutral-800 border-neutral-700 text-neutral-200">
             <SelectValue />
           </SelectTrigger>
@@ -51,7 +54,7 @@ export function DashboardVisualization() {
           title="Theme"
           description="Choose your preferred color scheme"
         />
-        <Select value={theme} onValueChange={setTheme}>
+        <Select value={theme} onValueChange={(value) => updateUser({ theme: value })}>
           <SelectTrigger className="w-24 bg-neutral-800 border-neutral-700 text-neutral-200">
             <SelectValue />
           </SelectTrigger>
@@ -76,19 +79,19 @@ export function DashboardVisualization() {
             label="Grid View"
             description="Display data in grid format"
             checked={gridView}
-            onCheckedChange={setGridView}
+            onCheckedChange={(checked) => updateUser({ gridView: checked })}
           />
           <ToggleRow
             label="Compact View"
             description="Use smaller chart sizes to fit more data"
             checked={compactView}
-            onCheckedChange={setCompactView}
+            onCheckedChange={(checked) => updateUser({ compactView: checked })}
           />
           <ToggleRow
             label="Expanded View"
             description="Show detailed information for each chart"
             checked={expandedView}
-            onCheckedChange={setExpandedView}
+            onCheckedChange={(checked) => updateUser({ expandedView: checked })}
           />
         </div>
       </div>
@@ -106,7 +109,7 @@ export function DashboardVisualization() {
             <Label className="text-sm text-neutral-400 mb-1.5 block">
               Color Palette
             </Label>
-            <Select value={colorPalette} onValueChange={setColorPalette}>
+            <Select value={colorPalette} onValueChange={(value) => updateUser({ colorPalette: value })}>
               <SelectTrigger className="w-48 bg-neutral-800 border-neutral-700 text-neutral-200">
                 <SelectValue />
               </SelectTrigger>
@@ -124,7 +127,7 @@ export function DashboardVisualization() {
               label="Show Data Labels"
               description="Display data values on chart elements"
               checked={showDataLabels}
-              onCheckedChange={setShowDataLabels}
+              onCheckedChange={(checked) => updateUser({ showDataLabels: checked })}
             />
           </div>
         </div>
@@ -143,16 +146,16 @@ export function DashboardVisualization() {
             <Label className="text-sm text-neutral-400 mb-1.5 block">
               Time Zone
             </Label>
-            <Select value={timeZone} onValueChange={setTimeZone}>
+            <Select value={timeZone} onValueChange={(value) => updateUser({ timezone: value })}>
               <SelectTrigger className="w-48 bg-neutral-800 border-neutral-700 text-neutral-200">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="bg-neutral-800 border-neutral-700 text-neutral-200">
-                <SelectItem value="utc">UTC (Coordinated Universal Time)</SelectItem>
-                <SelectItem value="est">EST (Eastern Standard Time)</SelectItem>
-                <SelectItem value="cst">CST (Central Standard Time)</SelectItem>
-                <SelectItem value="mst">MST (Mountain Standard Time)</SelectItem>
-                <SelectItem value="pst">PST (Pacific Standard Time)</SelectItem>
+                <SelectItem value="UTC">UTC (Coordinated Universal Time)</SelectItem>
+                <SelectItem value="America/New_York">EST (Eastern Standard Time)</SelectItem>
+                <SelectItem value="America/Chicago">CST (Central Standard Time)</SelectItem>
+                <SelectItem value="America/Denver">MST (Mountain Standard Time)</SelectItem>
+                <SelectItem value="America/Los_Angeles">PST (Pacific Standard Time)</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -160,7 +163,7 @@ export function DashboardVisualization() {
             <Label className="text-sm text-neutral-400 mb-1.5 block">
               Date Format
             </Label>
-            <Select value={dateFormat} onValueChange={setDateFormat}>
+            <Select value={dateFormat} onValueChange={(value) => updateUser({ dateFormat: value })}>
               <SelectTrigger className="w-full bg-neutral-800 border-neutral-700 text-neutral-200">
                 <SelectValue />
               </SelectTrigger>
