@@ -81,21 +81,6 @@ const sanitizeSettings = (input, allowedKeys) => {
 const ensureSettingsTables = async () => {
   if (tablesInitialized) return;
 
-  const hasColumn = async (tableName, columnName) => {
-    const result = await db.query(
-      `
-      SELECT 1
-      FROM information_schema.columns
-      WHERE table_schema = 'public'
-        AND table_name = $1
-        AND column_name = $2
-      LIMIT 1;
-      `,
-      [tableName, columnName]
-    );
-    return result.rows.length > 0;
-  };
-
   await db.query(`
     CREATE TABLE IF NOT EXISTS user_settings (
       user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
@@ -113,69 +98,6 @@ const ensureSettingsTables = async () => {
       updated_at TIMESTAMPTZ DEFAULT NOW(),
       CONSTRAINT global_settings_singleton CHECK (id = 1)
     );
-  `);
-
-  // Backward-compatible migration for older global_settings tables
-  // that may have been created without an id column.
-  if (!(await hasColumn('global_settings', 'id'))) {
-    await db.query('ALTER TABLE public.global_settings ADD COLUMN id INTEGER;');
-  }
-  if (!(await hasColumn('global_settings', 'settings'))) {
-    await db.query(
-      "ALTER TABLE public.global_settings ADD COLUMN settings JSONB NOT NULL DEFAULT '{}'::jsonb;"
-    );
-  }
-  if (!(await hasColumn('global_settings', 'created_at'))) {
-    await db.query(
-      'ALTER TABLE public.global_settings ADD COLUMN created_at TIMESTAMPTZ DEFAULT NOW();'
-    );
-  }
-  if (!(await hasColumn('global_settings', 'updated_at'))) {
-    await db.query(
-      'ALTER TABLE public.global_settings ADD COLUMN updated_at TIMESTAMPTZ DEFAULT NOW();'
-    );
-  }
-
-  await db.query('UPDATE public.global_settings SET id = 1 WHERE id IS NULL;');
-  await db.query(`
-    DELETE FROM public.global_settings g
-    USING (
-      SELECT ctid,
-             ROW_NUMBER() OVER (PARTITION BY id ORDER BY created_at NULLS LAST, ctid) AS rn
-      FROM public.global_settings
-    ) d
-    WHERE g.ctid = d.ctid
-      AND d.rn > 1;
-  `);
-  await db.query('ALTER TABLE public.global_settings ALTER COLUMN id SET DEFAULT 1;');
-  await db.query('ALTER TABLE public.global_settings ALTER COLUMN id SET NOT NULL;');
-  await db.query(`
-    DO $$
-    BEGIN
-      IF NOT EXISTS (
-        SELECT 1
-        FROM pg_constraint
-        WHERE conname = 'global_settings_pkey'
-          AND conrelid = 'public.global_settings'::regclass
-      ) THEN
-        ALTER TABLE public.global_settings
-          ADD CONSTRAINT global_settings_pkey PRIMARY KEY (id);
-      END IF;
-    END $$;
-  `);
-  await db.query(`
-    DO $$
-    BEGIN
-      IF NOT EXISTS (
-        SELECT 1
-        FROM pg_constraint
-        WHERE conname = 'global_settings_singleton'
-          AND conrelid = 'public.global_settings'::regclass
-      ) THEN
-        ALTER TABLE public.global_settings
-          ADD CONSTRAINT global_settings_singleton CHECK (id = 1);
-      END IF;
-    END $$;
   `);
 
   await db.query(`
