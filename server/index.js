@@ -18,6 +18,7 @@ const crosswalkRoutes = require("./routes/intersectionroutes/crosswalks");
 const laneConnectionRoutes = require("./routes/intersectionroutes/lane_connections");
 const spatZoneRoutes = require("./routes/spat_zones"); // adjust path if needed
 const preemptionZoneConfigRoutes = require("./routes/preemption_zone_configs"); // adjust path if needed
+const settingsRoutes = require("./routes/settings");
 
 const db = require("./database/postgis");
 const sdsmPoller = require("./services/sdsmPoller");
@@ -44,6 +45,7 @@ app.use("/api/crosswalks", crosswalkRoutes);
 app.use("/api/lane-connections", laneConnectionRoutes);
 app.use("/api/spat-zones", spatZoneRoutes);
 app.use("/api/preemption-zone-config", preemptionZoneConfigRoutes);
+app.use("/api/settings", settingsRoutes);
 
 // Health check endpoint
 app.get("/health", (req, res) => {
@@ -85,4 +87,5 @@ app.listen(PORT, () => {
   console.log(
     `Preemption Zone Config API: http://localhost:${PORT}/api/preemption-zone-config`,
   );
+  console.log(`Settings API: http://localhost:${PORT}/api/settings`);
 });

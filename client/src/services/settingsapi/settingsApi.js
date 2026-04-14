@@ -12,7 +12,7 @@ const SETTINGS_ENDPOINT = `${API_BASE}/api/settings`;
  * Get auth token from localStorage
  */
 const getAuthToken = () => {
-  return localStorage.getItem('token');
+  return localStorage.getItem('token') || localStorage.getItem('authToken');
 };
 
 /**

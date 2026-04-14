@@ -1,9 +1,15 @@
-import React, { useState } from 'react'
+import React from 'react'
 import { BarChart2 } from 'lucide-react'
 import { Separator } from '@/components/ui/shadcn/separator'
-import { Checkbox } from '@/components/ui/shadcn/checkbox'
-import { ToggleButton } from '@/components/ui/ToggleButton'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/shadcn/select'
 import { SettingsPageWrapper, ToggleRow } from '../components'
+import { useSettings } from '@/hooks/settings/useSettings'
 import {
   Card,
   CardHeader,
@@ -11,14 +17,27 @@ import {
   FieldLabel,
   OutlineButton,
   StatusBadge,
-  SelectDropdown,
   PrimaryButton,
 } from '@/components/ui/global/subcomponents'
 
-/* ── Section: Data Refresh Settings ─────────────────────────── */
+const REFRESH_OPTIONS = [
+  { label: '30 seconds', value: 30 },
+  { label: '1 minute', value: 60 },
+  { label: '5 minutes', value: 300 },
+  { label: '15 minutes', value: 900 },
+]
+
+const EXPORT_FORMAT_OPTIONS = [
+  { label: 'CSV', value: 'csv' },
+  { label: 'JSON', value: 'json' },
+  { label: 'XLSX', value: 'xlsx' },
+]
 
 function DataRefreshSettings() {
-  const [autoRefresh, setAutoRefresh] = useState(true)
+  const { userSettings, updateUser, isValidating, refresh } = useSettings()
+
+  const refreshInterval = Number(userSettings.refreshInterval ?? 30)
+  const autoRefresh = userSettings.autoRefresh !== false
 
   return (
     <Card>
@@ -27,7 +46,24 @@ function DataRefreshSettings() {
         description="Configure how frequently your data is updated"
       />
       <CardBody>
-        <SelectDropdown label="Refresh Frequency" value={["Hourly", "Daily", "Weekly"]} />
+        <div>
+          <FieldLabel>Refresh Frequency</FieldLabel>
+          <Select
+            value={String(refreshInterval)}
+            onValueChange={(value) => updateUser({ refreshInterval: Number(value) })}
+          >
+            <SelectTrigger className="w-48 bg-neutral-800 border-neutral-700 text-neutral-200">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="bg-neutral-800 border-neutral-700 text-neutral-200">
+              {REFRESH_OPTIONS.map((option) => (
+                <SelectItem key={option.value} value={String(option.value)}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
 
         <Separator className="bg-[#262626]" />
 
@@ -35,14 +71,16 @@ function DataRefreshSettings() {
           label="Auto-refresh Dashboard"
           description="Automatically refresh dashboard data"
           checked={autoRefresh}
-          onCheckedChange={setAutoRefresh}
+          onCheckedChange={(checked) => updateUser({ autoRefresh: checked })}
         />
 
         <div>
-          <FieldLabel>Last Refresh</FieldLabel>
+          <FieldLabel>Last Sync</FieldLabel>
           <div className="flex items-center gap-2">
-            <StatusBadge>2 minutes ago</StatusBadge>
-            <OutlineButton className="h-8 text-sm">Refresh Now</OutlineButton>
+            <StatusBadge>{isValidating ? 'Syncing...' : 'Synced'}</StatusBadge>
+            <OutlineButton className="h-8 text-sm" onClick={refresh}>
+              Sync Now
+            </OutlineButton>
           </div>
         </div>
       </CardBody>
@@ -50,20 +88,10 @@ function DataRefreshSettings() {
   )
 }
 
-/* ── Section: Data Export Preferences ───────────────────────── */
-
 function DataExportPreferences() {
-  const [formats, setFormats] = useState({ csv: true, excel: true, pdf: false, json: false })
-  const [includeRawData, setIncludeRawData] = useState(false)
-
-  const toggleFormat = (key) => setFormats(prev => ({ ...prev, [key]: !prev[key] }))
-
-  const formatOptions = [
-    { key: 'csv', label: 'CSV' },
-    { key: 'excel', label: 'Excel (XLSX)' },
-    { key: 'pdf', label: 'PDF' },
-    { key: 'json', label: 'JSON' },
-  ]
+  const { userSettings, updateUser } = useSettings()
+  const includeRawData = Boolean(userSettings.includeRawData)
+  const exportFormat = userSettings.exportFormat ?? 'csv'
 
   return (
     <Card>
@@ -73,32 +101,31 @@ function DataExportPreferences() {
       />
       <CardBody>
         <div>
-          <FieldLabel>Default Export Formats</FieldLabel>
-          <div className="grid grid-cols-2 gap-2">
-            {formatOptions.map(({ key, label }) => (
-              <div key={key} className="flex items-center gap-2">
-                <Checkbox
-                  id={`format-${key}`}
-                  checked={formats[key]}
-                  onCheckedChange={() => toggleFormat(key)}
-                />
-                <label htmlFor={`format-${key}`} className="text-sm font-medium text-[#fafafa] cursor-pointer">
-                  {label}
-                </label>
-              </div>
-            ))}
-          </div>
+          <FieldLabel>Default Export Format</FieldLabel>
+          <Select
+            value={exportFormat}
+            onValueChange={(value) => updateUser({ exportFormat: value })}
+          >
+            <SelectTrigger className="w-48 bg-neutral-800 border-neutral-700 text-neutral-200">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="bg-neutral-800 border-neutral-700 text-neutral-200">
+              {EXPORT_FORMAT_OPTIONS.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         <Separator className="bg-[#262626]" />
-
-        <SelectDropdown label="Date Range for Exports" value="Last 30 days" />
 
         <ToggleRow
           label="Include Raw Data"
           description="Export unprocessed data along with aggregated metrics"
           checked={includeRawData}
-          onCheckedChange={setIncludeRawData}
+          onCheckedChange={(checked) => updateUser({ includeRawData: checked })}
         />
 
         <PrimaryButton>Export Current Data</PrimaryButton>
@@ -106,8 +133,6 @@ function DataExportPreferences() {
     </Card>
   )
 }
-
-/* ── Section: API Key & Token Management ─────────────────────── */
 
 function ApiKeyRow({ name, maskedKey, createdDate }) {
   return (
@@ -178,125 +203,12 @@ function ApiKeyManagement() {
   )
 }
 
-/* ── Section: Data Filters ───────────────────────────────────── */
-
-function DataFilters() {
-  const [metrics, setMetrics] = useState({
-    pageViews: true,
-    uniqueUsers: true,
-    sessions: true,
-    bounceRate: false,
-    conversionRate: false,
-    revenue: false,
-  })
-
-  const toggleMetric = (key) => setMetrics(prev => ({ ...prev, [key]: !prev[key] }))
-
-  const metricOptions = [
-    { key: 'pageViews', label: 'Page Views' },
-    { key: 'uniqueUsers', label: 'Unique Users' },
-    { key: 'sessions', label: 'Sessions' },
-    { key: 'bounceRate', label: 'Bounce Rate' },
-    { key: 'conversionRate', label: 'Conversion Rate' },
-    { key: 'revenue', label: 'Revenue' },
-  ]
-
-  return (
-    <Card>
-      <CardHeader
-        title="Data Filters"
-        description="Set default filters for metrics, regions, and time ranges"
-      />
-      <CardBody>
-        <div>
-          <FieldLabel>Default Metrics</FieldLabel>
-          <div className="grid grid-cols-2 gap-2">
-            {metricOptions.map(({ key, label }) => (
-              <div key={key} className="flex items-center gap-2">
-                <Checkbox
-                  id={`metric-${key}`}
-                  checked={metrics[key]}
-                  onCheckedChange={() => toggleMetric(key)}
-                />
-                <label htmlFor={`metric-${key}`} className="text-sm font-medium text-[#fafafa] cursor-pointer">
-                  {label}
-                </label>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <Separator className="bg-[#262626]" />
-
-        <SelectDropdown label="Default Regions" value="All Regions" />
-        <SelectDropdown label="Default Time Range" value="Last 30 days" />
-      </CardBody>
-    </Card>
-  )
-}
-
-/* ── Section: Data Sharing Permissions ──────────────────────── */
-
-function DataSharingPermissions() {
-  const [dashboardSharing, setDashboardSharing] = useState(true)
-  const [reportDownloads, setReportDownloads] = useState(true)
-  const [passwordProtection, setPasswordProtection] = useState(false)
-
-  return (
-    <Card>
-      <CardHeader
-        title="Data Sharing Permissions"
-        description="Control who can access and share your dashboards and reports"
-      />
-      <CardBody>
-        <ToggleRow
-          label="Allow Dashboard Sharing"
-          description="Let team members share dashboards with external users"
-          checked={dashboardSharing}
-          onCheckedChange={setDashboardSharing}
-        />
-
-        <Separator className="bg-[#262626]" />
-
-        <ToggleRow
-          label="Allow Report Downloads"
-          description="Let team members download and share reports"
-          checked={reportDownloads}
-          onCheckedChange={setReportDownloads}
-        />
-
-        <Separator className="bg-[#262626]" />
-
-        <SelectDropdown label="Shared Dashboard Expiry" value="30 days" />
-
-        <div>
-          <FieldLabel>Password Protection</FieldLabel>
-          <div className="flex items-center gap-2">
-            <Checkbox
-              id="password-protection"
-              checked={passwordProtection}
-              onCheckedChange={setPasswordProtection}
-            />
-            <label htmlFor="password-protection" className="text-sm font-medium text-[#fafafa] cursor-pointer">
-              Require password for shared dashboards
-            </label>
-          </div>
-        </div>
-      </CardBody>
-    </Card>
-  )
-}
-
-/* ── Root export ─────────────────────────────────────────────── */
-
 export function DataAnalytics() {
   return (
     <SettingsPageWrapper icon={BarChart2} title="Data &amp; Analytics Settings">
       <DataRefreshSettings />
       <DataExportPreferences />
       <ApiKeyManagement />
-      <DataFilters />
-      <DataSharingPermissions />
     </SettingsPageWrapper>
   )
 }
