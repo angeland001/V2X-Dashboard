@@ -56,22 +56,7 @@ export function DashboardNav() {
               <NavigationMenuTrigger>Analytics</NavigationMenuTrigger>
             </Link>
           </NavigationMenuItem>
-          <NavigationMenuItem>
-            <Link to="/dashboard/rules/location">
-            
-            <NavigationMenuTrigger>Rules & Triggers</NavigationMenuTrigger>
-            </Link>
-            <NavigationMenuContent>
-             
-            </NavigationMenuContent>
-          </NavigationMenuItem>
-          <NavigationMenuItem>
-            <Link to="/dashboard/alerts/active">
-            <NavigationMenuTrigger>Alerts</NavigationMenuTrigger>
-            </Link>
-            
-            
-          </NavigationMenuItem>
+         
           <NavigationMenuItem>
             <Link to="/dashboard/settings/dashboard-visualization">
               <NavigationMenuTrigger>Settings</NavigationMenuTrigger>
