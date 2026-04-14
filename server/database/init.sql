@@ -62,6 +62,38 @@ CREATE TRIGGER update_users_updated_at
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
 -- ============================================================
+-- 1B. SETTINGS
+-- ============================================================
+CREATE TABLE IF NOT EXISTS public.user_settings (
+  user_id INTEGER PRIMARY KEY REFERENCES public.users(id) ON DELETE CASCADE,
+  settings JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+DROP TRIGGER IF EXISTS update_user_settings_updated_at ON public.user_settings;
+CREATE TRIGGER update_user_settings_updated_at
+  BEFORE UPDATE ON public.user_settings
+  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+CREATE TABLE IF NOT EXISTS public.global_settings (
+  id INTEGER PRIMARY KEY DEFAULT 1,
+  settings JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  CONSTRAINT global_settings_singleton CHECK (id = 1)
+);
+
+DROP TRIGGER IF EXISTS update_global_settings_updated_at ON public.global_settings;
+CREATE TRIGGER update_global_settings_updated_at
+  BEFORE UPDATE ON public.global_settings
+  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+INSERT INTO public.global_settings (id, settings)
+VALUES (1, '{}'::jsonb)
+ON CONFLICT (id) DO NOTHING;
+
+-- ============================================================
 -- 2. INTERSECTIONS
 -- ============================================================
 CREATE TABLE IF NOT EXISTS intersections (

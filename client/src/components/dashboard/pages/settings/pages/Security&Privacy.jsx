@@ -3,6 +3,14 @@ import { ShieldIcon } from 'lucide-react'
 import { Separator } from '@/components/ui/shadcn/separator'
 import { Checkbox } from '@/components/ui/shadcn/checkbox'
 import { SettingsPageWrapper, ToggleRow } from '../components'
+import { useSettings } from '@/hooks/settings/useSettings'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/shadcn/select'
 import {
   Card,
   CardHeader,
@@ -79,6 +87,9 @@ function SessionRow({ name, detail, location, isCurrent }) {
 }
 
 function LoginSessions() {
+  const { globalSettings, updateGlobal } = useSettings()
+  const sessionTimeout = String(globalSettings.sessionTimeout ?? 30)
+
   return (
     <Card>
       <CardHeader
@@ -106,6 +117,24 @@ function LoginSessions() {
         </div>
 
         <Separator className="bg-[#262626]" />
+
+        <div>
+          <FieldLabel>Session Timeout</FieldLabel>
+          <Select
+            value={sessionTimeout}
+            onValueChange={(value) => updateGlobal({ sessionTimeout: Number(value) })}
+          >
+            <SelectTrigger className="w-48 bg-neutral-800 border-neutral-700 text-neutral-200">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="bg-neutral-800 border-neutral-700 text-neutral-200">
+              <SelectItem value="15">15 minutes</SelectItem>
+              <SelectItem value="30">30 minutes</SelectItem>
+              <SelectItem value="60">1 hour</SelectItem>
+              <SelectItem value="120">2 hours</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
 
         <DangerButton>Sign Out All Other Sessions</DangerButton>
       </CardBody>
