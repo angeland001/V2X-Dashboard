@@ -1,430 +1,296 @@
-import React, { useEffect, useRef, useState } from "react";
-import { useDispatch } from "react-redux";
-import KeplerGl from "@kepler.gl/components";
-import { addDataToMap, wrapTo } from "@kepler.gl/actions";
-import { processGeojson } from "@kepler.gl/processors";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card";
+import React, { useEffect, useRef, useState, useCallback } from "react";
+import mapboxgl from "mapbox-gl";
+import "mapbox-gl/dist/mapbox-gl.css";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "../ui/card";
 import { Label } from "../ui/label";
 import { Slider } from "../ui/slider";
 
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:3001";
 
-// Intersection definitions
 const INTERSECTIONS = [
-  {
-    id: "MLK_Georgia",
-    name: "MLK & Georgia",
-    center: [-85.3078627, 35.0455964],
-  },
-  {
-    id: "MLK_Lindsay",
-    name: "MLK & Lindsay",
-    center: [-85.3078627, 35.0455964],
-  },
+  { id: "MLK_Georgia", name: "MLK & Georgia" },
+  { id: "MLK_Lindsay", name: "MLK & Lindsay" },
 ];
 
-function SDSMEventsMap() {
-  const dispatch = useDispatch();
-  const containerRef = useRef(null);
-  const refreshIntervalRef = useRef(null);
-  const updateCountRef = useRef(0);
+const EMPTY_GEOJSON = { type: "FeatureCollection", features: [] };
 
-  const [dimensions, setDimensions] = useState({
-    width: window.innerWidth,
-    height: window.innerHeight,
-  });
+export default function SDSMEventsMap() {
+  const mapContainerRef = useRef(null);
+  const mapRef          = useRef(null);
+  const mapReadyRef     = useRef(false);   // true once 'load' has fired
+  const pendingRef      = useRef(null);    // geojson queued before map loaded
+  const intervalRef     = useRef(null);
+  const updateCountRef  = useRef(0);
 
-  const [statusMessage, setStatusMessage] = useState("Loading SDSM events...");
-  const [loading, setLoading] = useState(true);
-  const [refreshRate, setRefreshRate] = useState(100); // 0.1 seconds default
+  const [updateCount,          setUpdateCount]          = useState(0);
+  const [eventCount,           setEventCount]           = useState(0);
+  const [statusMessage,        setStatusMessage]        = useState("Loading SDSM events…");
+  const [refreshRate,          setRefreshRate]          = useState(100);
   const [selectedIntersection, setSelectedIntersection] = useState("all");
-  const [eventCount, setEventCount] = useState(0);
 
-  // Hide scrollbars for this page
+  // ── hide page scrollbar while mounted ─────────────────────────────────────
   useEffect(() => {
     document.body.style.overflow = "hidden";
-    return () => (document.body.style.overflow = "auto");
+    return () => { document.body.style.overflow = "auto"; };
   }, []);
 
-  // Update dimensions based on container size
+  // ── boot mapbox once ───────────────────────────────────────────────────────
   useEffect(() => {
-    const updateDimensions = () => {
-      if (!containerRef.current) return;
-      const { clientWidth, clientHeight } = containerRef.current;
-      setDimensions({ width: clientWidth, height: clientHeight });
+    mapboxgl.accessToken = process.env.REACT_APP_MAPBOX_API;
+
+    const map = new mapboxgl.Map({
+      container: mapContainerRef.current,
+      style:     "mapbox://styles/mapbox/dark-v11",
+      center:    [-85.3097, 35.0456],
+      zoom:      16,
+      pitch:     45,
+      bearing:   0,
+    });
+    mapRef.current = map;
+
+    map.on("load", () => {
+      // GeoJSON source — updated in-place on every fetch
+      map.addSource("sdsm", {
+        type: "geojson",
+        data: EMPTY_GEOJSON,
+      });
+
+      // Circle layer — color and radius driven by feature properties
+      map.addLayer({
+        id:     "sdsm-circles",
+        type:   "circle",
+        source: "sdsm",
+        paint: {
+          // green = vehicle, red = everything else (VRU / pedestrian)
+          "circle-color": [
+            "match",
+            ["get", "type"],
+            "vehicle", "#00FF00",
+            "#FF0000",
+          ],
+          // radius grows with speed (px)
+          "circle-radius": [
+            "interpolate",
+            ["linear"],
+            ["get", "speed"],
+            0,  6,
+            30, 20,
+          ],
+          "circle-opacity":       0.9,
+          "circle-stroke-color":  "#FFFFFF",
+          "circle-stroke-width":  1.5,
+        },
+      });
+
+      mapReadyRef.current = true;
+
+      // Apply any data that arrived before the map finished loading
+      if (pendingRef.current) {
+        map.getSource("sdsm").setData(pendingRef.current);
+        pendingRef.current = null;
+      }
+    });
+
+    return () => {
+      mapReadyRef.current = false;
+      map.remove();
+      mapRef.current = null;
     };
-    updateDimensions();
-    window.addEventListener("resize", updateDimensions);
-    return () => window.removeEventListener("resize", updateDimensions);
   }, []);
 
-  // Initialize base map once
-  useEffect(() => {
-    dispatch(
-      wrapTo(
-        "sdsm-events",
-        addDataToMap({
-          datasets: {
-            info: { label: "Empty", id: "sdsm-events-init" },
-            data: { fields: [], rows: [] },
-          },
-          options: {
-            centerMap: true,
-            readOnly: false,
-            keepExistingConfig: false,
-          },
-          config: {
-            mapState: {
-              latitude: 35.0456,
-              longitude: -85.3097,
-              zoom: 16,
-              pitch: 45,
-              bearing: 0,
-            },
-            mapStyle: { styleType: "dark" },
-          },
-        })
-      )
-    );
-  }, [dispatch]);
+  // ── push geojson into the map source ──────────────────────────────────────
+  const pushToMap = useCallback((geojson) => {
+    if (mapReadyRef.current && mapRef.current) {
+      mapRef.current.getSource("sdsm").setData(geojson);
+    } else {
+      // Map still loading — stash it; the 'load' handler will apply it
+      pendingRef.current = geojson;
+    }
+  }, []);
 
-  // Fetch SDSM data
-  const fetchSDSMData = async () => {
+  // ── fetch SDSM data ────────────────────────────────────────────────────────
+  const fetchSDSMData = useCallback(async () => {
     try {
-      console.log("Fetching data for intersection:", selectedIntersection);
       updateCountRef.current += 1;
-      const currentUpdate = updateCountRef.current;
+      setUpdateCount(updateCountRef.current);
 
-      let data;
+      let allObjects = [];
 
       if (selectedIntersection === "all") {
-        // Fetch from all intersections
-        const promises = INTERSECTIONS.map(async (intersection) => {
-          try {
-            const response = await fetch(
-              `${API_URL}/api/sdsm/latest/${intersection.id}`
-            );
-            if (!response.ok) return null;
-            return await response.json();
-          } catch (error) {
-            console.error(`Error fetching ${intersection.id}:`, error);
-            return null;
-          }
-        });
-
-        const results = await Promise.all(promises);
-        const validResults = results.filter((r) => r !== null);
-
-        // Combine all objects from all intersections
-        const allObjects = validResults.flatMap((result) =>
-          result.objects.map((obj) => ({
-            ...obj,
-            intersectionID: result.intersectionID,
-            intersection: result.intersection,
-            timestamp: result.timestamp,
-          }))
+        const results = await Promise.all(
+          INTERSECTIONS.map(async ({ id }) => {
+            try {
+              const res = await fetch(`${API_URL}/api/sdsm/latest/${id}`);
+              return res.ok ? res.json() : null;
+            } catch { return null; }
+          })
         );
-
-        data = { objects: allObjects };
+        allObjects = results
+          .filter(Boolean)
+          .flatMap((r) =>
+            r.objects.map((obj) => ({
+              ...obj,
+              intersectionID: r.intersectionID,
+              intersection:   r.intersection,
+              timestamp:      r.timestamp,
+            }))
+          );
       } else {
-        // Fetch from single intersection
-        const response = await fetch(
+        const res = await fetch(
           `${API_URL}/api/sdsm/latest/${selectedIntersection}`
         );
-        if (!response.ok) {
-          throw new Error(`API returned ${response.status}`);
-        }
-        data = await response.json();
+        if (!res.ok) throw new Error(`API returned ${res.status}`);
+        const json = await res.json();
+        allObjects = json.objects || [];
       }
 
-      if (!data.objects || data.objects.length === 0) {
+      if (allObjects.length === 0) {
         setStatusMessage("No active objects detected");
         setEventCount(0);
+        pushToMap(EMPTY_GEOJSON);
         return;
       }
 
-      setEventCount(data.objects.length);
-
-      // Convert to GeoJSON
-      const featureCollection = {
+      const geojson = {
         type: "FeatureCollection",
-        features: data.objects.map((obj) => {
+        features: allObjects.map((obj) => {
           const [latitude, longitude] = obj.location.coordinates;
-
-          // Normalize type to lowercase for consistent color mapping
-          const normalizedType = obj.type.toLowerCase();
-
           return {
             type: "Feature",
-            properties: {
-              objectID: obj.objectID,
-              type: normalizedType,
-              originalType: obj.type,
-              timestamp: obj.timestamp,
-              heading: obj.heading,
-              speed: obj.speed,
-              size_width: obj.size?.width || null,
-              size_length: obj.size?.length || null,
-              intersection: obj.intersection || data.intersection,
-              intersectionID: obj.intersectionID || data.intersectionID,
-              updateCount: currentUpdate,
-            },
             geometry: {
-              type: "Point",
+              type:        "Point",
               coordinates: [longitude, latitude],
+            },
+            properties: {
+              type:  obj.type.toLowerCase(),
+              speed: obj.speed || 0,
             },
           };
         }),
       };
 
-      const processed = processGeojson(featureCollection);
-
-      // Use a unique dataset ID for each update to force Kepler to recognize the change
-      const datasetId = `sdsm-events-${Date.now()}`;
-
-      // Update map with new data - fully reconfigure each time to ensure updates
-      dispatch(
-        wrapTo(
-          "sdsm-events",
-          addDataToMap({
-            datasets: {
-              info: {
-                label: "SDSM Real-Time Events",
-                id: datasetId,
-              },
-              data: processed,
-            },
-            options: {
-              centerMap: false,
-              readOnly: false,
-              keepExistingConfig: false, // Force reconfiguration to ensure updates
-            },
-            config: {
-              visState: {
-                layers: [
-                  {
-                    id: "sdsm-point-layer",
-                    type: "point",
-                    config: {
-                      dataId: datasetId,
-                      label: "SDSM Events",
-                      columns: {
-                        lat: "latitude",
-                        lng: "longitude",
-                        altitude: null,
-                      },
-                      isVisible: true,
-                      visConfig: {
-                        radius: 0.01,
-                        fixedRadius: false,
-                        opacity: 0.9,
-                        outline: true,
-                        thickness: 2,
-                        strokeColor: [255, 255, 255],
-                        colorRange: {
-                          name: "Custom",
-                          type: "custom",
-                          category: "Custom",
-                          colors: ["#00FF00", "#FF0000"], // green for vehicle, red for vru
-                        },
-                        radiusRange: [8, 25],
-                        filled: true,
-                        colorDomain: ["vehicle", "vru"],
-                      },
-                      hidden: false,
-                      textLabel: [
-                        {
-                          field: null,
-                          color: [255, 255, 255],
-                          size: 18,
-                          offset: [0, 0],
-                          anchor: "start",
-                          alignment: "center",
-                        },
-                      ],
-                    },
-                    visualChannels: {
-                      colorField: {
-                        name: "type",
-                        type: "string",
-                      },
-                      colorScale: "ordinal",
-                      sizeField: {
-                        name: "speed",
-                        type: "integer",
-                      },
-                      sizeScale: "linear",
-                    },
-                  },
-                ],
-                interactionConfig: {
-                  tooltip: {
-                    fieldsToShow: {
-                      [datasetId]: [
-                        { name: "objectID", format: null },
-                        { name: "type", format: null },
-                        { name: "originalType", format: null },
-                        { name: "intersection", format: null },
-                        { name: "speed", format: null },
-                        { name: "heading", format: null },
-                        { name: "timestamp", format: null },
-                      ],
-                    },
-                    enabled: true,
-                  },
-                },
-              },
-            },
-          })
-        )
-      );
-
+      pushToMap(geojson);
+      setEventCount(allObjects.length);
       setStatusMessage("");
-      setLoading(false);
-    } catch (error) {
-      console.error("Error fetching SDSM data:", error);
-      setStatusMessage(`Error: ${error.message}`);
-      setLoading(false);
+    } catch (err) {
+      console.error("SDSM fetch error:", err);
+      setStatusMessage(`Error: ${err.message}`);
       setEventCount(0);
     }
-  };
+  }, [selectedIntersection, pushToMap]);
 
-  // Auto-refresh effect - always enabled
+  // ── auto-refresh ───────────────────────────────────────────────────────────
   useEffect(() => {
-    fetchSDSMData(); // Initial fetch
+    fetchSDSMData();
+    intervalRef.current = setInterval(fetchSDSMData, refreshRate);
+    return () => clearInterval(intervalRef.current);
+  }, [fetchSDSMData, refreshRate]);
 
-    refreshIntervalRef.current = setInterval(() => {
-      fetchSDSMData();
-    }, refreshRate);
-
-    return () => {
-      if (refreshIntervalRef.current) {
-        clearInterval(refreshIntervalRef.current);
-      }
-    };
-  }, [refreshRate, selectedIntersection]);
-
-  // Control panel - memoized to prevent unnecessary re-renders
-  const ControlPanel = React.useMemo(() => (
-    <Card
-      className="absolute top-5 right-5 z-[1000] min-w-[300px] bg-black/85 text-white border-gray-700"
-    >
-      <CardHeader className="pb-3">
-        <CardTitle className="text-lg">SDSM Events</CardTitle>
-        <CardDescription className="text-gray-400 text-xs">
-          Real-time vehicle and VRU tracking
-        </CardDescription>
-      </CardHeader>
-
-      <CardContent className="space-y-4">
-        {/* Status */}
-        <div className="rounded-md bg-white/10 p-3 space-y-1 text-sm">
-          <div className="flex justify-between items-center">
-            <span className="text-gray-300">Active Objects:</span>
-            <span className="font-bold text-green-500">{eventCount}</span>
-          </div>
-          <div className="flex justify-between items-center">
-            <span className="text-gray-300">Refresh Rate:</span>
-            <span className="font-bold">{refreshRate / 1000}s</span>
-          </div>
-          <div className="flex justify-between items-center">
-            <span className="text-gray-300">Updates:</span>
-            <span className="font-bold text-blue-400">{updateCountRef.current}</span>
-          </div>
-        </div>
-
-        {/* Intersection selector */}
-        <div className="space-y-2">
-          <Label htmlFor="intersection" className="text-xs text-gray-300">
-            Intersection
-          </Label>
-          <select
-            id="intersection"
-            value={selectedIntersection}
-            onChange={(e) => {
-              console.log("Dropdown changed to:", e.target.value);
-              setSelectedIntersection(e.target.value);
-            }}
-            className="flex h-9 w-full items-center justify-between rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-black shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
-          >
-            <option value="all" className="bg-white text-black">All Intersections</option>
-            {INTERSECTIONS.map((int) => (
-              <option key={int.id} value={int.id} className="bg-white text-black">
-                {int.name}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Refresh rate control */}
-        <div className="space-y-2">
-          <div className="flex justify-between items-center">
-            <Label htmlFor="refresh-rate" className="text-xs text-gray-300">
-              Refresh Rate
-            </Label>
-            <span className="text-xs font-medium">{refreshRate / 1000}s</span>
-          </div>
-          <Slider
-            id="refresh-rate"
-            min={100}
-            max={10000}
-            step={500}
-            value={[refreshRate]}
-            onValueChange={(value) => setRefreshRate(value[0])}
-            className="w-full"
-          />
-          <div className="flex justify-between text-[10px] text-gray-500">
-            <span>0.1s</span>
-            <span>10s</span>
-          </div>
-        </div>
-
-        {/* Status message */}
-        {statusMessage && (
-          <div className="rounded-md bg-orange-500/20 p-3 text-xs text-orange-200">
-            {statusMessage}
-          </div>
-        )}
-
-        {/* Legend */}
-        <div className="pt-4 border-t border-white/20 space-y-3">
-          <div className="text-xs font-semibold">Legend:</div>
-          <div className="flex items-center gap-3">
-            <div className="w-4 h-4 rounded-full bg-green-500 border-2 border-white" />
-            <span className="text-xs text-gray-300">Vehicle</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="w-4 h-4 rounded-full bg-red-500 border-2 border-white" />
-            <span className="text-xs text-gray-300">VRU (Pedestrian)</span>
-          </div>
-          <div className="text-[10px] text-gray-500 mt-2">
-            * Size indicates speed
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  ), [selectedIntersection, refreshRate, eventCount, statusMessage]);
-
+  // ── render ─────────────────────────────────────────────────────────────────
   return (
-    <div
-      ref={containerRef}
-      style={{
-        width: "100%",
-        height: "100vh",
-        overflow: "hidden",
-        position: "relative",
-      }}
-    >
-      {ControlPanel}
+    <div style={{ width: "100%", height: "100vh", overflow: "hidden", position: "relative" }}>
 
-      <KeplerGl
-        id="sdsm-events"
-        mapboxApiAccessToken={process.env.REACT_APP_MAPBOX_API}
-        width={dimensions.width}
-        height={dimensions.height}
+      {/* Control panel */}
+      <Card className="absolute top-5 right-5 z-[1000] min-w-[300px] bg-black/85 text-white border-gray-700">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg">SDSM Events</CardTitle>
+          <CardDescription className="text-gray-400 text-xs">
+            Real-time vehicle and VRU tracking
+          </CardDescription>
+        </CardHeader>
+
+        <CardContent className="space-y-4">
+          {/* Stats */}
+          <div className="rounded-md bg-white/10 p-3 space-y-1 text-sm">
+            <div className="flex justify-between items-center">
+              <span className="text-gray-300">Active Objects:</span>
+              <span className="font-bold text-green-500">{eventCount}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-gray-300">Refresh Rate:</span>
+              <span className="font-bold">{refreshRate / 1000}s</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-gray-300">Updates:</span>
+              <span className="font-bold text-blue-400">{updateCount}</span>
+            </div>
+          </div>
+
+          {/* Intersection selector */}
+          <div className="space-y-2">
+            <Label htmlFor="intersection" className="text-xs text-gray-300">
+              Intersection
+            </Label>
+            <select
+              id="intersection"
+              value={selectedIntersection}
+              onChange={(e) => setSelectedIntersection(e.target.value)}
+              className="flex h-9 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-black shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+            >
+              <option value="all">All Intersections</option>
+              {INTERSECTIONS.map((i) => (
+                <option key={i.id} value={i.id}>{i.name}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Refresh rate */}
+          <div className="space-y-2">
+            <div className="flex justify-between items-center">
+              <Label htmlFor="refresh-rate" className="text-xs text-gray-300">
+                Refresh Rate
+              </Label>
+              <span className="text-xs font-medium">{refreshRate / 1000}s</span>
+            </div>
+            <Slider
+              id="refresh-rate"
+              min={100}
+              max={10000}
+              step={500}
+              value={[refreshRate]}
+              onValueChange={(v) => setRefreshRate(v[0])}
+              className="w-full"
+            />
+            <div className="flex justify-between text-[10px] text-gray-500">
+              <span>0.1s</span>
+              <span>10s</span>
+            </div>
+          </div>
+
+          {/* Status message */}
+          {statusMessage && (
+            <div className="rounded-md bg-orange-500/20 p-3 text-xs text-orange-200">
+              {statusMessage}
+            </div>
+          )}
+
+          {/* Legend */}
+          <div className="pt-4 border-t border-white/20 space-y-3">
+            <p className="text-xs font-semibold">Legend</p>
+            <div className="flex items-center gap-3">
+              <div className="w-4 h-4 rounded-full bg-green-500 border-2 border-white" />
+              <span className="text-xs text-gray-300">Vehicle</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="w-4 h-4 rounded-full bg-red-500 border-2 border-white" />
+              <span className="text-xs text-gray-300">VRU / Pedestrian</span>
+            </div>
+            <p className="text-[10px] text-gray-500">* Size indicates speed</p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Map fills the entire container */}
+      <div
+        ref={mapContainerRef}
+        style={{ position: "absolute", inset: 0 }}
       />
     </div>
   );
 }
-
-export default SDSMEventsMap;

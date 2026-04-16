@@ -27,7 +27,7 @@ function DataRefreshSettings() {
         description="Configure how frequently your data is updated"
       />
       <CardBody>
-        <SelectDropdown label="Refresh Frequency" value="Hourly" />
+        <SelectDropdown label="Refresh Frequency" value={["Hourly", "Daily", "Weekly"]} />
 
         <Separator className="bg-[#262626]" />
 
@@ -120,7 +120,7 @@ function ApiKeyRow({ name, maskedKey, createdDate }) {
         <p className="text-sm text-[#a1a1a1]">{maskedKey}</p>
         <p className="text-xs text-[#a1a1a1]">{createdDate}</p>
       </div>
-      <div className="flex items-center gap-2 flex-shrink-0">
+      <div className="flex items-center flex-shrink-0 gap-2">
         <StatusBadge>Active</StatusBadge>
         <OutlineButton className="h-8 text-sm">Revoke</OutlineButton>
       </div>
@@ -163,7 +163,7 @@ function ApiKeyManagement() {
               <span>{apiUsagePercent}%</span>
             </div>
             <div
-              className="relative h-2 rounded-full overflow-hidden"
+              className="relative h-2 overflow-hidden rounded-full"
               style={{ background: 'rgba(250,250,250,0.2)' }}
             >
               <div

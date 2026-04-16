@@ -38,9 +38,9 @@ import {
 /**
  * GeoFencingMap — V2X MapData editor
  *
- * Uses mapbox-gl (already bundled with kepler.gl) directly for the base map,
+ * Uses mapbox-gl directly for the base map,
  * with manual click-based drawing for lanes (LineString) and crosswalks (Polygon).
- * 
+ *
  */
 
 const MAPBOX_TOKEN = process.env.REACT_APP_MAPBOX_API;
@@ -67,8 +67,16 @@ const APPROACH_COLORS = {
 const CONNECTION_COLOR = "#FF9500";
 
 const CONNECTION_PALETTE = [
-  "#FF9500", "#FF3B30", "#5AC8FA", "#4CD964", "#FF2D55",
-  "#FFCC00", "#5856D6", "#FF6B6B", "#00CED1", "#FF69B4",
+  "#FF9500",
+  "#FF3B30",
+  "#5AC8FA",
+  "#4CD964",
+  "#FF2D55",
+  "#FFCC00",
+  "#5856D6",
+  "#FF6B6B",
+  "#00CED1",
+  "#FF69B4",
 ];
 
 // ── Bezier helpers ──────────────────────────────────────────────
@@ -86,8 +94,10 @@ function generateBezierCurve(start, end, numPoints = 20) {
   const coords = [];
   for (let i = 0; i <= numPoints; i++) {
     const t = i / numPoints;
-    const x = (1 - t) * (1 - t) * start[0] + 2 * (1 - t) * t * cpX + t * t * end[0];
-    const y = (1 - t) * (1 - t) * start[1] + 2 * (1 - t) * t * cpY + t * t * end[1];
+    const x =
+      (1 - t) * (1 - t) * start[0] + 2 * (1 - t) * t * cpX + t * t * end[0];
+    const y =
+      (1 - t) * (1 - t) * start[1] + 2 * (1 - t) * t * cpY + t * t * end[1];
     coords.push([x, y]);
   }
   return coords;
@@ -104,8 +114,14 @@ function generateArrowhead(coords, sizeDeg = 0.00002) {
   const ux = dx / len;
   const uy = dy / len;
   // Two base points perpendicular to direction, behind the tip
-  const base1 = [tip[0] - ux * sizeDeg + uy * sizeDeg * 0.5, tip[1] - uy * sizeDeg - ux * sizeDeg * 0.5];
-  const base2 = [tip[0] - ux * sizeDeg - uy * sizeDeg * 0.5, tip[1] - uy * sizeDeg + ux * sizeDeg * 0.5];
+  const base1 = [
+    tip[0] - ux * sizeDeg + uy * sizeDeg * 0.5,
+    tip[1] - uy * sizeDeg - ux * sizeDeg * 0.5,
+  ];
+  const base2 = [
+    tip[0] - ux * sizeDeg - uy * sizeDeg * 0.5,
+    tip[1] - uy * sizeDeg + ux * sizeDeg * 0.5,
+  ];
   return {
     type: "Feature",
     geometry: { type: "Polygon", coordinates: [[tip, base1, base2, tip]] },
@@ -115,7 +131,10 @@ function generateArrowhead(coords, sizeDeg = 0.00002) {
 
 function bboxCenterFromRing(ring) {
   if (!Array.isArray(ring) || ring.length === 0) return null;
-  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  let minX = Infinity,
+    minY = Infinity,
+    maxX = -Infinity,
+    maxY = -Infinity;
   ring.forEach((c) => {
     const x = c?.[0];
     const y = c?.[1];
@@ -125,7 +144,13 @@ function bboxCenterFromRing(ring) {
     maxX = Math.max(maxX, x);
     maxY = Math.max(maxY, y);
   });
-  if (!Number.isFinite(minX) || !Number.isFinite(minY) || !Number.isFinite(maxX) || !Number.isFinite(maxY)) return null;
+  if (
+    !Number.isFinite(minX) ||
+    !Number.isFinite(minY) ||
+    !Number.isFinite(maxX) ||
+    !Number.isFinite(maxY)
+  )
+    return null;
   return [(minX + maxX) / 2, (minY + maxY) / 2];
 }
 
@@ -147,19 +172,20 @@ function findEdgeIdForLine(polygonRing, lineCoords) {
   for (let i = 0; i < polygonRing.length - 1; i += 1) {
     const s = polygonRing[i];
     const e = polygonRing[i + 1];
-    if ((coordsNear(s, a) && coordsNear(e, b)) || (coordsNear(s, b) && coordsNear(e, a))) {
+    if (
+      (coordsNear(s, a) && coordsNear(e, b)) ||
+      (coordsNear(s, b) && coordsNear(e, a))
+    ) {
       return i;
     }
   }
   return null;
 }
 
-// We import mapboxgl from the copy kepler.gl ships so there's no extra install
 let mapboxgl;
 try {
   mapboxgl = require("mapbox-gl");
 } catch {
-  // fallback – shouldn't happen because kepler.gl depends on it
   console.error("mapbox-gl not found");
 }
 
@@ -357,7 +383,9 @@ function GeoFencingMap({ editorMode = "intersection" }) {
 
   const loadCrosswalks = useCallback(async (intId) => {
     try {
-      const res = await fetch(`${API_URL}/api/crosswalks?intersection_id=${intId}`);
+      const res = await fetch(
+        `${API_URL}/api/crosswalks?intersection_id=${intId}`,
+      );
       setCrosswalks(await res.json());
     } catch (err) {
       console.error("Failed to load crosswalks:", err);
@@ -366,7 +394,9 @@ function GeoFencingMap({ editorMode = "intersection" }) {
 
   const loadConnections = useCallback(async (intId) => {
     try {
-      const res = await fetch(`${API_URL}/api/lane-connections?intersection_id=${intId}`);
+      const res = await fetch(
+        `${API_URL}/api/lane-connections?intersection_id=${intId}`,
+      );
       setConnections(await res.json());
     } catch (err) {
       console.error("Failed to load connections:", err);
@@ -406,7 +436,9 @@ function GeoFencingMap({ editorMode = "intersection" }) {
     }
   }, []);
 
-  useEffect(() => { loadIntersections(); }, [loadIntersections]);
+  useEffect(() => {
+    loadIntersections();
+  }, [loadIntersections]);
 
   useEffect(() => {
     if (activeIntersectionId != null) {
@@ -523,7 +555,7 @@ function GeoFencingMap({ editorMode = "intersection" }) {
 
   // Auto-assign colors to connections that don't have one yet
   useEffect(() => {
-    setConnectionColors(prev => {
+    setConnectionColors((prev) => {
       const updated = { ...prev };
       let changed = false;
       connections.forEach((conn, i) => {
@@ -874,7 +906,9 @@ function GeoFencingMap({ editorMode = "intersection" }) {
 
         if (mode === "connection") {
           // Pick a lane feature under the click
-          const features = map.queryRenderedFeatures(e.point, { layers: ["lanes-line"] });
+          const features = map.queryRenderedFeatures(e.point, {
+            layers: ["lanes-line"],
+          });
           if (features.length === 0) return;
           const laneId = features[0].properties.id;
           const from = connectionFromRef.current;
@@ -938,7 +972,10 @@ function GeoFencingMap({ editorMode = "intersection" }) {
             laneId: props.id,
             values: {
               lane_type: props.lane_type,
-              phase: props.phase != null && props.phase !== "null" ? String(props.phase) : "",
+              phase:
+                props.phase != null && props.phase !== "null"
+                  ? String(props.phase)
+                  : "",
               name: props.name && props.name !== "null" ? props.name : "",
             },
           });
@@ -955,7 +992,10 @@ function GeoFencingMap({ editorMode = "intersection" }) {
             crosswalkId: props.id,
             values: {
               approach_type: props.approach_type,
-              approach_id: props.approach_id != null && props.approach_id !== "null" ? String(props.approach_id) : "1",
+              approach_id:
+                props.approach_id != null && props.approach_id !== "null"
+                  ? String(props.approach_id)
+                  : "1",
               name: props.name && props.name !== "null" ? props.name : "",
             },
           });
@@ -971,7 +1011,10 @@ function GeoFencingMap({ editorMode = "intersection" }) {
             type: "connection-edit",
             connectionId: props.id,
             values: {
-              signal_group: props.signal_group != null && props.signal_group !== "null" ? String(props.signal_group) : "",
+              signal_group:
+                props.signal_group != null && props.signal_group !== "null"
+                  ? String(props.signal_group)
+                  : "",
             },
           });
         }
@@ -1006,16 +1049,34 @@ function GeoFencingMap({ editorMode = "intersection" }) {
       });
 
       // Cursor changes
-      map.on("mouseenter", "lanes-line", () => { map.getCanvas().style.cursor = "pointer"; });
-      map.on("mouseleave", "lanes-line", () => {
-        map.getCanvas().style.cursor = drawModeRef.current ? "crosshair" : (spatSelectModeRef.current || spatLanePickModeRef.current) ? "pointer" : "";
+      map.on("mouseenter", "lanes-line", () => {
+        map.getCanvas().style.cursor = "pointer";
       });
-      map.on("mouseenter", "crosswalks-fill", () => { map.getCanvas().style.cursor = "pointer"; });
-      map.on("mouseleave", "crosswalks-fill", () => { map.getCanvas().style.cursor = drawModeRef.current ? "crosshair" : ""; });
-      map.on("mouseenter", "connections-line", () => { map.getCanvas().style.cursor = "pointer"; });
-      map.on("mouseleave", "connections-line", () => { map.getCanvas().style.cursor = drawModeRef.current ? "crosshair" : ""; });
-      map.on("mouseenter", "spat-edges-line", () => { map.getCanvas().style.cursor = "pointer"; });
-      map.on("mouseleave", "spat-edges-line", () => { map.getCanvas().style.cursor = drawModeRef.current ? "crosshair" : ""; });
+      map.on("mouseleave", "lanes-line", () => {
+        map.getCanvas().style.cursor = drawModeRef.current
+          ? "crosshair"
+          : spatSelectModeRef.current || spatLanePickModeRef.current
+            ? "pointer"
+            : "";
+      });
+      map.on("mouseenter", "crosswalks-fill", () => {
+        map.getCanvas().style.cursor = "pointer";
+      });
+      map.on("mouseleave", "crosswalks-fill", () => {
+        map.getCanvas().style.cursor = drawModeRef.current ? "crosshair" : "";
+      });
+      map.on("mouseenter", "connections-line", () => {
+        map.getCanvas().style.cursor = "pointer";
+      });
+      map.on("mouseleave", "connections-line", () => {
+        map.getCanvas().style.cursor = drawModeRef.current ? "crosshair" : "";
+      });
+      map.on("mouseenter", "spat-edges-line", () => {
+        map.getCanvas().style.cursor = "pointer";
+      });
+      map.on("mouseleave", "spat-edges-line", () => {
+        map.getCanvas().style.cursor = drawModeRef.current ? "crosshair" : "";
+      });
     });
 
     return () => {
@@ -1029,144 +1090,354 @@ function GeoFencingMap({ editorMode = "intersection" }) {
   // ── Helper: add all custom sources & layers to the map ─────────
   const addSourcesAndLayers = useCallback((map) => {
     if (!map.getSource("lanes-src")) {
-      map.addSource("lanes-src", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+      map.addSource("lanes-src", {
+        type: "geojson",
+        data: { type: "FeatureCollection", features: [] },
+      });
     }
     if (!map.getSource("crosswalks-src")) {
-      map.addSource("crosswalks-src", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+      map.addSource("crosswalks-src", {
+        type: "geojson",
+        data: { type: "FeatureCollection", features: [] },
+      });
     }
     if (!map.getSource("draw-src")) {
-      map.addSource("draw-src", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+      map.addSource("draw-src", {
+        type: "geojson",
+        data: { type: "FeatureCollection", features: [] },
+      });
     }
     if (!map.getSource("intersections-src")) {
-      map.addSource("intersections-src", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+      map.addSource("intersections-src", {
+        type: "geojson",
+        data: { type: "FeatureCollection", features: [] },
+      });
     }
     if (!map.getSource("phase-labels-src")) {
-      map.addSource("phase-labels-src", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+      map.addSource("phase-labels-src", {
+        type: "geojson",
+        data: { type: "FeatureCollection", features: [] },
+      });
     }
     if (!map.getSource("connections-src")) {
-      map.addSource("connections-src", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+      map.addSource("connections-src", {
+        type: "geojson",
+        data: { type: "FeatureCollection", features: [] },
+      });
     }
     if (!map.getSource("connection-arrows-src")) {
-      map.addSource("connection-arrows-src", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+      map.addSource("connection-arrows-src", {
+        type: "geojson",
+        data: { type: "FeatureCollection", features: [] },
+      });
     }
     if (!map.getSource("spat-zones-src")) {
-      map.addSource("spat-zones-src", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+      map.addSource("spat-zones-src", {
+        type: "geojson",
+        data: { type: "FeatureCollection", features: [] },
+      });
     }
     if (!map.getSource("spat-edges-src")) {
-      map.addSource("spat-edges-src", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+      map.addSource("spat-edges-src", {
+        type: "geojson",
+        data: { type: "FeatureCollection", features: [] },
+      });
     }
     if (!map.getSource("spat-draft-zone-src")) {
-      map.addSource("spat-draft-zone-src", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+      map.addSource("spat-draft-zone-src", {
+        type: "geojson",
+        data: { type: "FeatureCollection", features: [] },
+      });
     }
     if (!map.getSource("spat-draft-entry-src")) {
-      map.addSource("spat-draft-entry-src", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+      map.addSource("spat-draft-entry-src", {
+        type: "geojson",
+        data: { type: "FeatureCollection", features: [] },
+      });
     }
     if (!map.getSource("spat-draft-exit-src")) {
-      map.addSource("spat-draft-exit-src", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+      map.addSource("spat-draft-exit-src", {
+        type: "geojson",
+        data: { type: "FeatureCollection", features: [] },
+      });
     }
     if (!map.getSource("spat-entry-src")) {
-      map.addSource("spat-entry-src", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+      map.addSource("spat-entry-src", {
+        type: "geojson",
+        data: { type: "FeatureCollection", features: [] },
+      });
     }
     if (!map.getSource("spat-exit-src")) {
-      map.addSource("spat-exit-src", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+      map.addSource("spat-exit-src", {
+        type: "geojson",
+        data: { type: "FeatureCollection", features: [] },
+      });
     }
     if (!map.getSource("preemption-zone-src")) {
-      map.addSource("preemption-zone-src", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+      map.addSource("preemption-zone-src", {
+        type: "geojson",
+        data: { type: "FeatureCollection", features: [] },
+      });
     }
 
     if (!map.getLayer("crosswalks-fill")) {
-      map.addLayer({ id: "crosswalks-fill", type: "fill", source: "crosswalks-src", paint: { "fill-color": ["get", "color"], "fill-opacity": 0.25 } });
+      map.addLayer({
+        id: "crosswalks-fill",
+        type: "fill",
+        source: "crosswalks-src",
+        paint: { "fill-color": ["get", "color"], "fill-opacity": 0.25 },
+      });
     }
     if (!map.getLayer("crosswalks-outline")) {
-      map.addLayer({ id: "crosswalks-outline", type: "line", source: "crosswalks-src", paint: { "line-color": ["get", "color"], "line-width": 2 } });
+      map.addLayer({
+        id: "crosswalks-outline",
+        type: "line",
+        source: "crosswalks-src",
+        paint: { "line-color": ["get", "color"], "line-width": 2 },
+      });
     }
     if (!map.getLayer("lanes-line")) {
-      map.addLayer({ id: "lanes-line", type: "line", source: "lanes-src", paint: { "line-color": ["get", "color"], "line-width": 4 }, layout: { "line-cap": "round", "line-join": "round" } });
+      map.addLayer({
+        id: "lanes-line",
+        type: "line",
+        source: "lanes-src",
+        paint: { "line-color": ["get", "color"], "line-width": 4 },
+        layout: { "line-cap": "round", "line-join": "round" },
+      });
     }
     if (!map.getLayer("spat-selected-lanes")) {
       map.addLayer({
         id: "spat-selected-lanes",
         type: "line",
         source: "lanes-src",
-        paint: { "line-color": "#22C55E", "line-width": 7, "line-opacity": 0.9 },
+        paint: {
+          "line-color": "#22C55E",
+          "line-width": 7,
+          "line-opacity": 0.9,
+        },
         layout: { "line-cap": "round", "line-join": "round" },
         filter: ["==", "id", -1],
       });
     }
     if (!map.getLayer("draw-line")) {
-      map.addLayer({ id: "draw-line", type: "line", source: "draw-src", paint: { "line-color": "#ffffff", "line-width": 3, "line-dasharray": [2, 2] } });
+      map.addLayer({
+        id: "draw-line",
+        type: "line",
+        source: "draw-src",
+        paint: {
+          "line-color": "#ffffff",
+          "line-width": 3,
+          "line-dasharray": [2, 2],
+        },
+      });
     }
     if (!map.getLayer("draw-fill")) {
-      map.addLayer({ id: "draw-fill", type: "fill", source: "draw-src", paint: { "fill-color": "#ffffff", "fill-opacity": 0.1 }, filter: ["==", "$type", "Polygon"] });
+      map.addLayer({
+        id: "draw-fill",
+        type: "fill",
+        source: "draw-src",
+        paint: { "fill-color": "#ffffff", "fill-opacity": 0.1 },
+        filter: ["==", "$type", "Polygon"],
+      });
     }
     if (!map.getLayer("draw-points")) {
-      map.addLayer({ id: "draw-points", type: "circle", source: "draw-src", paint: { "circle-radius": 5, "circle-color": "#ffffff", "circle-stroke-width": 2, "circle-stroke-color": "#000000" }, filter: ["==", "$type", "Point"] });
+      map.addLayer({
+        id: "draw-points",
+        type: "circle",
+        source: "draw-src",
+        paint: {
+          "circle-radius": 5,
+          "circle-color": "#ffffff",
+          "circle-stroke-width": 2,
+          "circle-stroke-color": "#000000",
+        },
+        filter: ["==", "$type", "Point"],
+      });
     }
     if (!map.getLayer("intersections-points")) {
-      map.addLayer({ id: "intersections-points", type: "circle", source: "intersections-src", paint: { "circle-radius": 10, "circle-color": ["get", "color"], "circle-stroke-width": 2, "circle-stroke-color": "#ffffff" } });
+      map.addLayer({
+        id: "intersections-points",
+        type: "circle",
+        source: "intersections-src",
+        paint: {
+          "circle-radius": 10,
+          "circle-color": ["get", "color"],
+          "circle-stroke-width": 2,
+          "circle-stroke-color": "#ffffff",
+        },
+      });
     }
     if (!map.getLayer("intersections-labels")) {
-      map.addLayer({ id: "intersections-labels", type: "symbol", source: "intersections-src", layout: { "text-field": ["get", "name"], "text-offset": [0, 1.5], "text-size": 11 }, paint: { "text-color": "#ffffff", "text-halo-color": "#000000", "text-halo-width": 1 } });
+      map.addLayer({
+        id: "intersections-labels",
+        type: "symbol",
+        source: "intersections-src",
+        layout: {
+          "text-field": ["get", "name"],
+          "text-offset": [0, 1.5],
+          "text-size": 11,
+        },
+        paint: {
+          "text-color": "#ffffff",
+          "text-halo-color": "#000000",
+          "text-halo-width": 1,
+        },
+      });
     }
     if (!map.getLayer("phase-labels")) {
-      map.addLayer({ id: "phase-labels", type: "symbol", source: "phase-labels-src", layout: { "text-field": ["get", "phase"], "text-size": 13, "text-font": ["DIN Pro Bold", "Arial Unicode MS Bold"], "text-allow-overlap": true, "text-ignore-placement": true }, paint: { "text-color": "#ffffff", "text-halo-color": "rgba(0,0,0,0.8)", "text-halo-width": 2 } });
+      map.addLayer({
+        id: "phase-labels",
+        type: "symbol",
+        source: "phase-labels-src",
+        layout: {
+          "text-field": ["get", "phase"],
+          "text-size": 13,
+          "text-font": ["DIN Pro Bold", "Arial Unicode MS Bold"],
+          "text-allow-overlap": true,
+          "text-ignore-placement": true,
+        },
+        paint: {
+          "text-color": "#ffffff",
+          "text-halo-color": "rgba(0,0,0,0.8)",
+          "text-halo-width": 2,
+        },
+      });
     }
     if (!map.getLayer("connections-line")) {
-      map.addLayer({ id: "connections-line", type: "line", source: "connections-src", paint: { "line-color": ["get", "color"], "line-width": 2 }, layout: { "line-cap": "round", "line-join": "round" } });
+      map.addLayer({
+        id: "connections-line",
+        type: "line",
+        source: "connections-src",
+        paint: { "line-color": ["get", "color"], "line-width": 2 },
+        layout: { "line-cap": "round", "line-join": "round" },
+      });
     }
     if (!map.getLayer("connection-arrows-fill")) {
-      map.addLayer({ id: "connection-arrows-fill", type: "fill", source: "connection-arrows-src", paint: { "fill-color": ["get", "color"], "fill-opacity": 0.9 } });
+      map.addLayer({
+        id: "connection-arrows-fill",
+        type: "fill",
+        source: "connection-arrows-src",
+        paint: { "fill-color": ["get", "color"], "fill-opacity": 0.9 },
+      });
     }
     if (!map.getLayer("spat-zones-fill")) {
-      map.addLayer({ id: "spat-zones-fill", type: "fill", source: "spat-zones-src", paint: { "fill-color": "#7C3AED", "fill-opacity": 0.18 } });
+      map.addLayer({
+        id: "spat-zones-fill",
+        type: "fill",
+        source: "spat-zones-src",
+        paint: { "fill-color": "#7C3AED", "fill-opacity": 0.18 },
+      });
     }
     if (!map.getLayer("spat-zones-outline")) {
-      map.addLayer({ id: "spat-zones-outline", type: "line", source: "spat-zones-src", paint: { "line-color": "#A78BFA", "line-width": 2 } });
+      map.addLayer({
+        id: "spat-zones-outline",
+        type: "line",
+        source: "spat-zones-src",
+        paint: { "line-color": "#A78BFA", "line-width": 2 },
+      });
     }
     if (!map.getLayer("preemption-zone-fill")) {
-      map.addLayer({ id: "preemption-zone-fill", type: "fill", source: "preemption-zone-src", paint: { "fill-color": "#F97316", "fill-opacity": 0.2 } });
+      map.addLayer({
+        id: "preemption-zone-fill",
+        type: "fill",
+        source: "preemption-zone-src",
+        paint: { "fill-color": "#F97316", "fill-opacity": 0.2 },
+      });
     }
     if (!map.getLayer("preemption-zone-outline")) {
-      map.addLayer({ id: "preemption-zone-outline", type: "line", source: "preemption-zone-src", paint: { "line-color": "#FB923C", "line-width": 3 } });
+      map.addLayer({
+        id: "preemption-zone-outline",
+        type: "line",
+        source: "preemption-zone-src",
+        paint: { "line-color": "#FB923C", "line-width": 3 },
+      });
     }
     if (!map.getLayer("spat-draft-zone-fill")) {
-      map.addLayer({ id: "spat-draft-zone-fill", type: "fill", source: "spat-draft-zone-src", paint: { "fill-color": "#0EA5E9", "fill-opacity": 0.16 } });
+      map.addLayer({
+        id: "spat-draft-zone-fill",
+        type: "fill",
+        source: "spat-draft-zone-src",
+        paint: { "fill-color": "#0EA5E9", "fill-opacity": 0.16 },
+      });
     }
     if (!map.getLayer("spat-draft-zone-outline")) {
-      map.addLayer({ id: "spat-draft-zone-outline", type: "line", source: "spat-draft-zone-src", paint: { "line-color": "#38BDF8", "line-width": 2.5 } });
+      map.addLayer({
+        id: "spat-draft-zone-outline",
+        type: "line",
+        source: "spat-draft-zone-src",
+        paint: { "line-color": "#38BDF8", "line-width": 2.5 },
+      });
     }
     if (!map.getLayer("spat-edges-line")) {
-      map.addLayer({ id: "spat-edges-line", type: "line", source: "spat-edges-src", paint: { "line-color": ["get", "color"], "line-width": 4 } });
+      map.addLayer({
+        id: "spat-edges-line",
+        type: "line",
+        source: "spat-edges-src",
+        paint: { "line-color": ["get", "color"], "line-width": 4 },
+      });
     }
     if (!map.getLayer("spat-entry-line")) {
-      map.addLayer({ id: "spat-entry-line", type: "line", source: "spat-entry-src", paint: { "line-color": "#22C55E", "line-width": 3 } });
+      map.addLayer({
+        id: "spat-entry-line",
+        type: "line",
+        source: "spat-entry-src",
+        paint: { "line-color": "#22C55E", "line-width": 3 },
+      });
     }
     if (!map.getLayer("spat-exit-line")) {
-      map.addLayer({ id: "spat-exit-line", type: "line", source: "spat-exit-src", paint: { "line-color": "#EF4444", "line-width": 3 } });
+      map.addLayer({
+        id: "spat-exit-line",
+        type: "line",
+        source: "spat-exit-src",
+        paint: { "line-color": "#EF4444", "line-width": 3 },
+      });
     }
     if (!map.getLayer("spat-draft-entry-line")) {
-      map.addLayer({ id: "spat-draft-entry-line", type: "line", source: "spat-draft-entry-src", paint: { "line-color": "#22C55E", "line-width": 4, "line-dasharray": [1.5, 1] } });
+      map.addLayer({
+        id: "spat-draft-entry-line",
+        type: "line",
+        source: "spat-draft-entry-src",
+        paint: {
+          "line-color": "#22C55E",
+          "line-width": 4,
+          "line-dasharray": [1.5, 1],
+        },
+      });
     }
     if (!map.getLayer("spat-draft-exit-line")) {
-      map.addLayer({ id: "spat-draft-exit-line", type: "line", source: "spat-draft-exit-src", paint: { "line-color": "#EF4444", "line-width": 4, "line-dasharray": [1.5, 1] } });
+      map.addLayer({
+        id: "spat-draft-exit-line",
+        type: "line",
+        source: "spat-draft-exit-src",
+        paint: {
+          "line-color": "#EF4444",
+          "line-width": 4,
+          "line-dasharray": [1.5, 1],
+        },
+      });
     }
   }, []);
 
   // ── Switch map style ──────────────────────────────────────────
   const mapStyleRef = useRef(mapStyle);
-  useEffect(() => { mapStyleRef.current = mapStyle; }, [mapStyle]);
+  useEffect(() => {
+    mapStyleRef.current = mapStyle;
+  }, [mapStyle]);
 
   const toggleMapStyle = useCallback(() => {
-    setMapStyle((prev) => (prev === "satellite-streets" ? "dark" : "satellite-streets"));
+    setMapStyle((prev) =>
+      prev === "satellite-streets" ? "dark" : "satellite-streets",
+    );
   }, []);
 
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !mapLoadedRef.current) return;
 
-    const styleUrl = mapStyle === "dark"
-      ? "mapbox://styles/mapbox/dark-v11"
-      : "mapbox://styles/mapbox/satellite-streets-v12";
+    const styleUrl =
+      mapStyle === "dark"
+        ? "mapbox://styles/mapbox/dark-v11"
+        : "mapbox://styles/mapbox/satellite-streets-v12";
 
     map.setStyle(styleUrl);
 
@@ -1175,13 +1446,23 @@ function GeoFencingMap({ editorMode = "intersection" }) {
 
       // Re-populate data
       const laneFeatures = lanes.map((l) => ({
-        type: "Feature", geometry: l.geometry,
-        properties: { id: l.id, lane_type: l.lane_type, phase: l.phase, name: l.name, color: LANE_COLORS[l.lane_type] || "#cccccc" },
+        type: "Feature",
+        geometry: l.geometry,
+        properties: {
+          id: l.id,
+          lane_type: l.lane_type,
+          phase: l.phase,
+          name: l.name,
+          color: LANE_COLORS[l.lane_type] || "#cccccc",
+        },
       }));
       const laneSrc = map.getSource("lanes-src");
-      if (laneSrc) laneSrc.setData({ type: "FeatureCollection", features: laneFeatures });
+      if (laneSrc)
+        laneSrc.setData({ type: "FeatureCollection", features: laneFeatures });
       if (map.getLayer("spat-selected-lanes")) {
-        const selected = Array.isArray(spatDraft.laneIds) ? spatDraft.laneIds : [];
+        const selected = Array.isArray(spatDraft.laneIds)
+          ? spatDraft.laneIds
+          : [];
         map.setFilter(
           "spat-selected-lanes",
           selected.length > 0 ? ["in", "id", ...selected] : ["==", "id", -1],
@@ -1193,45 +1474,85 @@ function GeoFencingMap({ editorMode = "intersection" }) {
         .map((l) => {
           const coords = l.geometry.coordinates;
           const endCoord = coords[coords.length - 1];
-          return { type: "Feature", geometry: { type: "Point", coordinates: endCoord }, properties: { phase: String(l.phase) } };
+          return {
+            type: "Feature",
+            geometry: { type: "Point", coordinates: endCoord },
+            properties: { phase: String(l.phase) },
+          };
         });
       const phaseSrc = map.getSource("phase-labels-src");
-      if (phaseSrc) phaseSrc.setData({ type: "FeatureCollection", features: phaseFeatures });
+      if (phaseSrc)
+        phaseSrc.setData({
+          type: "FeatureCollection",
+          features: phaseFeatures,
+        });
 
       const cwFeatures = crosswalks.map((c) => ({
-        type: "Feature", geometry: c.geometry,
-        properties: { id: c.id, approach_type: c.approach_type, approach_id: c.approach_id, name: c.name, color: APPROACH_COLORS[c.approach_type] || "#cccccc" },
+        type: "Feature",
+        geometry: c.geometry,
+        properties: {
+          id: c.id,
+          approach_type: c.approach_type,
+          approach_id: c.approach_id,
+          name: c.name,
+          color: APPROACH_COLORS[c.approach_type] || "#cccccc",
+        },
       }));
       const cwSrc = map.getSource("crosswalks-src");
-      if (cwSrc) cwSrc.setData({ type: "FeatureCollection", features: cwFeatures });
+      if (cwSrc)
+        cwSrc.setData({ type: "FeatureCollection", features: cwFeatures });
 
       const intFeatures = intersections
         .filter((i) => i.ref_point?.coordinates)
         .map((i) => ({
-          type: "Feature", geometry: i.ref_point,
-          properties: { id: i.id, name: i.name, status: i.status, color: i.id === activeIntRef.current?.id ? "#FFC800" : i.status === "confirmed" ? "#00C864" : "#6496FF" },
+          type: "Feature",
+          geometry: i.ref_point,
+          properties: {
+            id: i.id,
+            name: i.name,
+            status: i.status,
+            color:
+              i.id === activeIntRef.current?.id
+                ? "#FFC800"
+                : i.status === "confirmed"
+                  ? "#00C864"
+                  : "#6496FF",
+          },
         }));
       const intSrc = map.getSource("intersections-src");
-      if (intSrc) intSrc.setData({ type: "FeatureCollection", features: intFeatures });
+      if (intSrc)
+        intSrc.setData({ type: "FeatureCollection", features: intFeatures });
 
-      const zonesForIntAll = spatZones.filter((z) => String(z.intersectionId) === String(activeIntRef.current?.id));
-      const zonesForInt = spatEditingId ? zonesForIntAll.filter((z) => z.id !== spatEditingId) : zonesForIntAll;
+      const zonesForIntAll = spatZones.filter(
+        (z) => String(z.intersectionId) === String(activeIntRef.current?.id),
+      );
+      const zonesForInt = spatEditingId
+        ? zonesForIntAll.filter((z) => z.id !== spatEditingId)
+        : zonesForIntAll;
       const zoneFeatures = zonesForInt.map((z) => ({
-        type: "Feature", geometry: { type: "Polygon", coordinates: [z.polygon] },
+        type: "Feature",
+        geometry: { type: "Polygon", coordinates: [z.polygon] },
         properties: { id: z.id, name: z.name },
       }));
       const entryFeatures = zonesForInt.map((z) => ({
-        type: "Feature", geometry: { type: "LineString", coordinates: z.entryLine },
+        type: "Feature",
+        geometry: { type: "LineString", coordinates: z.entryLine },
         properties: { id: z.id, name: z.name },
       }));
       const exitFeatures = zonesForInt.map((z) => ({
-        type: "Feature", geometry: { type: "LineString", coordinates: z.exitLine },
+        type: "Feature",
+        geometry: { type: "LineString", coordinates: z.exitLine },
         properties: { id: z.id, name: z.name },
       }));
       const zoneSrc = map.getSource("spat-zones-src");
-      if (zoneSrc) zoneSrc.setData({ type: "FeatureCollection", features: zoneFeatures });
+      if (zoneSrc)
+        zoneSrc.setData({ type: "FeatureCollection", features: zoneFeatures });
       const entrySrc = map.getSource("spat-entry-src");
-      if (entrySrc) entrySrc.setData({ type: "FeatureCollection", features: entryFeatures });
+      if (entrySrc)
+        entrySrc.setData({
+          type: "FeatureCollection",
+          features: entryFeatures,
+        });
       const exitSrc = map.getSource("spat-exit-src");
       if (exitSrc) exitSrc.setData({ type: "FeatureCollection", features: exitFeatures });
       const preemptionZone = selectedPreemptionConfigRef.current;
@@ -1239,19 +1560,29 @@ function GeoFencingMap({ editorMode = "intersection" }) {
         preemptionZone?.polygon
           ? [{
               type: "Feature",
-              geometry: { type: "Polygon", coordinates: [preemptionZone.polygon] },
+              geometry: {
+                type: "Polygon",
+                coordinates: [preemptionZone.polygon],
+              },
               properties: { id: preemptionZone.id, name: preemptionZone.name },
-            }]
-          : [];
+            },
+          ]
+        : [];
       const preemptionSrc = map.getSource("preemption-zone-src");
-      if (preemptionSrc) preemptionSrc.setData({ type: "FeatureCollection", features: preemptionFeatures });
+      if (preemptionSrc)
+        preemptionSrc.setData({
+          type: "FeatureCollection",
+          features: preemptionFeatures,
+        });
 
       // Draft preview
       const draftZoneSrc = map.getSource("spat-draft-zone-src");
       if (draftZoneSrc && spatDraft.polygon?.type === "Polygon") {
         draftZoneSrc.setData({
           type: "FeatureCollection",
-          features: [{ type: "Feature", geometry: spatDraft.polygon, properties: {} }],
+          features: [
+            { type: "Feature", geometry: spatDraft.polygon, properties: {} },
+          ],
         });
       } else if (draftZoneSrc) {
         draftZoneSrc.setData({ type: "FeatureCollection", features: [] });
@@ -1260,7 +1591,9 @@ function GeoFencingMap({ editorMode = "intersection" }) {
       if (draftEntrySrc && spatDraft.entryLine?.type === "LineString") {
         draftEntrySrc.setData({
           type: "FeatureCollection",
-          features: [{ type: "Feature", geometry: spatDraft.entryLine, properties: {} }],
+          features: [
+            { type: "Feature", geometry: spatDraft.entryLine, properties: {} },
+          ],
         });
       } else if (draftEntrySrc) {
         draftEntrySrc.setData({ type: "FeatureCollection", features: [] });
@@ -1269,7 +1602,9 @@ function GeoFencingMap({ editorMode = "intersection" }) {
       if (draftExitSrc && spatDraft.exitLine?.type === "LineString") {
         draftExitSrc.setData({
           type: "FeatureCollection",
-          features: [{ type: "Feature", geometry: spatDraft.exitLine, properties: {} }],
+          features: [
+            { type: "Feature", geometry: spatDraft.exitLine, properties: {} },
+          ],
         });
       } else if (draftExitSrc) {
         draftExitSrc.setData({ type: "FeatureCollection", features: [] });
@@ -1301,10 +1636,13 @@ function GeoFencingMap({ editorMode = "intersection" }) {
       },
     }));
     const laneSrc = map.getSource("lanes-src");
-    if (laneSrc) laneSrc.setData({ type: "FeatureCollection", features: laneFeatures });
+    if (laneSrc)
+      laneSrc.setData({ type: "FeatureCollection", features: laneFeatures });
     // Highlight lanes selected for the current SPaT draft
     if (map.getLayer("spat-selected-lanes")) {
-      const selected = Array.isArray(spatDraft.laneIds) ? spatDraft.laneIds : [];
+      const selected = Array.isArray(spatDraft.laneIds)
+        ? spatDraft.laneIds
+        : [];
       map.setFilter(
         "spat-selected-lanes",
         selected.length > 0 ? ["in", "id", ...selected] : ["==", "id", -1],
@@ -1324,7 +1662,8 @@ function GeoFencingMap({ editorMode = "intersection" }) {
         };
       });
     const phaseSrc = map.getSource("phase-labels-src");
-    if (phaseSrc) phaseSrc.setData({ type: "FeatureCollection", features: phaseFeatures });
+    if (phaseSrc)
+      phaseSrc.setData({ type: "FeatureCollection", features: phaseFeatures });
 
     // Crosswalks
     const cwFeatures = crosswalks.map((c) => ({
@@ -1339,7 +1678,8 @@ function GeoFencingMap({ editorMode = "intersection" }) {
       },
     }));
     const cwSrc = map.getSource("crosswalks-src");
-    if (cwSrc) cwSrc.setData({ type: "FeatureCollection", features: cwFeatures });
+    if (cwSrc)
+      cwSrc.setData({ type: "FeatureCollection", features: cwFeatures });
 
     // SPaT zones (only for active intersection). If editing a zone, hide it from the
     // saved layers so the draft preview is the single source of truth on the map.
@@ -1362,9 +1702,11 @@ function GeoFencingMap({ editorMode = "intersection" }) {
     }));
 
     const zoneSrc = map.getSource("spat-zones-src");
-    if (zoneSrc) zoneSrc.setData({ type: "FeatureCollection", features: zoneFeatures });
+    if (zoneSrc)
+      zoneSrc.setData({ type: "FeatureCollection", features: zoneFeatures });
     const entrySrc = map.getSource("spat-entry-src");
-    if (entrySrc) entrySrc.setData({ type: "FeatureCollection", features: entryFeatures });
+    if (entrySrc)
+      entrySrc.setData({ type: "FeatureCollection", features: entryFeatures });
     const exitSrc = map.getSource("spat-exit-src");
     if (exitSrc) exitSrc.setData({ type: "FeatureCollection", features: exitFeatures });
     const preemptionZone = selectedPreemptionConfig;
@@ -1372,19 +1714,29 @@ function GeoFencingMap({ editorMode = "intersection" }) {
       preemptionZone?.polygon
         ? [{
             type: "Feature",
-            geometry: { type: "Polygon", coordinates: [preemptionZone.polygon] },
+            geometry: {
+              type: "Polygon",
+              coordinates: [preemptionZone.polygon],
+            },
             properties: { id: preemptionZone.id, name: preemptionZone.name },
-          }]
-        : [];
+          },
+        ]
+      : [];
     const preemptionSrc = map.getSource("preemption-zone-src");
-    if (preemptionSrc) preemptionSrc.setData({ type: "FeatureCollection", features: preemptionFeatures });
+    if (preemptionSrc)
+      preemptionSrc.setData({
+        type: "FeatureCollection",
+        features: preemptionFeatures,
+      });
 
     // Draft preview (drawn/edited zone)
     const draftZoneSrc = map.getSource("spat-draft-zone-src");
     if (draftZoneSrc && spatDraft.polygon?.type === "Polygon") {
       draftZoneSrc.setData({
         type: "FeatureCollection",
-        features: [{ type: "Feature", geometry: spatDraft.polygon, properties: {} }],
+        features: [
+          { type: "Feature", geometry: spatDraft.polygon, properties: {} },
+        ],
       });
     } else if (draftZoneSrc) {
       draftZoneSrc.setData({ type: "FeatureCollection", features: [] });
@@ -1393,7 +1745,9 @@ function GeoFencingMap({ editorMode = "intersection" }) {
     if (draftEntrySrc && spatDraft.entryLine?.type === "LineString") {
       draftEntrySrc.setData({
         type: "FeatureCollection",
-        features: [{ type: "Feature", geometry: spatDraft.entryLine, properties: {} }],
+        features: [
+          { type: "Feature", geometry: spatDraft.entryLine, properties: {} },
+        ],
       });
     } else if (draftEntrySrc) {
       draftEntrySrc.setData({ type: "FeatureCollection", features: [] });
@@ -1402,7 +1756,9 @@ function GeoFencingMap({ editorMode = "intersection" }) {
     if (draftExitSrc && spatDraft.exitLine?.type === "LineString") {
       draftExitSrc.setData({
         type: "FeatureCollection",
-        features: [{ type: "Feature", geometry: spatDraft.exitLine, properties: {} }],
+        features: [
+          { type: "Feature", geometry: spatDraft.exitLine, properties: {} },
+        ],
       });
     } else if (draftExitSrc) {
       draftExitSrc.setData({ type: "FeatureCollection", features: [] });
@@ -1411,7 +1767,11 @@ function GeoFencingMap({ editorMode = "intersection" }) {
     // Draft edges for selection
     const draftEdges = spatEdges.map((edge) => {
       let color = "#A78BFA";
-      if (spatSelectMode && spatHoverEdgeId != null && edge.properties?.edge_id === spatHoverEdgeId) {
+      if (
+        spatSelectMode &&
+        spatHoverEdgeId != null &&
+        edge.properties?.edge_id === spatHoverEdgeId
+      ) {
         color = "#FDE047";
       }
       if (edge.properties?.key === "entry") color = "#22C55E";
@@ -1439,7 +1799,12 @@ function GeoFencingMap({ editorMode = "intersection" }) {
   // Update connection curves — uses lane endpoint (last coord, same as phase label)
   useEffect(() => {
     if (!mapRef.current || !mapLoadedRef.current) return;
-    updateConnectionSources(mapRef.current, connections, lanes, connectionColors);
+    updateConnectionSources(
+      mapRef.current,
+      connections,
+      lanes,
+      connectionColors,
+    );
   }, [connections, lanes, connectionColors]);
 
   function updateConnectionSources(map, conns, laneList, connColors) {
@@ -1464,7 +1829,13 @@ function GeoFencingMap({ editorMode = "intersection" }) {
       lineFeatures.push({
         type: "Feature",
         geometry: { type: "LineString", coordinates: curveCoords },
-        properties: { id: conn.id, from_lane_id: conn.from_lane_id, to_lane_id: conn.to_lane_id, signal_group: conn.signal_group, color },
+        properties: {
+          id: conn.id,
+          from_lane_id: conn.from_lane_id,
+          to_lane_id: conn.to_lane_id,
+          signal_group: conn.signal_group,
+          color,
+        },
       });
       const arrow = generateArrowhead(curveCoords);
       if (arrow) {
@@ -1473,9 +1844,11 @@ function GeoFencingMap({ editorMode = "intersection" }) {
       }
     });
     const connSrc = map.getSource("connections-src");
-    if (connSrc) connSrc.setData({ type: "FeatureCollection", features: lineFeatures });
+    if (connSrc)
+      connSrc.setData({ type: "FeatureCollection", features: lineFeatures });
     const arrowSrc = map.getSource("connection-arrows-src");
-    if (arrowSrc) arrowSrc.setData({ type: "FeatureCollection", features: arrowFeatures });
+    if (arrowSrc)
+      arrowSrc.setData({ type: "FeatureCollection", features: arrowFeatures });
   }
 
   // Update intersection markers
@@ -1511,7 +1884,11 @@ function GeoFencingMap({ editorMode = "intersection" }) {
   // Update cursor when draw mode changes
   useEffect(() => {
     if (!mapRef.current) return;
-    mapRef.current.getCanvas().style.cursor = drawMode ? "crosshair" : (spatSelectMode || spatLanePickMode) ? "pointer" : "";
+    mapRef.current.getCanvas().style.cursor = drawMode
+      ? "crosshair"
+      : spatSelectMode || spatLanePickMode
+        ? "pointer"
+        : "";
     // Disable double-click zoom while drawing
     if (drawMode) {
       mapRef.current.doubleClickZoom.disable();
@@ -1624,7 +2001,10 @@ function GeoFencingMap({ editorMode = "intersection" }) {
     setDrawPoints([]);
     clearDrawSource();
     setDrawMode("crosswalk");
-    showMessage("Click to place approach vertices. Double-click to close.", "info");
+    showMessage(
+      "Click to place approach vertices. Double-click to close.",
+      "info",
+    );
   };
 
   const startDrawConnection = () => {
@@ -1917,13 +2297,21 @@ function GeoFencingMap({ editorMode = "intersection" }) {
         showMessage("Entry and exit cannot be the same edge.", "error");
         return;
       }
-      setSpatDraft((prev) => ({ ...prev, entryLine: edge.geometry, entryEdgeId: edgeId }));
+      setSpatDraft((prev) => ({
+        ...prev,
+        entryLine: edge.geometry,
+        entryEdgeId: edgeId,
+      }));
     } else if (mode === "exit") {
       if (edgeId != null && edgeId === spatEntryEdgeIdRef.current) {
         showMessage("Entry and exit cannot be the same edge.", "error");
         return;
       }
-      setSpatDraft((prev) => ({ ...prev, exitLine: edge.geometry, exitEdgeId: edgeId }));
+      setSpatDraft((prev) => ({
+        ...prev,
+        exitLine: edge.geometry,
+        exitEdgeId: edgeId,
+      }));
     }
     setSpatSelectMode(null);
     setSpatHoverEdgeId(null);
@@ -1934,13 +2322,16 @@ function GeoFencingMap({ editorMode = "intersection" }) {
       const res = await fetch(`${API_URL}/api/lane-connections`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ from_lane_id: fromLaneId, to_lane_id: toLaneId }),
+        body: JSON.stringify({
+          from_lane_id: fromLaneId,
+          to_lane_id: toLaneId,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       // Store the currently selected color for this new connection
       const color = CONNECTION_COLOR;
-      setConnectionColors(prev => ({ ...prev, [data.id]: color }));
+      setConnectionColors((prev) => ({ ...prev, [data.id]: color }));
       const intId = activeIntRef.current?.id;
       if (intId) await loadConnections(intId);
       showMessage("Connection created.");
@@ -1951,7 +2342,9 @@ function GeoFencingMap({ editorMode = "intersection" }) {
 
   const deleteConnection = async (connId) => {
     try {
-      const res = await fetch(`${API_URL}/api/lane-connections/${connId}`, { method: "DELETE" });
+      const res = await fetch(`${API_URL}/api/lane-connections/${connId}`, {
+        method: "DELETE",
+      });
       if (!res.ok) throw new Error((await res.json()).error);
       setConfigPanel(null);
       const intId = activeIntRef.current?.id;
@@ -1986,14 +2379,18 @@ function GeoFencingMap({ editorMode = "intersection" }) {
     setShowNewIntersection(false);
     setNewIntName("");
     setNewIntId("");
-    showMessage("Pan the map to position the intersection reference point, then click Confirm.");
+    showMessage(
+      "Pan the map to position the intersection reference point, then click Confirm.",
+    );
   };
 
   const confirmPlacement = async () => {
     if (!placingIntersection) return;
     try {
       const map = mapRef.current;
-      const center = map ? map.getCenter() : { lng: CHATTANOOGA_CENTER[0], lat: CHATTANOOGA_CENTER[1] };
+      const center = map
+        ? map.getCenter()
+        : { lng: CHATTANOOGA_CENTER[0], lat: CHATTANOOGA_CENTER[1] };
       const refPoint = { type: "Point", coordinates: [center.lng, center.lat] };
       const res = await fetch(`${API_URL}/api/intersections`, {
         method: "POST",
@@ -2031,7 +2428,9 @@ function GeoFencingMap({ editorMode = "intersection" }) {
       setMapDataResult(data.mapData);
       setConfirmDialog(false);
       await loadIntersections();
-      setActiveIntersection((prev) => prev ? { ...prev, status: "confirmed" } : null);
+      setActiveIntersection((prev) =>
+        prev ? { ...prev, status: "confirmed" } : null,
+      );
       showMessage("Intersection confirmed. MapData exported.");
     } catch (err) {
       showMessage(`Error: ${err.message}`, "error");
@@ -2041,7 +2440,9 @@ function GeoFencingMap({ editorMode = "intersection" }) {
   // ── Delete intersection ───────────────────────────────────────
   const deleteIntersection = async (id) => {
     try {
-      const res = await fetch(`${API_URL}/api/intersections/${id}`, { method: "DELETE" });
+      const res = await fetch(`${API_URL}/api/intersections/${id}`, {
+        method: "DELETE",
+      });
       if (!res.ok) throw new Error((await res.json()).error);
       if (activeIntersection?.id === id) setActiveIntersection(null);
       await loadIntersections();
@@ -2128,7 +2529,9 @@ function GeoFencingMap({ editorMode = "intersection" }) {
 
   const deleteLane = async (laneId) => {
     try {
-      const res = await fetch(`${API_URL}/api/lanes/${laneId}`, { method: "DELETE" });
+      const res = await fetch(`${API_URL}/api/lanes/${laneId}`, {
+        method: "DELETE",
+      });
       if (!res.ok) throw new Error((await res.json()).error);
       setConfigPanel(null);
       await loadLanes(activeIntersectionId);
@@ -2163,7 +2566,9 @@ function GeoFencingMap({ editorMode = "intersection" }) {
 
   const deleteCrosswalk = async (cwId) => {
     try {
-      const res = await fetch(`${API_URL}/api/crosswalks/${cwId}`, { method: "DELETE" });
+      const res = await fetch(`${API_URL}/api/crosswalks/${cwId}`, {
+        method: "DELETE",
+      });
       if (!res.ok) throw new Error((await res.json()).error);
       setConfigPanel(null);
       await loadCrosswalks(activeIntersectionId);
@@ -2175,7 +2580,10 @@ function GeoFencingMap({ editorMode = "intersection" }) {
 
   // ── Render ────────────────────────────────────────────────────
   return (
-    <div style={{ width: "100%", height: "100vh", position: "relative" }} onContextMenu={(e) => e.preventDefault()}>
+    <div
+      style={{ width: "100%", height: "100vh", position: "relative" }}
+      onContextMenu={(e) => e.preventDefault()}
+    >
       {/* Mapbox container */}
       <div ref={mapContainerRef} style={{ width: "100%", height: "100%" }} />
 
@@ -2198,7 +2606,7 @@ function GeoFencingMap({ editorMode = "intersection" }) {
       >
         {/* Intersection selector */}
         <Card className="dark bg-zinc-900/95 border-zinc-700 backdrop-blur">
-          <CardHeader className="pb-2 pt-4 px-4">
+          <CardHeader className="px-4 pt-4 pb-2">
             <CardTitle className="text-sm text-white">Intersection</CardTitle>
           </CardHeader>
           <CardContent className="px-4 pb-3 space-y-2">
@@ -2213,12 +2621,16 @@ function GeoFencingMap({ editorMode = "intersection" }) {
                 }
               }}
             >
-              <SelectTrigger className="bg-zinc-800 border-zinc-600 text-white text-xs h-8">
+              <SelectTrigger className="h-8 text-xs text-white bg-zinc-800 border-zinc-600">
                 <SelectValue placeholder="Select intersection..." />
               </SelectTrigger>
               <SelectContent className="dark bg-zinc-800 border-zinc-600">
                 {intersections.map((int) => (
-                  <SelectItem key={int.id} value={String(int.id)} className="text-white text-xs">
+                  <SelectItem
+                    key={int.id}
+                    value={String(int.id)}
+                    className="text-xs text-white"
+                  >
                     {int.name} ({int.status})
                   </SelectItem>
                 ))}
@@ -2231,7 +2643,13 @@ function GeoFencingMap({ editorMode = "intersection" }) {
             </Select>
             {activeIntersection && (
               <div className="flex items-center gap-1">
-                <Badge className={activeIntersection.status === "confirmed" ? "bg-green-500/20 text-green-400 border-green-500/30 text-xs" : "bg-yellow-500/20 text-yellow-400 border-yellow-500/30 text-xs"}>
+                <Badge
+                  className={
+                    activeIntersection.status === "confirmed"
+                      ? "bg-green-500/20 text-green-400 border-green-500/30 text-xs"
+                      : "bg-yellow-500/20 text-yellow-400 border-yellow-500/30 text-xs"
+                  }
+                >
                   {activeIntersection.status}
                 </Badge>
                 <span className="text-xs text-zinc-400 ml-1">ID: {activeIntersection.id}</span>
@@ -2243,28 +2661,60 @@ function GeoFencingMap({ editorMode = "intersection" }) {
         {/* Drawing actions */}
         {activeIntersection && isIntersectionMode && (
           <Card className="dark bg-zinc-900/95 border-zinc-700 backdrop-blur">
-            <CardHeader className="pb-2 pt-3 px-4">
+            <CardHeader className="px-4 pt-3 pb-2">
               <CardTitle className="text-sm text-white">Draw</CardTitle>
             </CardHeader>
             <CardContent className="px-4 pb-3 space-y-2">
               <div className="flex gap-2">
-                <Button size="sm" className={drawMode === "lane" ? "flex-1 text-xs h-8 bg-blue-600 hover:bg-blue-700" : "flex-1 text-xs h-8 bg-zinc-800 text-white border border-zinc-600 hover:bg-zinc-700"} onClick={drawMode === "lane" ? cancelDraw : startDrawLane}>
+                <Button
+                  size="sm"
+                  className={
+                    drawMode === "lane"
+                      ? "flex-1 text-xs h-8 bg-blue-600 hover:bg-blue-700"
+                      : "flex-1 text-xs h-8 bg-zinc-800 text-white border border-zinc-600 hover:bg-zinc-700"
+                  }
+                  onClick={drawMode === "lane" ? cancelDraw : startDrawLane}
+                >
                   {drawMode === "lane" ? "Cancel" : "Draw Lane"}
                 </Button>
-                <Button size="sm" className={drawMode === "crosswalk" ? "flex-1 text-xs h-8 bg-yellow-600 hover:bg-yellow-700" : "flex-1 text-xs h-8 bg-zinc-800 text-white border border-zinc-600 hover:bg-zinc-700"} onClick={drawMode === "crosswalk" ? cancelDraw : startDrawCrosswalk}>
+                <Button
+                  size="sm"
+                  className={
+                    drawMode === "crosswalk"
+                      ? "flex-1 text-xs h-8 bg-yellow-600 hover:bg-yellow-700"
+                      : "flex-1 text-xs h-8 bg-zinc-800 text-white border border-zinc-600 hover:bg-zinc-700"
+                  }
+                  onClick={
+                    drawMode === "crosswalk" ? cancelDraw : startDrawCrosswalk
+                  }
+                >
                   {drawMode === "crosswalk" ? "Cancel" : "Draw Approach"}
                 </Button>
               </div>
-              <Button size="sm" className={drawMode === "connection" ? "w-full text-xs h-8 bg-orange-600 hover:bg-orange-700" : "w-full text-xs h-8 bg-zinc-800 text-white border border-zinc-600 hover:bg-zinc-700"} onClick={drawMode === "connection" ? cancelDraw : startDrawConnection}>
+              <Button
+                size="sm"
+                className={
+                  drawMode === "connection"
+                    ? "w-full text-xs h-8 bg-orange-600 hover:bg-orange-700"
+                    : "w-full text-xs h-8 bg-zinc-800 text-white border border-zinc-600 hover:bg-zinc-700"
+                }
+                onClick={
+                  drawMode === "connection" ? cancelDraw : startDrawConnection
+                }
+              >
                 {drawMode === "connection" ? "Cancel" : "Connect Lanes"}
               </Button>
               {drawMode && (
                 <p className="text-xs text-zinc-400">
-                  {drawMode === "lane" ? "Click to place points. Double-click to finish."
-                    : drawMode === "crosswalk" ? "Click to place approach vertices. Double-click to close."
-                    : drawMode === "connection" && !connectionFrom ? "Click the FROM lane."
-                    : drawMode === "connection" && connectionFrom ? "Now click the TO lane."
-                    : ""}
+                  {drawMode === "lane"
+                    ? "Click to place points. Double-click to finish."
+                    : drawMode === "crosswalk"
+                      ? "Click to place approach vertices. Double-click to close."
+                      : drawMode === "connection" && !connectionFrom
+                        ? "Click the FROM lane."
+                        : drawMode === "connection" && connectionFrom
+                          ? "Now click the TO lane."
+                          : ""}
                 </p>
               )}
               <div className="text-xs text-zinc-400 space-y-0.5">
@@ -2273,10 +2723,21 @@ function GeoFencingMap({ editorMode = "intersection" }) {
                 <div>Connections: {connections.length}</div>
               </div>
               <div className="flex gap-2 pt-1">
-                <Button size="sm" className="flex-1 text-xs h-8 bg-green-600 hover:bg-green-700 text-white" onClick={() => setConfirmDialog(true)}>
-                  {activeIntersection.status === "confirmed" ? "Re-export" : "Confirm & Export"}
+                <Button
+                  size="sm"
+                  className="flex-1 h-8 text-xs text-white bg-green-600 hover:bg-green-700"
+                  onClick={() => setConfirmDialog(true)}
+                >
+                  {activeIntersection.status === "confirmed"
+                    ? "Re-export"
+                    : "Confirm & Export"}
                 </Button>
-                <Button size="sm" variant="outline" className="text-xs h-8 bg-red-600/10 text-red-400 border-red-500/30 hover:bg-red-600/20" onClick={() => setDeleteConfirmTarget(activeIntersection)}>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 text-xs text-red-400 bg-red-600/10 border-red-500/30 hover:bg-red-600/20"
+                  onClick={() => setDeleteConfirmTarget(activeIntersection)}
+                >
                   Delete
                 </Button>
               </div>
@@ -2287,7 +2748,7 @@ function GeoFencingMap({ editorMode = "intersection" }) {
         {/* Zone Editor */}
         {activeIntersection && !isIntersectionMode && (
           <Card className="dark bg-zinc-900/95 border-zinc-700 backdrop-blur">
-            <CardHeader className="pb-2 pt-3 px-4">
+            <CardHeader className="px-4 pt-3 pb-2">
               <div className="flex items-center justify-between gap-2">
                 <CardTitle className="text-sm text-white">
                   {isPreemptionMode ? "Create Preemption" : "Create SPaT Zone"}
@@ -2321,9 +2782,12 @@ function GeoFencingMap({ editorMode = "intersection" }) {
               {effectiveZoneTab === "spat" ? (
                 <>
                   {spatEditingId && (
-                    <div className="flex items-center justify-between gap-2 bg-sky-500/10 border border-sky-500/20 rounded px-2 py-1">
-                      <div className="text-xs text-zinc-200 truncate">
-                        Editing: <span className="text-white font-medium">{spatDraft.name || "(unnamed)"}</span>
+                    <div className="flex items-center justify-between gap-2 px-2 py-1 border rounded bg-sky-500/10 border-sky-500/20">
+                      <div className="text-xs truncate text-zinc-200">
+                        Editing:{" "}
+                        <span className="font-medium text-white">
+                          {spatDraft.name || "(unnamed)"}
+                        </span>
                       </div>
                       <Button
                         size="sm"
@@ -2336,39 +2800,66 @@ function GeoFencingMap({ editorMode = "intersection" }) {
                     </div>
                   )}
                   <div>
-                    <label className="text-xs text-zinc-400 mb-1 block">Zone Name</label>
+                    <label className="block mb-1 text-xs text-zinc-400">
+                      Zone Name
+                    </label>
                     <Input
                       value={spatDraft.name}
-                      onChange={(e) => setSpatDraft((p) => ({ ...p, name: e.target.value }))}
+                      onChange={(e) =>
+                        setSpatDraft((p) => ({ ...p, name: e.target.value }))
+                      }
                       placeholder="e.g. Georgia Lanes 4 & 5"
-                      className="bg-zinc-800 border-zinc-700 text-white text-sm h-8"
+                      className="h-8 text-sm text-white bg-zinc-800 border-zinc-700"
                     />
                   </div>
 
                   <div className="grid grid-cols-2 gap-2">
                     <Button
                       size="sm"
-                      className={drawMode === "spat-zone" ? "col-span-2 text-xs h-8 bg-purple-600 hover:bg-purple-700" : "col-span-2 text-xs h-8 bg-zinc-800 text-white border border-zinc-600 hover:bg-zinc-700"}
-                      onClick={drawMode === "spat-zone" ? cancelDraw : startDrawSpatZone}
+                      className={
+                        drawMode === "spat-zone"
+                          ? "col-span-2 text-xs h-8 bg-purple-600 hover:bg-purple-700"
+                          : "col-span-2 text-xs h-8 bg-zinc-800 text-white border border-zinc-600 hover:bg-zinc-700"
+                      }
+                      onClick={
+                        drawMode === "spat-zone"
+                          ? cancelDraw
+                          : startDrawSpatZone
+                      }
                     >
-                      {drawMode === "spat-zone" ? "Cancel Draw" : (spatEditingId ? "Redraw Zone" : "Draw Zone")}
+                      {drawMode === "spat-zone"
+                        ? "Cancel Draw"
+                        : spatEditingId
+                          ? "Redraw Zone"
+                          : "Draw Zone"}
                     </Button>
                     <Button
                       size="sm"
-                      className={spatSelectMode === "entry" ? "text-xs h-8 bg-green-600 hover:bg-green-700" : "text-xs h-8 bg-zinc-800 text-white border border-zinc-600 hover:bg-zinc-700"}
+                      className={
+                        spatSelectMode === "entry"
+                          ? "text-xs h-8 bg-green-600 hover:bg-green-700"
+                          : "text-xs h-8 bg-zinc-800 text-white border border-zinc-600 hover:bg-zinc-700"
+                      }
                       onClick={() => {
-                        const next = spatSelectMode === "entry" ? null : "entry";
+                        const next =
+                          spatSelectMode === "entry" ? null : "entry";
                         setSpatSelectMode(next);
                         setSpatLanePickMode(false);
                         setSpatHoverEdgeId(null);
                       }}
                       disabled={!spatDraft.polygon}
                     >
-                      {spatSelectMode === "entry" ? "Selecting..." : "Pick Entry"}
+                      {spatSelectMode === "entry"
+                        ? "Selecting..."
+                        : "Pick Entry"}
                     </Button>
                     <Button
                       size="sm"
-                      className={spatSelectMode === "exit" ? "text-xs h-8 bg-red-600 hover:bg-red-700" : "text-xs h-8 bg-zinc-800 text-white border border-zinc-600 hover:bg-zinc-700"}
+                      className={
+                        spatSelectMode === "exit"
+                          ? "text-xs h-8 bg-red-600 hover:bg-red-700"
+                          : "text-xs h-8 bg-zinc-800 text-white border border-zinc-600 hover:bg-zinc-700"
+                      }
                       onClick={() => {
                         const next = spatSelectMode === "exit" ? null : "exit";
                         setSpatSelectMode(next);
@@ -2384,12 +2875,18 @@ function GeoFencingMap({ editorMode = "intersection" }) {
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <label className="text-xs text-zinc-400">Lanes</label>
-                      <span className="text-[11px] text-zinc-500">{(spatDraft.laneIds || []).length} selected</span>
+                      <span className="text-[11px] text-zinc-500">
+                        {(spatDraft.laneIds || []).length} selected
+                      </span>
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       <Button
                         size="sm"
-                        className={spatLanePickMode ? "text-xs h-8 bg-green-600 hover:bg-green-700" : "text-xs h-8 bg-zinc-800 text-white border border-zinc-600 hover:bg-zinc-700"}
+                        className={
+                          spatLanePickMode
+                            ? "text-xs h-8 bg-green-600 hover:bg-green-700"
+                            : "text-xs h-8 bg-zinc-800 text-white border border-zinc-600 hover:bg-zinc-700"
+                        }
                         onClick={() => {
                           if (!spatDraft.polygon) return;
                           const next = !spatLanePickMode;
@@ -2397,14 +2894,18 @@ function GeoFencingMap({ editorMode = "intersection" }) {
                           if (next) setSpatSelectMode(null);
                         }}
                         disabled={!spatDraft.polygon}
-                        title={!spatDraft.polygon ? "Draw the zone polygon first" : "Click lanes on the map to toggle"}
+                        title={
+                          !spatDraft.polygon
+                            ? "Draw the zone polygon first"
+                            : "Click lanes on the map to toggle"
+                        }
                       >
                         {spatLanePickMode ? "Picking..." : "Pick Lanes"}
                       </Button>
                       <Button
                         size="sm"
                         variant="outline"
-                        className="text-xs h-8 bg-zinc-800 text-white border border-zinc-600 hover:bg-zinc-700"
+                        className="h-8 text-xs text-white border bg-zinc-800 border-zinc-600 hover:bg-zinc-700"
                         onClick={clearSpatLanes}
                         disabled={(spatDraft.laneIds || []).length === 0}
                       >
@@ -2412,49 +2913,86 @@ function GeoFencingMap({ editorMode = "intersection" }) {
                       </Button>
                     </div>
                     <div className="text-[11px] text-zinc-500 break-words">
-                      IDs: {(spatDraft.laneIds || []).length ? (spatDraft.laneIds || []).join(", ") : "—"}
+                      IDs:{" "}
+                      {(spatDraft.laneIds || []).length
+                        ? (spatDraft.laneIds || []).join(", ")
+                        : "—"}
                     </div>
                     {spatLanePickMode && (
                       <div className="text-xs text-zinc-500">
-                        Click lanes on the map to select/unselect (selected lanes highlight green).
+                        Click lanes on the map to select/unselect (selected
+                        lanes highlight green).
                       </div>
                     )}
                   </div>
 
                   <div>
-                    <label className="text-xs text-zinc-400 mb-1 block">Signal Group</label>
+                    <label className="block mb-1 text-xs text-zinc-400">
+                      Signal Group
+                    </label>
                     <Input
                       value={spatDraft.signalGroup}
-                      onChange={(e) => setSpatDraft((p) => ({ ...p, signalGroup: e.target.value }))}
+                      onChange={(e) =>
+                        setSpatDraft((p) => ({
+                          ...p,
+                          signalGroup: e.target.value,
+                        }))
+                      }
                       placeholder="2"
-                      className="bg-zinc-800 border-zinc-700 text-white text-sm h-8"
+                      className="h-8 text-sm text-white bg-zinc-800 border-zinc-700"
                     />
                   </div>
 
                   <div className="text-xs text-zinc-400">
-                    {spatDraft.polygon ? "Zone: ✓" : "Zone: ✕"} | {spatDraft.entryLine ? `Entry: ✓ (edge ${spatDraft.entryEdgeId ?? "?"})` : "Entry: ✕"} | {spatDraft.exitLine ? `Exit: ✓ (edge ${spatDraft.exitEdgeId ?? "?"})` : "Exit: ✕"} | Lanes: {(spatDraft.laneIds || []).length || 0}
+                    {spatDraft.polygon ? "Zone: ✓" : "Zone: ✕"} |{" "}
+                    {spatDraft.entryLine
+                      ? `Entry: ✓ (edge ${spatDraft.entryEdgeId ?? "?"})`
+                      : "Entry: ✕"}{" "}
+                    |{" "}
+                    {spatDraft.exitLine
+                      ? `Exit: ✓ (edge ${spatDraft.exitEdgeId ?? "?"})`
+                      : "Exit: ✕"}{" "}
+                    | Lanes: {(spatDraft.laneIds || []).length || 0}
                   </div>
                   {spatSelectMode && (
                     <div className="text-xs text-zinc-500">
-                      Click an edge to set {spatSelectMode === "entry" ? "Entry" : "Exit"} (hovered edge turns yellow).
+                      Click an edge to set{" "}
+                      {spatSelectMode === "entry" ? "Entry" : "Exit"} (hovered
+                      edge turns yellow).
                     </div>
                   )}
                   <div className="flex gap-2">
-                    <Button size="sm" variant="outline" className="flex-1 text-xs h-8 bg-zinc-800 text-white border border-zinc-600 hover:bg-zinc-700" onClick={clearSpatEntry} disabled={!spatDraft.entryLine}>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="flex-1 h-8 text-xs text-white border bg-zinc-800 border-zinc-600 hover:bg-zinc-700"
+                      onClick={clearSpatEntry}
+                      disabled={!spatDraft.entryLine}
+                    >
                       Clear Entry
                     </Button>
-                    <Button size="sm" variant="outline" className="flex-1 text-xs h-8 bg-zinc-800 text-white border border-zinc-600 hover:bg-zinc-700" onClick={clearSpatExit} disabled={!spatDraft.exitLine}>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="flex-1 h-8 text-xs text-white border bg-zinc-800 border-zinc-600 hover:bg-zinc-700"
+                      onClick={clearSpatExit}
+                      disabled={!spatDraft.exitLine}
+                    >
                       Clear Exit
                     </Button>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
-                    <Button size="sm" className="text-xs h-8 bg-purple-700 hover:bg-purple-800 text-white" onClick={openSpatPreview}>
+                    <Button
+                      size="sm"
+                      className="h-8 text-xs text-white bg-purple-700 hover:bg-purple-800"
+                      onClick={openSpatPreview}
+                    >
                       {spatEditingId ? "Update Zone" : "Save Zone"}
                     </Button>
                     <Button
                       size="sm"
                       variant="outline"
-                      className="text-xs h-8 bg-zinc-800 text-white border border-zinc-600 hover:bg-zinc-700"
+                      className="h-8 text-xs text-white border bg-zinc-800 border-zinc-600 hover:bg-zinc-700"
                       onClick={resetSpatDraft}
                     >
                       New
@@ -2463,7 +3001,7 @@ function GeoFencingMap({ editorMode = "intersection" }) {
                   <Button
                     size="sm"
                     variant="outline"
-                    className="w-full text-xs h-8 bg-zinc-800 text-white border border-zinc-600 hover:bg-zinc-700"
+                    className="w-full h-8 text-xs text-white border bg-zinc-800 border-zinc-600 hover:bg-zinc-700"
                     onClick={() => setSpatManageOpen(true)}
                   >
                     Browse / Edit Saved Zones
@@ -2473,7 +3011,7 @@ function GeoFencingMap({ editorMode = "intersection" }) {
                     <Button
                       size="sm"
                       variant="outline"
-                      className="w-full text-xs h-8 bg-red-600/10 text-red-400 border-red-500/30 hover:bg-red-600/20"
+                      className="w-full h-8 text-xs text-red-400 bg-red-600/10 border-red-500/30 hover:bg-red-600/20"
                       onClick={() => setSpatDeleteOpen(true)}
                     >
                       Delete Zone
@@ -2529,7 +3067,11 @@ function GeoFencingMap({ editorMode = "intersection" }) {
                           </SelectItem>
                         )}
                         {zonesForActiveIntersection.map((zone) => (
-                          <SelectItem key={zone.id} value={String(zone.id)} className="text-white text-xs">
+                          <SelectItem
+                            key={zone.id}
+                            value={String(zone.id)}
+                            className="text-xs text-white"
+                          >
                             {zone.name} (SG {zone.signalGroup})
                           </SelectItem>
                         ))}
@@ -2630,7 +3172,7 @@ function GeoFencingMap({ editorMode = "intersection" }) {
                     <Button
                       size="sm"
                       variant="outline"
-                      className="text-xs h-8 bg-zinc-800 text-white border border-zinc-600 hover:bg-zinc-700"
+                      className="h-8 text-xs text-white border bg-zinc-800 border-zinc-600 hover:bg-zinc-700"
                       onClick={() => setSpatManageOpen(true)}
                       disabled={!zonesForActiveIntersection.length}
                     >
@@ -2701,7 +3243,8 @@ function GeoFencingMap({ editorMode = "intersection" }) {
                     )}
                   </div>
                   <div className="text-xs text-zinc-500">
-                    The selected preemption zone is highlighted on the map in orange.
+                    The selected preemption zone is highlighted on the map in
+                    orange.
                   </div>
                 </>
               )}
@@ -2711,19 +3254,25 @@ function GeoFencingMap({ editorMode = "intersection" }) {
 
         {/* Legend */}
         <Card className="dark bg-zinc-900/95 border-zinc-700 backdrop-blur">
-          <CardHeader className="pb-1 pt-3 px-4">
+          <CardHeader className="px-4 pt-3 pb-1">
             <CardTitle className="text-xs text-zinc-400">Legend</CardTitle>
           </CardHeader>
           <CardContent className="px-4 pb-3">
             <div className="grid grid-cols-2 gap-1 text-xs">
               {Object.entries(LANE_COLORS).map(([name, color]) => (
                 <div key={name} className="flex items-center gap-1.5">
-                  <div className="w-3 h-1 rounded-full" style={{ backgroundColor: color }} />
+                  <div
+                    className="w-3 h-1 rounded-full"
+                    style={{ backgroundColor: color }}
+                  />
                   <span className="text-zinc-300">{name}</span>
                 </div>
               ))}
               <div className="flex items-center gap-1.5">
-                <div className="w-3 h-1 rounded-full" style={{ backgroundColor: connectionColor }} />
+                <div
+                  className="w-3 h-1 rounded-full"
+                  style={{ backgroundColor: connectionColor }}
+                />
                 <span className="text-zinc-300">Connection</span>
               </div>
             </div>
@@ -2732,62 +3281,115 @@ function GeoFencingMap({ editorMode = "intersection" }) {
       </div>
 
       {/* ── New Intersection Dialog ────────────────────────────── */}
-      <AlertDialog open={showNewIntersection} onOpenChange={setShowNewIntersection}>
-        <AlertDialogContent className="dark bg-zinc-900 border-zinc-800 text-white">
+      <AlertDialog
+        open={showNewIntersection}
+        onOpenChange={setShowNewIntersection}
+      >
+        <AlertDialogContent className="text-white dark bg-zinc-900 border-zinc-800">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-white">New Intersection</AlertDialogTitle>
+            <AlertDialogTitle className="text-white">
+              New Intersection
+            </AlertDialogTitle>
             <AlertDialogDescription className="text-zinc-400">
-              After clicking Create, you will place the reference point on the map.
+              After clicking Create, you will place the reference point on the
+              map.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <div className="space-y-3 py-2">
+          <div className="py-2 space-y-3">
             <div>
-              <label className="text-xs text-zinc-400 mb-1 block">Name</label>
-              <Input value={newIntName} onChange={(e) => setNewIntName(e.target.value)} placeholder="e.g. MLK & Georgia" className="bg-zinc-800 border-zinc-700 text-white text-sm" autoFocus />
+              <label className="block mb-1 text-xs text-zinc-400">Name</label>
+              <Input
+                value={newIntName}
+                onChange={(e) => setNewIntName(e.target.value)}
+                placeholder="e.g. MLK & Georgia"
+                className="text-sm text-white bg-zinc-800 border-zinc-700"
+                autoFocus
+              />
             </div>
             <div>
-              <label className="text-xs text-zinc-400 mb-1 block">Intersection ID (integer)</label>
-              <Input type="number" value={newIntId} onChange={(e) => setNewIntId(e.target.value)} placeholder="e.g. 1001" className="bg-zinc-800 border-zinc-700 text-white text-sm" />
+              <label className="block mb-1 text-xs text-zinc-400">
+                Intersection ID (integer)
+              </label>
+              <Input
+                type="number"
+                value={newIntId}
+                onChange={(e) => setNewIntId(e.target.value)}
+                placeholder="e.g. 1001"
+                className="text-sm text-white bg-zinc-800 border-zinc-700"
+              />
             </div>
           </div>
           <AlertDialogFooter>
-            <AlertDialogCancel className="bg-zinc-800 text-white border-zinc-700 hover:bg-zinc-700">Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={beginPlacingIntersection} className="bg-blue-600 text-white hover:bg-blue-700" disabled={!newIntName.trim() || !newIntId}>Create</AlertDialogAction>
+            <AlertDialogCancel className="text-white bg-zinc-800 border-zinc-700 hover:bg-zinc-700">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={beginPlacingIntersection}
+              className="text-white bg-blue-600 hover:bg-blue-700"
+              disabled={!newIntName.trim() || !newIntId}
+            >
+              Create
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
       {/* ── Confirm Intersection Dialog ────────────────────────── */}
       <AlertDialog open={confirmDialog} onOpenChange={setConfirmDialog}>
-        <AlertDialogContent className="dark bg-zinc-900 border-zinc-800 text-white">
+        <AlertDialogContent className="text-white dark bg-zinc-900 border-zinc-800">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-white">Confirm Intersection?</AlertDialogTitle>
+            <AlertDialogTitle className="text-white">
+              Confirm Intersection?
+            </AlertDialogTitle>
             <AlertDialogDescription className="text-zinc-400">
-              This will mark "{activeIntersection?.name}" as confirmed and generate the SAE J2735 MapData JSON export.
+              This will mark "{activeIntersection?.name}" as confirmed and
+              generate the SAE J2735 MapData JSON export.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <div className="text-xs text-zinc-400 py-1">Lanes: {lanes.length} | Approaches: {crosswalks.length} | Connections: {connections.length}</div>
+          <div className="py-1 text-xs text-zinc-400">
+            Lanes: {lanes.length} | Approaches: {crosswalks.length} |
+            Connections: {connections.length}
+          </div>
           <AlertDialogFooter>
-            <AlertDialogCancel className="bg-zinc-800 text-white border-zinc-700 hover:bg-zinc-700">Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmIntersection} className="bg-green-600 text-white hover:bg-green-700">Confirm & Export</AlertDialogAction>
+            <AlertDialogCancel className="text-white bg-zinc-800 border-zinc-700 hover:bg-zinc-700">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmIntersection}
+              className="text-white bg-green-600 hover:bg-green-700"
+            >
+              Confirm & Export
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
       {/* ── Delete Intersection Confirmation ─────────────────── */}
-      <AlertDialog open={!!deleteConfirmTarget} onOpenChange={() => setDeleteConfirmTarget(null)}>
-        <AlertDialogContent className="dark bg-zinc-900 border-zinc-800 text-white">
+      <AlertDialog
+        open={!!deleteConfirmTarget}
+        onOpenChange={() => setDeleteConfirmTarget(null)}
+      >
+        <AlertDialogContent className="text-white dark bg-zinc-900 border-zinc-800">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-white">Delete Intersection?</AlertDialogTitle>
+            <AlertDialogTitle className="text-white">
+              Delete Intersection?
+            </AlertDialogTitle>
             <AlertDialogDescription className="text-zinc-400">
-              This will permanently delete "{deleteConfirmTarget?.name}" and all its lanes, crosswalks, and connections. This action cannot be undone.
+              This will permanently delete "{deleteConfirmTarget?.name}" and all
+              its lanes, crosswalks, and connections. This action cannot be
+              undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="bg-zinc-800 text-white border-zinc-700 hover:bg-zinc-700">Cancel</AlertDialogCancel>
+            <AlertDialogCancel className="text-white bg-zinc-800 border-zinc-700 hover:bg-zinc-700">
+              Cancel
+            </AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => { deleteIntersection(deleteConfirmTarget.id); setDeleteConfirmTarget(null); }}
-              className="bg-red-600 text-white hover:bg-red-700"
+              onClick={() => {
+                deleteIntersection(deleteConfirmTarget.id);
+                setDeleteConfirmTarget(null);
+              }}
+              className="text-white bg-red-600 hover:bg-red-700"
             >
               Delete
             </AlertDialogAction>
@@ -2796,27 +3398,39 @@ function GeoFencingMap({ editorMode = "intersection" }) {
       </AlertDialog>
 
       {/* ── SPaT Zone Preview (DB payload) ───────────────────── */}
-      <AlertDialog open={spatPreviewOpen} onOpenChange={(open) => { if (!open) setSpatPreviewOpen(false); }}>
-        <AlertDialogContent className="dark bg-zinc-900 border-zinc-800 text-white max-w-2xl">
+      <AlertDialog
+        open={spatPreviewOpen}
+        onOpenChange={(open) => {
+          if (!open) setSpatPreviewOpen(false);
+        }}
+      >
+        <AlertDialogContent className="max-w-2xl text-white dark bg-zinc-900 border-zinc-800">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-white">{spatEditingId ? "Update SPaT Zone" : "Save SPaT Zone"}</AlertDialogTitle>
+            <AlertDialogTitle className="text-white">
+              {spatEditingId ? "Update SPaT Zone" : "Save SPaT Zone"}
+            </AlertDialogTitle>
             <AlertDialogDescription className="text-zinc-400">
               Review payload that will be saved to DB.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <pre className="text-xs text-zinc-300 bg-zinc-800 rounded p-3 overflow-auto max-h-96 whitespace-pre-wrap">
-            {spatPreviewPayload ? JSON.stringify(spatPreviewPayload, null, 2) : ""}
+          <pre className="p-3 overflow-auto text-xs whitespace-pre-wrap rounded text-zinc-300 bg-zinc-800 max-h-96">
+            {spatPreviewPayload
+              ? JSON.stringify(spatPreviewPayload, null, 2)
+              : ""}
           </pre>
           <AlertDialogFooter>
             <AlertDialogCancel
-              className="bg-zinc-800 text-white border-zinc-700 hover:bg-zinc-700"
-              onClick={() => { setSpatPreviewOpen(false); setSpatPreviewPayload(null); }}
+              className="text-white bg-zinc-800 border-zinc-700 hover:bg-zinc-700"
+              onClick={() => {
+                setSpatPreviewOpen(false);
+                setSpatPreviewPayload(null);
+              }}
             >
               Cancel
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={confirmSaveSpatZone}
-              className="bg-purple-700 text-white hover:bg-purple-800"
+              className="text-white bg-purple-700 hover:bg-purple-800"
             >
               {spatEditingId ? "Confirm Update" : "Confirm Save"}
             </AlertDialogAction>
@@ -2826,16 +3440,24 @@ function GeoFencingMap({ editorMode = "intersection" }) {
 
       {/* ── Delete SPaT Zone Confirmation ─────────────────────── */}
       <AlertDialog open={spatDeleteOpen} onOpenChange={setSpatDeleteOpen}>
-        <AlertDialogContent className="dark bg-zinc-900 border-zinc-800 text-white">
+        <AlertDialogContent className="text-white dark bg-zinc-900 border-zinc-800">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-white">Delete SPaT Zone?</AlertDialogTitle>
+            <AlertDialogTitle className="text-white">
+              Delete SPaT Zone?
+            </AlertDialogTitle>
             <AlertDialogDescription className="text-zinc-400">
-              This will permanently delete "{spatDraft.name || "this zone"}". This cannot be undone.
+              This will permanently delete "{spatDraft.name || "this zone"}".
+              This cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="bg-zinc-800 text-white border-zinc-700 hover:bg-zinc-700">Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDeleteSpatZone} className="bg-red-600 text-white hover:bg-red-700">
+            <AlertDialogCancel className="text-white bg-zinc-800 border-zinc-700 hover:bg-zinc-700">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDeleteSpatZone}
+              className="text-white bg-red-600 hover:bg-red-700"
+            >
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -2844,9 +3466,11 @@ function GeoFencingMap({ editorMode = "intersection" }) {
 
       {/* ── Browse SPaT Zones ─────────────────────────────────── */}
       <AlertDialog open={spatManageOpen} onOpenChange={setSpatManageOpen}>
-        <AlertDialogContent className="dark bg-zinc-900 border-zinc-800 text-white max-w-xl">
+        <AlertDialogContent className="max-w-xl text-white dark bg-zinc-900 border-zinc-800">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-white">Saved SPaT Zones</AlertDialogTitle>
+            <AlertDialogTitle className="text-white">
+              Saved SPaT Zones
+            </AlertDialogTitle>
             <AlertDialogDescription className="text-zinc-400">
               {activeIntersection ? `Intersection: ${activeIntersection.name} (ID ${activeIntersection.id})` : "Select an intersection first."}
             </AlertDialogDescription>
@@ -2857,18 +3481,25 @@ function GeoFencingMap({ editorMode = "intersection" }) {
               <div className="text-xs text-zinc-500">
                 Click a zone to load it into the editor.
               </div>
-              <div className="space-y-1 scrollbar-dark" style={{ maxHeight: 320, overflowY: "auto", paddingRight: 4 }}>
+              <div
+                className="space-y-1 scrollbar-dark"
+                style={{ maxHeight: 320, overflowY: "auto", paddingRight: 4 }}
+              >
                 {spatZones
                   .filter((z) => String(z.intersectionId) === String(activeIntersectionId))
                   .map((z) => (
                     <button
                       key={z.id}
                       type="button"
-                      onClick={() => { loadZoneIntoDraft(z); setSpatManageOpen(false); }}
-                      className="w-full text-left text-xs px-2 py-1 rounded bg-zinc-800/60 border border-zinc-700 text-zinc-200 hover:bg-zinc-800"
+                      onClick={() => {
+                        loadZoneIntoDraft(z);
+                        setSpatManageOpen(false);
+                      }}
+                      className="w-full px-2 py-1 text-xs text-left border rounded bg-zinc-800/60 border-zinc-700 text-zinc-200 hover:bg-zinc-800"
                       title="Load into editor"
                     >
-                      {z.name} • SG {z.signalGroup} • lanes {Array.isArray(z.laneIds) ? z.laneIds.length : 0}
+                      {z.name} • SG {z.signalGroup} • lanes{" "}
+                      {Array.isArray(z.laneIds) ? z.laneIds.length : 0}
                     </button>
                   ))}
                 {spatZones.filter((z) => String(z.intersectionId) === String(activeIntersectionId)).length === 0 && (
@@ -2879,10 +3510,15 @@ function GeoFencingMap({ editorMode = "intersection" }) {
           )}
 
           <AlertDialogFooter>
-            <AlertDialogCancel className="bg-zinc-800 text-white border-zinc-700 hover:bg-zinc-700">Close</AlertDialogCancel>
+            <AlertDialogCancel className="text-white bg-zinc-800 border-zinc-700 hover:bg-zinc-700">
+              Close
+            </AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => { resetSpatDraft(); setSpatManageOpen(false); }}
-              className="bg-zinc-800 text-white border border-zinc-700 hover:bg-zinc-700"
+              onClick={() => {
+                resetSpatDraft();
+                setSpatManageOpen(false);
+              }}
+              className="text-white border bg-zinc-800 border-zinc-700 hover:bg-zinc-700"
             >
               New Zone
             </AlertDialogAction>
@@ -2891,132 +3527,370 @@ function GeoFencingMap({ editorMode = "intersection" }) {
       </AlertDialog>
 
       {/* ── Lane Config Panel ──────────────────────────────────── */}
-      {configPanel && (configPanel.type === "lane" || configPanel.type === "lane-edit") && (
-        <div style={{ position: "absolute", top: "50%", right: 24, transform: "translateY(-50%)", zIndex: 20 }}>
-          <Card className="dark bg-zinc-900/95 border-zinc-700 backdrop-blur w-72">
-            <CardHeader className="pb-2 pt-4 px-4">
-              <CardTitle className="text-sm text-white">{configPanel.type === "lane" ? "Configure Lane" : "Edit Lane"}</CardTitle>
-            </CardHeader>
-            <CardContent className="px-4 pb-3 space-y-3">
-              <div>
-                <label className="text-xs text-zinc-400 mb-1 block">Name (optional)</label>
-                <Input value={configPanel.values.name} onChange={(e) => setConfigPanel((p) => ({ ...p, values: { ...p.values, name: e.target.value } }))} placeholder="Lane name" className="bg-zinc-800 border-zinc-700 text-white text-sm h-8" />
-              </div>
-              <div>
-                <label className="text-xs text-zinc-400 mb-1 block">Lane Type</label>
-                <Select value={configPanel.values.lane_type} onValueChange={(val) => setConfigPanel((p) => ({ ...p, values: { ...p.values, lane_type: val } }))}>
-                  <SelectTrigger className="bg-zinc-800 border-zinc-600 text-white text-xs h-8"><SelectValue /></SelectTrigger>
-                  <SelectContent className="dark bg-zinc-800 border-zinc-600">
-                    {["Vehicle", "Crosswalk", "Bike", "Sidewalk", "Parking"].map((t) => (
-                      <SelectItem key={t} value={t} className="text-white text-xs">{t}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <label className="text-xs text-zinc-400 mb-1 block">Phase (integer)</label>
-                <Input type="number" value={configPanel.values.phase} onChange={(e) => setConfigPanel((p) => ({ ...p, values: { ...p.values, phase: e.target.value } }))} placeholder="Signal phase" className="bg-zinc-800 border-zinc-700 text-white text-sm h-8" />
-              </div>
-            </CardContent>
-            <CardFooter className="px-4 pb-4 flex gap-2">
-              {configPanel.type === "lane" ? (
-                <>
-                  <Button size="sm" className="flex-1 text-xs bg-blue-600 hover:bg-blue-700 text-white" onClick={saveLane}>Save Lane</Button>
-                  <Button size="sm" variant="outline" className="text-xs bg-zinc-800 text-white border-zinc-600 hover:bg-zinc-700" onClick={() => setConfigPanel(null)}>Cancel</Button>
-                </>
-              ) : (
-                <>
-                  <Button size="sm" className="flex-1 text-xs bg-blue-600 hover:bg-blue-700 text-white" onClick={updateLane}>Update</Button>
-                  <Button size="sm" variant="outline" className="text-xs bg-red-600/10 text-red-400 border-red-500/30 hover:bg-red-600/20" onClick={() => deleteLane(configPanel.laneId)}>Delete</Button>
-                  <Button size="sm" variant="outline" className="text-xs bg-zinc-800 text-white border-zinc-600 hover:bg-zinc-700" onClick={() => setConfigPanel(null)}>Close</Button>
-                </>
-              )}
-            </CardFooter>
-          </Card>
-        </div>
-      )}
+      {configPanel &&
+        (configPanel.type === "lane" || configPanel.type === "lane-edit") && (
+          <div
+            style={{
+              position: "absolute",
+              top: "50%",
+              right: 24,
+              transform: "translateY(-50%)",
+              zIndex: 20,
+            }}
+          >
+            <Card className="dark bg-zinc-900/95 border-zinc-700 backdrop-blur w-72">
+              <CardHeader className="px-4 pt-4 pb-2">
+                <CardTitle className="text-sm text-white">
+                  {configPanel.type === "lane" ? "Configure Lane" : "Edit Lane"}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="px-4 pb-3 space-y-3">
+                <div>
+                  <label className="block mb-1 text-xs text-zinc-400">
+                    Name (optional)
+                  </label>
+                  <Input
+                    value={configPanel.values.name}
+                    onChange={(e) =>
+                      setConfigPanel((p) => ({
+                        ...p,
+                        values: { ...p.values, name: e.target.value },
+                      }))
+                    }
+                    placeholder="Lane name"
+                    className="h-8 text-sm text-white bg-zinc-800 border-zinc-700"
+                  />
+                </div>
+                <div>
+                  <label className="block mb-1 text-xs text-zinc-400">
+                    Lane Type
+                  </label>
+                  <Select
+                    value={configPanel.values.lane_type}
+                    onValueChange={(val) =>
+                      setConfigPanel((p) => ({
+                        ...p,
+                        values: { ...p.values, lane_type: val },
+                      }))
+                    }
+                  >
+                    <SelectTrigger className="h-8 text-xs text-white bg-zinc-800 border-zinc-600">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="dark bg-zinc-800 border-zinc-600">
+                      {[
+                        "Vehicle",
+                        "Crosswalk",
+                        "Bike",
+                        "Sidewalk",
+                        "Parking",
+                      ].map((t) => (
+                        <SelectItem
+                          key={t}
+                          value={t}
+                          className="text-xs text-white"
+                        >
+                          {t}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="block mb-1 text-xs text-zinc-400">
+                    Phase (integer)
+                  </label>
+                  <Input
+                    type="number"
+                    value={configPanel.values.phase}
+                    onChange={(e) =>
+                      setConfigPanel((p) => ({
+                        ...p,
+                        values: { ...p.values, phase: e.target.value },
+                      }))
+                    }
+                    placeholder="Signal phase"
+                    className="h-8 text-sm text-white bg-zinc-800 border-zinc-700"
+                  />
+                </div>
+              </CardContent>
+              <CardFooter className="flex gap-2 px-4 pb-4">
+                {configPanel.type === "lane" ? (
+                  <>
+                    <Button
+                      size="sm"
+                      className="flex-1 text-xs text-white bg-blue-600 hover:bg-blue-700"
+                      onClick={saveLane}
+                    >
+                      Save Lane
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-xs text-white bg-zinc-800 border-zinc-600 hover:bg-zinc-700"
+                      onClick={() => setConfigPanel(null)}
+                    >
+                      Cancel
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button
+                      size="sm"
+                      className="flex-1 text-xs text-white bg-blue-600 hover:bg-blue-700"
+                      onClick={updateLane}
+                    >
+                      Update
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-xs text-red-400 bg-red-600/10 border-red-500/30 hover:bg-red-600/20"
+                      onClick={() => deleteLane(configPanel.laneId)}
+                    >
+                      Delete
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-xs text-white bg-zinc-800 border-zinc-600 hover:bg-zinc-700"
+                      onClick={() => setConfigPanel(null)}
+                    >
+                      Close
+                    </Button>
+                  </>
+                )}
+              </CardFooter>
+            </Card>
+          </div>
+        )}
 
       {/* ── Crosswalk Config Panel ─────────────────────────────── */}
-      {configPanel && (configPanel.type === "crosswalk" || configPanel.type === "crosswalk-edit") && (
-        <div style={{ position: "absolute", top: "50%", right: 24, transform: "translateY(-50%)", zIndex: 20 }}>
-          <Card className="dark bg-zinc-900/95 border-zinc-700 backdrop-blur w-72">
-            <CardHeader className="pb-2 pt-4 px-4">
-              <CardTitle className="text-sm text-white">{configPanel.type === "crosswalk" ? "Configure Approach" : "Edit Approach"}</CardTitle>
-            </CardHeader>
-            <CardContent className="px-4 pb-3 space-y-3">
-              <div>
-                <label className="text-xs text-zinc-400 mb-1 block">Name (optional)</label>
-                <Input value={configPanel.values.name} onChange={(e) => setConfigPanel((p) => ({ ...p, values: { ...p.values, name: e.target.value } }))} placeholder="Approach name" className="bg-zinc-800 border-zinc-700 text-white text-sm h-8" />
-              </div>
-              <div>
-                <label className="text-xs text-zinc-400 mb-1 block">Approach Type</label>
-                <Select value={configPanel.values.approach_type} onValueChange={(val) => setConfigPanel((p) => ({ ...p, values: { ...p.values, approach_type: val } }))}>
-                  <SelectTrigger className="bg-zinc-800 border-zinc-600 text-white text-xs h-8"><SelectValue /></SelectTrigger>
-                  <SelectContent className="dark bg-zinc-800 border-zinc-600">
-                    {["Ingress", "Egress", "Both", "None"].map((t) => (
-                      <SelectItem key={t} value={t} className="text-white text-xs">{t}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <label className="text-xs text-zinc-400 mb-1 block">Approach ID</label>
-                <Select value={configPanel.values.approach_id} onValueChange={(val) => setConfigPanel((p) => ({ ...p, values: { ...p.values, approach_id: val } }))}>
-                  <SelectTrigger className="bg-zinc-800 border-zinc-600 text-white text-xs h-8"><SelectValue /></SelectTrigger>
-                  <SelectContent className="dark bg-zinc-800 border-zinc-600">
-                    {Array.from({ length: 16 }, (_, i) => i + 1).map((n) => (
-                      <SelectItem key={n} value={String(n)} className="text-white text-xs">{n}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </CardContent>
-            <CardFooter className="px-4 pb-4 flex gap-2">
-              {configPanel.type === "crosswalk" ? (
-                <>
-                  <Button size="sm" className="flex-1 text-xs bg-yellow-600 hover:bg-yellow-700 text-white" onClick={saveCrosswalk}>Save Approach</Button>
-                  <Button size="sm" variant="outline" className="text-xs bg-zinc-800 text-white border-zinc-600 hover:bg-zinc-700" onClick={() => setConfigPanel(null)}>Cancel</Button>
-                </>
-              ) : (
-                <>
-                  <Button size="sm" className="flex-1 text-xs bg-yellow-600 hover:bg-yellow-700 text-white" onClick={updateCrosswalk}>Update</Button>
-                  <Button size="sm" variant="outline" className="text-xs bg-red-600/10 text-red-400 border-red-500/30 hover:bg-red-600/20" onClick={() => deleteCrosswalk(configPanel.crosswalkId)}>Delete</Button>
-                  <Button size="sm" variant="outline" className="text-xs bg-zinc-800 text-white border-zinc-600 hover:bg-zinc-700" onClick={() => setConfigPanel(null)}>Close</Button>
-                </>
-              )}
-            </CardFooter>
-          </Card>
-        </div>
-      )}
+      {configPanel &&
+        (configPanel.type === "crosswalk" ||
+          configPanel.type === "crosswalk-edit") && (
+          <div
+            style={{
+              position: "absolute",
+              top: "50%",
+              right: 24,
+              transform: "translateY(-50%)",
+              zIndex: 20,
+            }}
+          >
+            <Card className="dark bg-zinc-900/95 border-zinc-700 backdrop-blur w-72">
+              <CardHeader className="px-4 pt-4 pb-2">
+                <CardTitle className="text-sm text-white">
+                  {configPanel.type === "crosswalk"
+                    ? "Configure Approach"
+                    : "Edit Approach"}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="px-4 pb-3 space-y-3">
+                <div>
+                  <label className="block mb-1 text-xs text-zinc-400">
+                    Name (optional)
+                  </label>
+                  <Input
+                    value={configPanel.values.name}
+                    onChange={(e) =>
+                      setConfigPanel((p) => ({
+                        ...p,
+                        values: { ...p.values, name: e.target.value },
+                      }))
+                    }
+                    placeholder="Approach name"
+                    className="h-8 text-sm text-white bg-zinc-800 border-zinc-700"
+                  />
+                </div>
+                <div>
+                  <label className="block mb-1 text-xs text-zinc-400">
+                    Approach Type
+                  </label>
+                  <Select
+                    value={configPanel.values.approach_type}
+                    onValueChange={(val) =>
+                      setConfigPanel((p) => ({
+                        ...p,
+                        values: { ...p.values, approach_type: val },
+                      }))
+                    }
+                  >
+                    <SelectTrigger className="h-8 text-xs text-white bg-zinc-800 border-zinc-600">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="dark bg-zinc-800 border-zinc-600">
+                      {["Ingress", "Egress", "Both", "None"].map((t) => (
+                        <SelectItem
+                          key={t}
+                          value={t}
+                          className="text-xs text-white"
+                        >
+                          {t}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="block mb-1 text-xs text-zinc-400">
+                    Approach ID
+                  </label>
+                  <Select
+                    value={configPanel.values.approach_id}
+                    onValueChange={(val) =>
+                      setConfigPanel((p) => ({
+                        ...p,
+                        values: { ...p.values, approach_id: val },
+                      }))
+                    }
+                  >
+                    <SelectTrigger className="h-8 text-xs text-white bg-zinc-800 border-zinc-600">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="dark bg-zinc-800 border-zinc-600">
+                      {Array.from({ length: 16 }, (_, i) => i + 1).map((n) => (
+                        <SelectItem
+                          key={n}
+                          value={String(n)}
+                          className="text-xs text-white"
+                        >
+                          {n}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </CardContent>
+              <CardFooter className="flex gap-2 px-4 pb-4">
+                {configPanel.type === "crosswalk" ? (
+                  <>
+                    <Button
+                      size="sm"
+                      className="flex-1 text-xs text-white bg-yellow-600 hover:bg-yellow-700"
+                      onClick={saveCrosswalk}
+                    >
+                      Save Approach
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-xs text-white bg-zinc-800 border-zinc-600 hover:bg-zinc-700"
+                      onClick={() => setConfigPanel(null)}
+                    >
+                      Cancel
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button
+                      size="sm"
+                      className="flex-1 text-xs text-white bg-yellow-600 hover:bg-yellow-700"
+                      onClick={updateCrosswalk}
+                    >
+                      Update
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-xs text-red-400 bg-red-600/10 border-red-500/30 hover:bg-red-600/20"
+                      onClick={() => deleteCrosswalk(configPanel.crosswalkId)}
+                    >
+                      Delete
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-xs text-white bg-zinc-800 border-zinc-600 hover:bg-zinc-700"
+                      onClick={() => setConfigPanel(null)}
+                    >
+                      Close
+                    </Button>
+                  </>
+                )}
+              </CardFooter>
+            </Card>
+          </div>
+        )}
 
       {/* ── Connection Edit Panel ──────────────────────────────── */}
       {configPanel && configPanel.type === "connection-edit" && (
-        <div style={{ position: "absolute", top: "50%", right: 24, transform: "translateY(-50%)", zIndex: 20 }}>
+        <div
+          style={{
+            position: "absolute",
+            top: "50%",
+            right: 24,
+            transform: "translateY(-50%)",
+            zIndex: 20,
+          }}
+        >
           <Card className="dark bg-zinc-900/95 border-zinc-700 backdrop-blur w-72">
-            <CardHeader className="pb-2 pt-4 px-4">
-              <CardTitle className="text-sm text-white">Edit Connection</CardTitle>
+            <CardHeader className="px-4 pt-4 pb-2">
+              <CardTitle className="text-sm text-white">
+                Edit Connection
+              </CardTitle>
             </CardHeader>
             <CardContent className="px-4 pb-3 space-y-3">
               <div>
-                <label className="text-xs text-zinc-400 mb-1 block">Color</label>
+                <label className="block mb-1 text-xs text-zinc-400">
+                  Color
+                </label>
                 <div className="flex items-center gap-2">
                   <input
                     type="color"
-                    value={connectionColors[configPanel.connectionId] || CONNECTION_COLOR}
-                    onChange={(e) => setConnectionColors(prev => ({ ...prev, [configPanel.connectionId]: e.target.value }))}
-                    className="w-8 h-8 rounded border border-zinc-600 cursor-pointer bg-transparent p-0"
+                    value={
+                      connectionColors[configPanel.connectionId] ||
+                      CONNECTION_COLOR
+                    }
+                    onChange={(e) =>
+                      setConnectionColors((prev) => ({
+                        ...prev,
+                        [configPanel.connectionId]: e.target.value,
+                      }))
+                    }
+                    className="w-8 h-8 p-0 bg-transparent border rounded cursor-pointer border-zinc-600"
                   />
-                  <span className="text-xs text-zinc-300 font-mono">{connectionColors[configPanel.connectionId] || CONNECTION_COLOR}</span>
+                  <span className="font-mono text-xs text-zinc-300">
+                    {connectionColors[configPanel.connectionId] ||
+                      CONNECTION_COLOR}
+                  </span>
                 </div>
               </div>
               <div>
-                <label className="text-xs text-zinc-400 mb-1 block">Signal Group (optional)</label>
-                <Input type="number" value={configPanel.values.signal_group} onChange={(e) => setConfigPanel((p) => ({ ...p, values: { ...p.values, signal_group: e.target.value } }))} placeholder="Signal group" className="bg-zinc-800 border-zinc-700 text-white text-sm h-8" />
+                <label className="block mb-1 text-xs text-zinc-400">
+                  Signal Group (optional)
+                </label>
+                <Input
+                  type="number"
+                  value={configPanel.values.signal_group}
+                  onChange={(e) =>
+                    setConfigPanel((p) => ({
+                      ...p,
+                      values: { ...p.values, signal_group: e.target.value },
+                    }))
+                  }
+                  placeholder="Signal group"
+                  className="h-8 text-sm text-white bg-zinc-800 border-zinc-700"
+                />
               </div>
             </CardContent>
-            <CardFooter className="px-4 pb-4 flex gap-2">
-              <Button size="sm" variant="outline" className="flex-1 text-xs bg-red-600/10 text-red-400 border-red-500/30 hover:bg-red-600/20" onClick={() => deleteConnection(configPanel.connectionId)}>Delete</Button>
-              <Button size="sm" variant="outline" className="text-xs bg-zinc-800 text-white border-zinc-600 hover:bg-zinc-700" onClick={() => setConfigPanel(null)}>Close</Button>
+            <CardFooter className="flex gap-2 px-4 pb-4">
+              <Button
+                size="sm"
+                variant="outline"
+                className="flex-1 text-xs text-red-400 bg-red-600/10 border-red-500/30 hover:bg-red-600/20"
+                onClick={() => deleteConnection(configPanel.connectionId)}
+              >
+                Delete
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-xs text-white bg-zinc-800 border-zinc-600 hover:bg-zinc-700"
+                onClick={() => setConfigPanel(null)}
+              >
+                Close
+              </Button>
             </CardFooter>
           </Card>
         </div>
@@ -3024,17 +3898,44 @@ function GeoFencingMap({ editorMode = "intersection" }) {
 
       {/* ── MapData JSON viewer ────────────────────────────────── */}
       {mapDataResult && (
-        <div style={{ position: "absolute", bottom: 16, right: 16, zIndex: 20, maxWidth: 480, maxHeight: 400 }}>
+        <div
+          style={{
+            position: "absolute",
+            bottom: 16,
+            right: 16,
+            zIndex: 20,
+            maxWidth: 480,
+            maxHeight: 400,
+          }}
+        >
           <Card className="dark bg-zinc-900/95 border-zinc-700 backdrop-blur">
-            <CardHeader className="pb-2 pt-3 px-4 flex flex-row items-center justify-between">
-              <CardTitle className="text-sm text-white">MapData Export</CardTitle>
-              <Button size="sm" variant="ghost" className="text-xs text-zinc-400 hover:text-white h-6 px-2" onClick={() => setMapDataResult(null)}>Close</Button>
+            <CardHeader className="flex flex-row items-center justify-between px-4 pt-3 pb-2">
+              <CardTitle className="text-sm text-white">
+                MapData Export
+              </CardTitle>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-6 px-2 text-xs text-zinc-400 hover:text-white"
+                onClick={() => setMapDataResult(null)}
+              >
+                Close
+              </Button>
             </CardHeader>
             <CardContent className="px-4 pb-3">
-              <pre className="text-xs text-zinc-300 bg-zinc-800 rounded p-3 overflow-auto max-h-72 whitespace-pre-wrap">
+              <pre className="p-3 overflow-auto text-xs whitespace-pre-wrap rounded text-zinc-300 bg-zinc-800 max-h-72">
                 {JSON.stringify(mapDataResult, null, 2)}
               </pre>
-              <Button size="sm" className="mt-2 text-xs bg-zinc-700 hover:bg-zinc-600 text-white w-full" onClick={() => { navigator.clipboard.writeText(JSON.stringify(mapDataResult, null, 2)); showMessage("Copied to clipboard."); }}>
+              <Button
+                size="sm"
+                className="w-full mt-2 text-xs text-white bg-zinc-700 hover:bg-zinc-600"
+                onClick={() => {
+                  navigator.clipboard.writeText(
+                    JSON.stringify(mapDataResult, null, 2),
+                  );
+                  showMessage("Copied to clipboard.");
+                }}
+              >
                 Copy JSON
               </Button>
             </CardContent>
@@ -3046,42 +3947,93 @@ function GeoFencingMap({ editorMode = "intersection" }) {
       {placingIntersection && (
         <>
           {/* Crosshair at map center */}
-          <div style={{
-            position: "absolute",
-            top: "50%",
-            left: "50%",
-            transform: "translate(-50%, -50%)",
-            zIndex: 15,
-            pointerEvents: "none",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-          }}>
+          <div
+            style={{
+              position: "absolute",
+              top: "50%",
+              left: "50%",
+              transform: "translate(-50%, -50%)",
+              zIndex: 15,
+              pointerEvents: "none",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+            }}
+          >
             <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
-              <line x1="24" y1="0" x2="24" y2="20" stroke="#FFC800" strokeWidth="2" />
-              <line x1="24" y1="28" x2="24" y2="48" stroke="#FFC800" strokeWidth="2" />
-              <line x1="0" y1="24" x2="20" y2="24" stroke="#FFC800" strokeWidth="2" />
-              <line x1="28" y1="24" x2="48" y2="24" stroke="#FFC800" strokeWidth="2" />
-              <circle cx="24" cy="24" r="6" stroke="#FFC800" strokeWidth="2" fill="none" />
+              <line
+                x1="24"
+                y1="0"
+                x2="24"
+                y2="20"
+                stroke="#FFC800"
+                strokeWidth="2"
+              />
+              <line
+                x1="24"
+                y1="28"
+                x2="24"
+                y2="48"
+                stroke="#FFC800"
+                strokeWidth="2"
+              />
+              <line
+                x1="0"
+                y1="24"
+                x2="20"
+                y2="24"
+                stroke="#FFC800"
+                strokeWidth="2"
+              />
+              <line
+                x1="28"
+                y1="24"
+                x2="48"
+                y2="24"
+                stroke="#FFC800"
+                strokeWidth="2"
+              />
+              <circle
+                cx="24"
+                cy="24"
+                r="6"
+                stroke="#FFC800"
+                strokeWidth="2"
+                fill="none"
+              />
             </svg>
           </div>
           {/* Instruction bar + buttons */}
-          <div style={{
-            position: "absolute",
-            bottom: 32,
-            left: "50%",
-            transform: "translateX(-50%)",
-            zIndex: 20,
-            display: "flex",
-            alignItems: "center",
-            gap: 12,
-          }}>
+          <div
+            style={{
+              position: "absolute",
+              bottom: 32,
+              left: "50%",
+              transform: "translateX(-50%)",
+              zIndex: 20,
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+            }}
+          >
             <div className="px-4 py-2.5 rounded-lg text-sm border backdrop-blur bg-zinc-900/95 text-white border-zinc-600/50 flex items-center gap-3">
-              <span>Pan to position the reference point for <strong>{placingIntersection.name}</strong></span>
-              <Button size="sm" className="text-xs h-7 bg-green-600 hover:bg-green-700 text-white" onClick={confirmPlacement}>
+              <span>
+                Pan to position the reference point for{" "}
+                <strong>{placingIntersection.name}</strong>
+              </span>
+              <Button
+                size="sm"
+                className="text-xs text-white bg-green-600 h-7 hover:bg-green-700"
+                onClick={confirmPlacement}
+              >
                 Confirm Placement
               </Button>
-              <Button size="sm" variant="outline" className="text-xs h-7 bg-zinc-800 text-white border-zinc-600 hover:bg-zinc-700" onClick={cancelPlacement}>
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-xs text-white h-7 bg-zinc-800 border-zinc-600 hover:bg-zinc-700"
+                onClick={cancelPlacement}
+              >
                 Cancel
               </Button>
             </div>
@@ -3093,7 +4045,7 @@ function GeoFencingMap({ editorMode = "intersection" }) {
       <div style={{ position: "absolute", top: 16, right: 16, zIndex: 20 }}>
         <Button
           size="sm"
-          className="text-xs h-8 px-3 bg-zinc-900/90 text-white border border-zinc-600 hover:bg-zinc-700 backdrop-blur"
+          className="h-8 px-3 text-xs text-white border bg-zinc-900/90 border-zinc-600 hover:bg-zinc-700 backdrop-blur"
           onClick={toggleMapStyle}
         >
           {mapStyle === "satellite-streets" ? "Dark Mode" : "Satellite"}
@@ -3102,8 +4054,18 @@ function GeoFencingMap({ editorMode = "intersection" }) {
 
       {/* ── Toast ──────────────────────────────────────────────── */}
       {message && (
-        <div style={{ position: "absolute", top: 56, right: 16, zIndex: 30, maxWidth: 350 }}>
-          <div className={`px-4 py-2.5 rounded-lg text-sm border backdrop-blur ${message.type === "error" ? "bg-red-500/90 text-white border-red-400/50" : "bg-zinc-800/90 text-white border-zinc-600/50"}`}>
+        <div
+          style={{
+            position: "absolute",
+            top: 56,
+            right: 16,
+            zIndex: 30,
+            maxWidth: 350,
+          }}
+        >
+          <div
+            className={`px-4 py-2.5 rounded-lg text-sm border backdrop-blur ${message.type === "error" ? "bg-red-500/90 text-white border-red-400/50" : "bg-zinc-800/90 text-white border-zinc-600/50"}`}
+          >
             {message.text}
           </div>
         </div>
