@@ -235,7 +235,7 @@ export function GeofenceZones() {
                   <div className="space-y-2 text-sm mb-4">
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Intersection ID:</span>
-                      <span className="font-medium text-white">{int.intersection_id}</span>
+                      <span className="font-medium text-white">{int.id}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Revision:</span>

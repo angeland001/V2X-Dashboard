@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const db = require("../../database/postgis");
+const { parseCanonicalIntersectionId } = require("../../utils/intersectionIdentity");
 
 // ─── GET connections (optionally filtered by intersection_id) ──────
 router.get("/", async (req, res) => {
@@ -19,8 +20,12 @@ router.get("/", async (req, res) => {
     `;
     const params = [];
     if (intersection_id) {
+      const canonicalIntersectionId = parseCanonicalIntersectionId(intersection_id);
+      if (canonicalIntersectionId == null) {
+        return res.status(400).json({ error: "intersection_id must be a number" });
+      }
       query += " WHERE fl.intersection_id = $1";
-      params.push(intersection_id);
+      params.push(canonicalIntersectionId);
     }
     query += " ORDER BY lc.id";
 

@@ -1,5 +1,5 @@
 import React from "react";
-import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
+import { BrowserRouter as Router, Route, Routes, Navigate } from "react-router-dom";
 import { SettingsProvider } from "./contexts/SettingsContext";
 import Login from "./auth/Login";
 import DashboardLayout from "./components/navigation/SidebarNav";
@@ -53,25 +53,49 @@ export default function App() {
             </Route>
           </Route>
 
-          <Route
-            path="/geofencing"
-            element={
-              <DashboardLayout>
-                <GeoFencingMap />
-              </DashboardLayout>
-            }
-          />
-          <Route
-            path="/sdsm-events"
-            element={
-              <DashboardLayout>
-                <SDSMEventsMap />
-              </DashboardLayout>
-            }
-          />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </Router>
-    </SettingsProvider>
+            <Route
+              path="/geofencing"
+              element={
+                <DashboardLayout>
+                  <Navigate to="/geofencing/intersection" replace />
+                </DashboardLayout>
+              }
+            />
+            <Route
+              path="/geofencing/intersection"
+              element={
+                <DashboardLayout>
+                  <GeoFencingMap editorMode="intersection" />
+                </DashboardLayout>
+              }
+            />
+            <Route
+              path="/geofencing/spat-zone"
+              element={
+                <DashboardLayout>
+                  <GeoFencingMap editorMode="spat" />
+                </DashboardLayout>
+              }
+            />
+            <Route
+              path="/geofencing/preemption"
+              element={
+                <DashboardLayout>
+                  <GeoFencingMap editorMode="preemption" />
+                </DashboardLayout>
+              }
+            />
+            <Route
+              path="/sdsm-events"
+              element={
+                <DashboardLayout>
+                  <SDSMEventsMap />
+                </DashboardLayout>
+              }
+            />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </Router>
+      </SettingsProvider>
   );
 }

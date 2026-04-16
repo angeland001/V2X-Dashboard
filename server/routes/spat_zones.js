@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const db = require("../database/postgis");
+const { parseCanonicalIntersectionId } = require("../utils/intersectionIdentity");
 
 function isNonEmptyString(v) {
   return typeof v === "string" && v.trim().length > 0;
@@ -44,35 +45,25 @@ async function ensureLaneIdsBelongToIntersection(intersectionId, laneIds) {
   return { ok: missing.length === 0, missing };
 }
 
-// GET zones (optionally filtered by intersection)
-// - intersection_id: intersections.id (DB primary key)
-// - intersection_number: intersections.intersection_id (J2735 / human-entered intersection number)
+// GET zones (optionally filtered by canonical intersection_id)
 router.get("/", async (req, res) => {
   try {
     const { intersection_id, intersection_number } = req.query;
     const params = [];
     let resolvedIntersectionId = null;
 
-    // Prefer DB id if provided.
+    if (intersection_number != null && String(intersection_number).trim() !== "") {
+      return res.status(400).json({
+        error: "intersection_number is no longer supported; use intersection_id",
+      });
+    }
+
     if (intersection_id != null && String(intersection_id).trim() !== "") {
-      const n = Number(intersection_id);
-      if (!Number.isFinite(n)) {
+      const n = parseCanonicalIntersectionId(intersection_id);
+      if (n == null) {
         return res.status(400).json({ error: "intersection_id must be a number" });
       }
       resolvedIntersectionId = n;
-    } else if (intersection_number != null && String(intersection_number).trim() !== "") {
-      const n = Number(intersection_number);
-      if (!Number.isFinite(n)) {
-        return res.status(400).json({ error: "intersection_number must be a number" });
-      }
-      const found = await db.query(
-        "SELECT id FROM intersections WHERE intersection_id = $1 LIMIT 1",
-        [n],
-      );
-      if (found.rows.length === 0) {
-        return res.status(404).json({ error: `No intersection found for intersection_number=${n}` });
-      }
-      resolvedIntersectionId = found.rows[0].id;
     }
 
     let sql = `
@@ -118,7 +109,7 @@ router.post("/", async (req, res) => {
     if (!isNonEmptyString(name)) {
       return res.status(400).json({ error: "name must be a non-empty string" });
     }
-    const intersectionId = parseFiniteNumber(intersection_id);
+    const intersectionId = parseCanonicalIntersectionId(intersection_id);
     if (intersectionId == null) {
       return res.status(400).json({ error: "intersection_id must be a number" });
     }

@@ -1,19 +1,24 @@
 const express = require("express");
 const router = express.Router();
 const db = require("../../database/postgis");
+const {
+  parseCanonicalIntersectionId,
+  serializeIntersectionRow,
+  fetchIntersectionByCanonicalId,
+} = require("../../utils/intersectionIdentity");
 
 // ─── GET all intersections ───────────────────────────────────────
 router.get("/", async (req, res) => {
   try {
     const result = await db.query(`
-      SELECT id, name, description,
+      SELECT id AS db_id, name, description,
              ST_AsGeoJSON(ref_point)::json AS ref_point,
              region_id, intersection_id, msg_issue_revision,
              status, created_by, created_at, updated_at
       FROM intersections
       ORDER BY created_at DESC
     `);
-    res.json(result.rows);
+    res.json(result.rows.map(serializeIntersectionRow));
   } catch (err) {
     console.error("Error fetching intersections:", err);
     res.status(500).json({ error: err.message });
@@ -23,19 +28,16 @@ router.get("/", async (req, res) => {
 // ─── GET single intersection ─────────────────────────────────────
 router.get("/:id", async (req, res) => {
   try {
-    const { id } = req.params;
-    const result = await db.query(
-      `SELECT id, name, description,
-              ST_AsGeoJSON(ref_point)::json AS ref_point,
-              region_id, intersection_id, msg_issue_revision,
-              status, created_by, created_at, updated_at
-       FROM intersections WHERE id = $1`,
-      [id]
-    );
-    if (result.rows.length === 0) {
+    const intersectionId = parseCanonicalIntersectionId(req.params.id);
+    if (intersectionId == null) {
+      return res.status(400).json({ error: "intersection_id must be a number" });
+    }
+
+    const intersection = await fetchIntersectionByCanonicalId(db, intersectionId);
+    if (!intersection) {
       return res.status(404).json({ error: "Intersection not found" });
     }
-    res.json(result.rows[0]);
+    res.json(serializeIntersectionRow(intersection));
   } catch (err) {
     console.error("Error fetching intersection:", err);
     res.status(500).json({ error: err.message });
@@ -47,8 +49,9 @@ router.post("/", async (req, res) => {
   try {
     const { name, description, ref_point, region_id, intersection_id, created_by } = req.body;
     const normalizedName = normalizeIntersectionName(name);
+    const canonicalIntersectionId = parseCanonicalIntersectionId(intersection_id);
 
-    if (!normalizedName || !ref_point || intersection_id == null) {
+    if (!normalizedName || !ref_point || canonicalIntersectionId == null) {
       return res.status(400).json({ error: "name, ref_point (GeoJSON), and intersection_id are required" });
     }
 
@@ -57,16 +60,21 @@ router.post("/", async (req, res) => {
       return res.status(409).json({ error: `Intersection name '${normalizedName}' already exists` });
     }
 
+    const existingByIntersectionId = await findIntersectionByCanonicalId(db, canonicalIntersectionId);
+    if (existingByIntersectionId) {
+      return res.status(409).json({ error: `Intersection ID '${canonicalIntersectionId}' already exists` });
+    }
+
     const result = await db.query(
       `INSERT INTO intersections (name, description, ref_point, region_id, intersection_id, created_by)
        VALUES ($1, $2, ST_SetSRID(ST_GeomFromGeoJSON($3), 4326), $4, $5, $6)
-       RETURNING id, name, description,
+       RETURNING id AS db_id, name, description,
                  ST_AsGeoJSON(ref_point)::json AS ref_point,
                  region_id, intersection_id, msg_issue_revision,
                  status, created_by, created_at, updated_at`,
-      [normalizedName, description || null, JSON.stringify(ref_point), region_id || 0, intersection_id, created_by || null]
+      [normalizedName, description || null, JSON.stringify(ref_point), region_id || 0, canonicalIntersectionId, created_by || null]
     );
-    res.status(201).json(result.rows[0]);
+    res.status(201).json(serializeIntersectionRow(result.rows[0]));
   } catch (err) {
     console.error("Error creating intersection:", err);
     res.status(500).json({ error: err.message });
@@ -76,8 +84,21 @@ router.post("/", async (req, res) => {
 // ─── UPDATE intersection ─────────────────────────────────────────
 router.put("/:id", async (req, res) => {
   try {
-    const { id } = req.params;
+    const canonicalIntersectionId = parseCanonicalIntersectionId(req.params.id);
     const { name, description, ref_point, region_id, intersection_id, status } = req.body;
+
+    if (canonicalIntersectionId == null) {
+      return res.status(400).json({ error: "intersection_id must be a number" });
+    }
+
+    const existingIntersection = await fetchIntersectionByCanonicalId(db, canonicalIntersectionId);
+    if (!existingIntersection) {
+      return res.status(404).json({ error: "Intersection not found" });
+    }
+
+    if (intersection_id !== undefined) {
+      return res.status(400).json({ error: "intersection_id is immutable and cannot be changed after creation" });
+    }
 
     const sets = [];
     const vals = [];
@@ -89,7 +110,7 @@ router.put("/:id", async (req, res) => {
         return res.status(400).json({ error: "name cannot be empty" });
       }
 
-      const existingByName = await findIntersectionByName(db, normalizedName, id);
+      const existingByName = await findIntersectionByName(db, normalizedName, existingIntersection.db_id);
       if (existingByName) {
         return res.status(409).json({ error: `Intersection name '${normalizedName}' already exists` });
       }
@@ -100,17 +121,16 @@ router.put("/:id", async (req, res) => {
     if (description !== undefined) { sets.push(`description = $${idx++}`); vals.push(description); }
     if (ref_point !== undefined) { sets.push(`ref_point = ST_SetSRID(ST_GeomFromGeoJSON($${idx++}), 4326)`); vals.push(JSON.stringify(ref_point)); }
     if (region_id !== undefined) { sets.push(`region_id = $${idx++}`); vals.push(region_id); }
-    if (intersection_id !== undefined) { sets.push(`intersection_id = $${idx++}`); vals.push(intersection_id); }
     if (status !== undefined) { sets.push(`status = $${idx++}`); vals.push(status); }
 
     if (sets.length === 0) {
       return res.status(400).json({ error: "No fields to update" });
     }
 
-    vals.push(id);
+    vals.push(canonicalIntersectionId);
     const result = await db.query(
-      `UPDATE intersections SET ${sets.join(", ")} WHERE id = $${idx}
-       RETURNING id, name, description,
+      `UPDATE intersections SET ${sets.join(", ")} WHERE intersection_id = $${idx}
+       RETURNING id AS db_id, name, description,
                  ST_AsGeoJSON(ref_point)::json AS ref_point,
                  region_id, intersection_id, msg_issue_revision,
                  status, created_by, created_at, updated_at`,
@@ -120,7 +140,7 @@ router.put("/:id", async (req, res) => {
     if (result.rows.length === 0) {
       return res.status(404).json({ error: "Intersection not found" });
     }
-    res.json(result.rows[0]);
+    res.json(serializeIntersectionRow(result.rows[0]));
   } catch (err) {
     console.error("Error updating intersection:", err);
     res.status(500).json({ error: err.message });
@@ -130,15 +150,21 @@ router.put("/:id", async (req, res) => {
 // ─── DELETE intersection ─────────────────────────────────────────
 router.delete("/:id", async (req, res) => {
   try {
-    const { id } = req.params;
+    const canonicalIntersectionId = parseCanonicalIntersectionId(req.params.id);
+    if (canonicalIntersectionId == null) {
+      return res.status(400).json({ error: "intersection_id must be a number" });
+    }
     const result = await db.query(
-      "DELETE FROM intersections WHERE id = $1 RETURNING id",
-      [id]
+      "DELETE FROM intersections WHERE intersection_id = $1 RETURNING id AS db_id, intersection_id",
+      [canonicalIntersectionId]
     );
     if (result.rows.length === 0) {
       return res.status(404).json({ error: "Intersection not found" });
     }
-    res.json({ message: "Intersection deleted", id: result.rows[0].id });
+    res.json({
+      message: "Intersection deleted",
+      id: result.rows[0].intersection_id,
+    });
   } catch (err) {
     console.error("Error deleting intersection:", err);
     res.status(500).json({ error: err.message });
@@ -343,6 +369,26 @@ function normalizeIntersectionName(name) {
   return typeof name === "string" ? name.trim() : "";
 }
 
+async function findIntersectionByCanonicalId(queryRunner, intersectionId, excludeId = null) {
+  if (!Number.isInteger(intersectionId)) return null;
+
+  const params = [intersectionId];
+  let sql = `
+    SELECT id, intersection_id
+    FROM intersections
+    WHERE intersection_id = $1
+  `;
+
+  if (excludeId != null) {
+    sql += ` AND id <> $2`;
+    params.push(excludeId);
+  }
+
+  sql += ` LIMIT 1`;
+  const result = await queryRunner.query(sql, params);
+  return result.rows[0] || null;
+}
+
 async function findIntersectionByName(queryRunner, name, excludeId = null) {
   const normalized = normalizeIntersectionName(name);
   if (!normalized) return null;
@@ -430,27 +476,23 @@ function encodeLaneAttributes(lane) {
 // ─── CONFIRM intersection & export MapData ───────────────────────
 router.post("/:id/confirm", async (req, res) => {
   try {
-    const { id } = req.params;
+    const canonicalIntersectionId = parseCanonicalIntersectionId(req.params.id);
+    if (canonicalIntersectionId == null) {
+      return res.status(400).json({ error: "intersection_id must be a number" });
+    }
 
     // Fetch intersection
-    const intResult = await db.query(
-      `SELECT id, name, description,
-              ST_AsGeoJSON(ref_point)::json AS ref_point,
-              region_id, intersection_id, msg_issue_revision, status
-       FROM intersections WHERE id = $1`,
-      [id]
-    );
-    if (intResult.rows.length === 0) {
+    const intersection = await fetchIntersectionByCanonicalId(db, canonicalIntersectionId);
+    if (!intersection) {
       return res.status(404).json({ error: "Intersection not found" });
     }
-    const intersection = intResult.rows[0];
 
     // Fetch lanes
     const lanesResult = await db.query(
       `SELECT id, ST_AsGeoJSON(geometry)::json AS geometry,
               lane_type, phase, name, lane_number, metadata
        FROM lanes WHERE intersection_id = $1 ORDER BY lane_number, id`,
-      [id]
+      [canonicalIntersectionId]
     );
 
     // Fetch crosswalks
@@ -458,7 +500,7 @@ router.post("/:id/confirm", async (req, res) => {
       `SELECT id, ST_AsGeoJSON(geometry)::json AS geometry,
               approach_type, approach_id, name, metadata
        FROM crosswalks WHERE intersection_id = $1 ORDER BY approach_id, id`,
-      [id]
+      [canonicalIntersectionId]
     );
 
     // Fetch lane connections for this intersection
@@ -469,7 +511,7 @@ router.post("/:id/confirm", async (req, res) => {
        JOIN lanes fl ON fl.id = lc.from_lane_id
        JOIN lanes tl ON tl.id = lc.to_lane_id
        WHERE fl.intersection_id = $1`,
-      [id]
+      [canonicalIntersectionId]
     );
 
     // Build lookup: from_lane_id -> array of connection objects
@@ -561,15 +603,15 @@ router.post("/:id/confirm", async (req, res) => {
 
     // Bump revision + set confirmed
     await db.query(
-      `UPDATE intersections SET status = 'confirmed', msg_issue_revision = $1 WHERE id = $2`,
-      [newRevision, id]
+      `UPDATE intersections SET status = 'confirmed', msg_issue_revision = $1 WHERE intersection_id = $2`,
+      [newRevision, canonicalIntersectionId]
     );
 
     // Store export
     await db.query(
       `INSERT INTO map_data_exports (intersection_id, map_data_json, revision)
        VALUES ($1, $2, $3)`,
-      [id, JSON.stringify(mapDataJson), newRevision]
+      [canonicalIntersectionId, JSON.stringify(mapDataJson), newRevision]
     );
 
     res.json({ message: "Intersection confirmed", mapData: mapDataJson });
@@ -582,27 +624,23 @@ router.post("/:id/confirm", async (req, res) => {
 // ─── GET MapData JSON for intersection (generated live) ──────────
 router.get("/:id/mapdata", async (req, res) => {
   try {
-    const { id } = req.params;
+    const canonicalIntersectionId = parseCanonicalIntersectionId(req.params.id);
+    if (canonicalIntersectionId == null) {
+      return res.status(400).json({ error: "intersection_id must be a number" });
+    }
 
     // Fetch intersection
-    const intResult = await db.query(
-      `SELECT id, name, description,
-              ST_AsGeoJSON(ref_point)::json AS ref_point,
-              region_id, intersection_id, msg_issue_revision, status
-       FROM intersections WHERE id = $1`,
-      [id]
-    );
-    if (intResult.rows.length === 0) {
+    const intersection = await fetchIntersectionByCanonicalId(db, canonicalIntersectionId);
+    if (!intersection) {
       return res.status(404).json({ error: "Intersection not found" });
     }
-    const intersection = intResult.rows[0];
 
     // Fetch lanes
     const lanesResult = await db.query(
       `SELECT id, ST_AsGeoJSON(geometry)::json AS geometry,
               lane_type, phase, name, lane_number, metadata
        FROM lanes WHERE intersection_id = $1 ORDER BY lane_number, id`,
-      [id]
+      [canonicalIntersectionId]
     );
 
     // Fetch crosswalks
@@ -610,7 +648,7 @@ router.get("/:id/mapdata", async (req, res) => {
       `SELECT id, ST_AsGeoJSON(geometry)::json AS geometry,
               approach_type, approach_id, name, metadata
        FROM crosswalks WHERE intersection_id = $1 ORDER BY approach_id, id`,
-      [id]
+      [canonicalIntersectionId]
     );
 
     // Fetch lane connections
@@ -621,7 +659,7 @@ router.get("/:id/mapdata", async (req, res) => {
        JOIN lanes fl ON fl.id = lc.from_lane_id
        JOIN lanes tl ON tl.id = lc.to_lane_id
        WHERE fl.intersection_id = $1`,
-      [id]
+      [canonicalIntersectionId]
     );
 
     // Build lookup: from_lane_id -> array of connection objects
@@ -723,7 +761,7 @@ router.post("/import", async (req, res) => {
   let txStarted = false;
 
   try {
-    const { mapData, name, created_by } = req.body;
+    const { mapData, name, created_by, intersection_id } = req.body;
 
     // Parse the MAP message structure
     let mapDataObj = parseMapDataInput(mapData);
@@ -750,7 +788,7 @@ router.post("/import", async (req, res) => {
       return res.status(400).json({ error: "No intersection data found in MAP message" });
     }
 
-    const { refPoint, laneSet, id: intersectionId, revision } = intersectionData;
+    const { refPoint, laneSet, id: mapIntersectionId, revision } = intersectionData;
 
     if (!refPoint || !laneSet) {
       return res.status(400).json({ error: "MAP message must contain refPoint and laneSet" });
@@ -766,10 +804,19 @@ router.post("/import", async (req, res) => {
     };
 
     // Create the intersection
-    const intersectionName = normalizeIntersectionName(name) || `Imported Intersection ${intersectionId?.id || Date.now()}`;
+    const canonicalIntersectionId = parseCanonicalIntersectionId(intersection_id);
+    if (canonicalIntersectionId == null) {
+      return res.status(400).json({ error: "intersection_id is required for MAP import" });
+    }
+
+    const intersectionName = normalizeIntersectionName(name) || `Imported Intersection ${canonicalIntersectionId}`;
     const existingByName = await findIntersectionByName(client, intersectionName);
     if (existingByName) {
       return res.status(409).json({ error: `Intersection name '${intersectionName}' already exists` });
+    }
+    const existingByIntersectionId = await findIntersectionByCanonicalId(client, canonicalIntersectionId);
+    if (existingByIntersectionId) {
+      return res.status(409).json({ error: `Intersection ID '${canonicalIntersectionId}' already exists` });
     }
 
     await client.query("BEGIN");
@@ -778,7 +825,7 @@ router.post("/import", async (req, res) => {
     const intResult = await client.query(
       `INSERT INTO intersections (name, description, ref_point, region_id, intersection_id, msg_issue_revision, status, created_by)
        VALUES ($1, $2, ST_SetSRID(ST_GeomFromGeoJSON($3), 4326), $4, $5, $6, 'draft', $7)
-       RETURNING id, name, description,
+       RETURNING id AS db_id, name, description,
                  ST_AsGeoJSON(ref_point)::json AS ref_point,
                  region_id, intersection_id, msg_issue_revision,
                  status, created_by, created_at, updated_at`,
@@ -786,8 +833,8 @@ router.post("/import", async (req, res) => {
         intersectionName,
         `Imported from MAP message`,
         JSON.stringify(refPointGeoJSON),
-        intersectionId?.region || 0,
-        intersectionId?.id || 0,
+        mapIntersectionId?.region || 0,
+        canonicalIntersectionId,
         revision || 1,
         created_by || null,
       ]
@@ -820,7 +867,7 @@ router.post("/import", async (req, res) => {
              RETURNING id, intersection_id, ST_AsGeoJSON(geometry)::json AS geometry,
                        approach_type, approach_id, name, metadata`,
             [
-              createdIntersection.id,
+              createdIntersection.intersection_id,
               JSON.stringify(polygon),
               "Both",
               deriveApproachIdFromLaneId(laneID),
@@ -849,7 +896,7 @@ router.post("/import", async (req, res) => {
          RETURNING id, ST_AsGeoJSON(geometry)::json AS geometry,
                    lane_type, phase, name, lane_number, metadata`,
         [
-          createdIntersection.id,
+          createdIntersection.intersection_id,
           JSON.stringify(geometry),
           laneTypeDb,
           phase,
@@ -902,7 +949,7 @@ router.post("/import", async (req, res) => {
 
     res.status(201).json({
       message: "MAP message imported successfully",
-      intersection: createdIntersection,
+      intersection: serializeIntersectionRow(createdIntersection),
       lanes: createdLanes,
       crosswalks: createdCrosswalks,
       connections: createdConnections,

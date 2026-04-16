@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const db = require("../../database/postgis");
+const { parseCanonicalIntersectionId } = require("../../utils/intersectionIdentity");
 
 // ─── Delta to Coordinates Conversion ──────────────────────────────
 
@@ -109,12 +110,16 @@ router.get("/", async (req, res) => {
              l.lane_type, l.phase, l.name, l.lane_number, l.metadata,
              l.created_at, l.updated_at
       FROM lanes l
-      JOIN intersections i ON i.id = l.intersection_id
+      JOIN intersections i ON i.intersection_id = l.intersection_id
     `;
     const params = [];
     if (intersection_id) {
+      const canonicalIntersectionId = parseCanonicalIntersectionId(intersection_id);
+      if (canonicalIntersectionId == null) {
+        return res.status(400).json({ error: "intersection_id must be a number" });
+      }
       query += " WHERE l.intersection_id = $1";
-      params.push(intersection_id);
+      params.push(canonicalIntersectionId);
     }
     query += " ORDER BY l.intersection_id, l.lane_number, l.id";
 
@@ -136,7 +141,7 @@ router.get("/:id", async (req, res) => {
               l.lane_type, l.phase, l.name, l.lane_number, l.metadata,
               l.created_at, l.updated_at
        FROM lanes l
-       JOIN intersections i ON i.id = l.intersection_id
+       JOIN intersections i ON i.intersection_id = l.intersection_id
        WHERE l.id = $1`,
       [id]
     );
@@ -179,6 +184,11 @@ router.post("/", async (req, res) => {
       return res.status(400).json({ error: "intersection_id is required" });
     }
 
+    const canonicalIntersectionId = parseCanonicalIntersectionId(intersection_id);
+    if (canonicalIntersectionId == null) {
+      return res.status(400).json({ error: "intersection_id must be a number" });
+    }
+
     if (!geometry && !nodeList) {
       return res.status(400).json({ error: "Either geometry (GeoJSON) or nodeList (delta format) is required" });
     }
@@ -198,8 +208,8 @@ router.post("/", async (req, res) => {
     if (nodeList && !geometry) {
       // Fetch intersection's reference point
       const intResult = await db.query(
-        `SELECT ST_X(ref_point) AS lon, ST_Y(ref_point) AS lat FROM intersections WHERE id = $1`,
-        [intersection_id]
+        `SELECT ST_X(ref_point) AS lon, ST_Y(ref_point) AS lat FROM intersections WHERE intersection_id = $1`,
+        [canonicalIntersectionId]
       );
 
       if (intResult.rows.length === 0) {
@@ -234,7 +244,7 @@ router.post("/", async (req, res) => {
                  lane_type, phase, name, lane_number, metadata,
                  created_at, updated_at`,
       [
-        intersection_id,
+        canonicalIntersectionId,
         JSON.stringify(finalGeometry),
         lane_type || "Vehicle",
         finalPhase || null,
@@ -272,7 +282,7 @@ router.put("/:id", async (req, res) => {
 
       // Fetch intersection's reference point
       const intResult = await db.query(
-        `SELECT ST_X(ref_point) AS lon, ST_Y(ref_point) AS lat FROM intersections WHERE id = $1`,
+        `SELECT ST_X(ref_point) AS lon, ST_Y(ref_point) AS lat FROM intersections WHERE intersection_id = $1`,
         [intersection_id]
       );
 
@@ -344,10 +354,15 @@ router.post("/bulk", async (req, res) => {
       return res.status(400).json({ error: "intersection_id and laneSet array are required" });
     }
 
+    const canonicalIntersectionId = parseCanonicalIntersectionId(intersection_id);
+    if (canonicalIntersectionId == null) {
+      return res.status(400).json({ error: "intersection_id must be a number" });
+    }
+
     // Fetch intersection's reference point
     const intResult = await client.query(
-      `SELECT ST_X(ref_point) AS lon, ST_Y(ref_point) AS lat FROM intersections WHERE id = $1`,
-      [intersection_id]
+      `SELECT ST_X(ref_point) AS lon, ST_Y(ref_point) AS lat FROM intersections WHERE intersection_id = $1`,
+      [canonicalIntersectionId]
     );
 
     if (intResult.rows.length === 0) {
@@ -415,7 +430,7 @@ router.post("/bulk", async (req, res) => {
                    lane_type, phase, name, lane_number, metadata,
                    created_at, updated_at`,
         [
-          intersection_id,
+          canonicalIntersectionId,
           JSON.stringify(geometry),
           laneType,
           phase,
