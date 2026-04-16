@@ -2,11 +2,11 @@ import "mapbox-gl/dist/mapbox-gl.css";
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { fetchSpatZones, createSpatZone, updateSpatZone, deleteSpatZone } from "../../services/spat/spatZones";
 import {
-  fetchPreemptionZoneConfigs,
-  createPreemptionZoneConfig,
-  updatePreemptionZoneConfigById,
-  deletePreemptionZoneConfigById,
-} from "../../services/preemptionZoneConfigs";
+  usePreemption,
+  PreemptionPanel,
+  installPreemptionMapLayers,
+  setPreemptionSourceData,
+} from "../../features/preemption";
 import { Button } from "../ui/shadcn/button";
 import {
   Select,
@@ -199,25 +199,6 @@ function normalizeIntersection(row) {
   };
 }
 
-function makeEmptyPreemptionDraft(defaultSpatZoneId = "") {
-  return {
-    name: "",
-    sourceSpatZoneId: defaultSpatZoneId ? String(defaultSpatZoneId) : "",
-    controllerIp: "",
-    status: "active",
-  };
-}
-
-function draftFromPreemptionConfig(config) {
-  return {
-    name: config?.name || "",
-    sourceSpatZoneId:
-      config?.spatZoneId != null ? String(config.spatZoneId) : "",
-    controllerIp: config?.controllerIp || "",
-    status: config?.status || "active",
-  };
-}
-
 function GeoFencingMap({ editorMode = "intersection" }) {
   // ── Refs ──────────────────────────────────────────────────────
   const mapContainerRef = useRef(null);
@@ -253,7 +234,6 @@ function GeoFencingMap({ editorMode = "intersection" }) {
   const [deleteConfirmTarget, setDeleteConfirmTarget] = useState(null);
 
   // Connection colors
-  const connectionColor = CONNECTION_COLOR;
   const [connectionColors, setConnectionColors] = useState({});
 
   // Toast
@@ -282,15 +262,7 @@ function GeoFencingMap({ editorMode = "intersection" }) {
   const [spatDeleteOpen, setSpatDeleteOpen] = useState(false);
   const [spatManageOpen, setSpatManageOpen] = useState(false);
   const [zoneEditorTab, setZoneEditorTab] = useState("spat");
-  const [preemptionConfigs, setPreemptionConfigs] = useState([]);
-  const [selectedPreemptionConfigId, setSelectedPreemptionConfigId] =
-    useState(null);
-  const [preemptionDraft, setPreemptionDraft] = useState(
-    makeEmptyPreemptionDraft(),
-  );
   const [, setSpatZonesLoadedIntersectionId] = useState(null);
-  const [preemptionConfigsLoadedIntersectionId, setPreemptionConfigsLoadedIntersectionId] =
-    useState(null);
 
   const isIntersectionMode = editorMode === "intersection";
   const isSpatMode = editorMode === "spat";
@@ -302,29 +274,6 @@ function GeoFencingMap({ editorMode = "intersection" }) {
   const zonesForActiveIntersection = activeIntersectionId
     ? spatZones.filter((z) => String(z.intersectionId) === String(activeIntersectionId))
     : [];
-  const preemptionConfigsForActiveIntersection = activeIntersectionId
-    ? preemptionConfigs.filter((config) => (
-        String(config.intersectionId) === String(activeIntersectionId)
-      ))
-    : [];
-  const selectedPreemptionConfig = selectedPreemptionConfigId
-    ? preemptionConfigsForActiveIntersection.find((config) => (
-        String(config.id) === String(selectedPreemptionConfigId)
-      )) || null
-    : null;
-  const selectedPreemptionSourceZone = selectedPreemptionConfig?.spatZoneId != null
-    ? zonesForActiveIntersection.find((z) => (
-        String(z.id) === String(selectedPreemptionConfig.spatZoneId)
-      )) || null
-    : null;
-  const isSelectedPreemptionSourceMissing = Boolean(
-    selectedPreemptionConfig &&
-      preemptionDraft.sourceSpatZoneId &&
-      !selectedPreemptionSourceZone,
-  );
-  const preemptionSourceSelectValue = isSelectedPreemptionSourceMissing
-    ? "missing"
-    : preemptionDraft.sourceSpatZoneId || "none";
 
   // Keep refs in sync for mapbox event handlers
   const drawModeRef = useRef(null);
@@ -335,7 +284,6 @@ function GeoFencingMap({ editorMode = "intersection" }) {
   const spatLanePickModeRef = useRef(false);
   const spatEntryEdgeIdRef = useRef(null);
   const spatExitEdgeIdRef = useRef(null);
-  const selectedPreemptionConfigRef = useRef(null);
 
   useEffect(() => { drawModeRef.current = drawMode; }, [drawMode]);
   useEffect(() => { drawPointsRef.current = drawPoints; }, [drawPoints]);
@@ -345,7 +293,6 @@ function GeoFencingMap({ editorMode = "intersection" }) {
   useEffect(() => { spatLanePickModeRef.current = spatLanePickMode; }, [spatLanePickMode]);
   useEffect(() => { spatEntryEdgeIdRef.current = spatDraft.entryEdgeId; }, [spatDraft.entryEdgeId]);
   useEffect(() => { spatExitEdgeIdRef.current = spatDraft.exitEdgeId; }, [spatDraft.exitEdgeId]);
-  useEffect(() => { selectedPreemptionConfigRef.current = selectedPreemptionConfig; }, [selectedPreemptionConfig]);
 
   useEffect(() => {
     if (isSpatMode) {
@@ -414,28 +361,6 @@ function GeoFencingMap({ editorMode = "intersection" }) {
     }
   }, []);
 
-  const loadPreemptionZoneConfigsForIntersection = useCallback(async (intId) => {
-    try {
-      const configs = await fetchPreemptionZoneConfigs(intId);
-      setPreemptionConfigs(configs);
-      setPreemptionConfigsLoadedIntersectionId(String(intId));
-      setSelectedPreemptionConfigId((prev) => {
-        if (
-          prev != null &&
-          configs.some((config) => String(config.id) === String(prev))
-        ) {
-          return String(prev);
-        }
-        return configs[0]?.id != null ? String(configs[0].id) : null;
-      });
-    } catch (err) {
-      console.error("Failed to load preemption zone configs:", err);
-      setPreemptionConfigs([]);
-      setPreemptionConfigsLoadedIntersectionId(null);
-      setSelectedPreemptionConfigId(null);
-    }
-  }, []);
-
   useEffect(() => {
     loadIntersections();
   }, [loadIntersections]);
@@ -443,24 +368,16 @@ function GeoFencingMap({ editorMode = "intersection" }) {
   useEffect(() => {
     if (activeIntersectionId != null) {
       setSpatZonesLoadedIntersectionId(null);
-      setPreemptionConfigsLoadedIntersectionId(null);
-      setSelectedPreemptionConfigId(null);
-      setPreemptionDraft(makeEmptyPreemptionDraft());
       loadLanes(activeIntersectionId);
       loadCrosswalks(activeIntersectionId);
       loadConnections(activeIntersectionId);
       loadSpatZones(activeIntersectionId);
-      loadPreemptionZoneConfigsForIntersection(activeIntersectionId);
     } else {
       setLanes([]);
       setCrosswalks([]);
       setConnections([]);
       setSpatZones([]);
-      setPreemptionConfigs([]);
       setSpatZonesLoadedIntersectionId(null);
-      setPreemptionConfigsLoadedIntersectionId(null);
-      setSelectedPreemptionConfigId(null);
-      setPreemptionDraft(makeEmptyPreemptionDraft());
     }
   }, [
     activeIntersectionId,
@@ -468,63 +385,17 @@ function GeoFencingMap({ editorMode = "intersection" }) {
     loadCrosswalks,
     loadConnections,
     loadSpatZones,
-    loadPreemptionZoneConfigsForIntersection,
   ]);
 
-  useEffect(() => {
-    if (activeIntersectionId == null || !selectedPreemptionConfigId) return;
-    if (String(preemptionConfigsLoadedIntersectionId) !== String(activeIntersectionId)) return;
-    const configsForIntersection = preemptionConfigs.filter((config) => (
-      String(config.intersectionId) === String(activeIntersectionId)
-    ));
-    const exists = configsForIntersection.some((config) => (
-      String(config.id) === String(selectedPreemptionConfigId)
-    ));
-    if (!exists) {
-      setSelectedPreemptionConfigId(
-        configsForIntersection[0]?.id != null
-          ? String(configsForIntersection[0].id)
-          : null,
-      );
-    }
-  }, [
+  const preemption = usePreemption({
     activeIntersectionId,
-    preemptionConfigs,
-    selectedPreemptionConfigId,
-    preemptionConfigsLoadedIntersectionId,
-  ]);
-
-  useEffect(() => {
-    if (!selectedPreemptionConfig) return;
-    setPreemptionDraft(draftFromPreemptionConfig(selectedPreemptionConfig));
-  }, [selectedPreemptionConfig]);
-
-  useEffect(() => {
-    if (selectedPreemptionConfigId) return;
-    const zonesForIntersection = activeIntersectionId == null
-      ? []
-      : spatZones.filter((zone) => (
-          String(zone.intersectionId) === String(activeIntersectionId)
-        ));
-    const defaultSourceZoneId = zonesForIntersection[0]?.id;
-    setPreemptionDraft((prev) => {
-      const hasCurrentSource =
-        prev.sourceSpatZoneId &&
-        zonesForIntersection.some((zone) => (
-          String(zone.id) === String(prev.sourceSpatZoneId)
-        ));
-
-      if (hasCurrentSource) return prev;
-      if (defaultSourceZoneId == null) {
-        return prev.sourceSpatZoneId ? { ...prev, sourceSpatZoneId: "" } : prev;
-      }
-
-      return {
-        ...prev,
-        sourceSpatZoneId: String(defaultSourceZoneId),
-      };
-    });
-  }, [selectedPreemptionConfigId, activeIntersectionId, spatZones]);
+    spatZones,
+    showMessage,
+  });
+  const {
+    selectedConfig: selectedPreemptionConfig,
+    selectedConfigRef: selectedPreemptionConfigRef,
+  } = preemption;
 
   useEffect(() => {
     const poly = spatDraft.polygon?.coordinates?.[0] || null;
@@ -643,10 +514,6 @@ function GeoFencingMap({ editorMode = "intersection" }) {
         type: "geojson",
         data: { type: "FeatureCollection", features: [] },
       });
-      map.addSource("preemption-zone-src", {
-        type: "geojson",
-        data: { type: "FeatureCollection", features: [] },
-      });
 
       // ── Layers ─────────────────────────────────────
       map.addLayer({
@@ -674,6 +541,21 @@ function GeoFencingMap({ editorMode = "intersection" }) {
         paint: {
           "line-color": ["get", "color"],
           "line-width": 4,
+        },
+        layout: {
+          "line-cap": "round",
+          "line-join": "round",
+        },
+      });
+      // Invisible wide layer used only to expand the click hitbox for lane selection
+      map.addLayer({
+        id: "lanes-line-hitarea",
+        type: "line",
+        source: "lanes-src",
+        paint: {
+          "line-color": "#000000",
+          "line-width": 20,
+          "line-opacity": 0,
         },
         layout: {
           "line-cap": "round",
@@ -811,24 +693,7 @@ function GeoFencingMap({ editorMode = "intersection" }) {
           "line-width": 2,
         },
       });
-      map.addLayer({
-        id: "preemption-zone-fill",
-        type: "fill",
-        source: "preemption-zone-src",
-        paint: {
-          "fill-color": "#F97316",
-          "fill-opacity": 0.2,
-        },
-      });
-      map.addLayer({
-        id: "preemption-zone-outline",
-        type: "line",
-        source: "preemption-zone-src",
-        paint: {
-          "line-color": "#FB923C",
-          "line-width": 3,
-        },
-      });
+      installPreemptionMapLayers(map);
       // Draft zone preview (used when creating/editing a single zone)
       map.addLayer({
         id: "spat-draft-zone-fill",
@@ -1021,7 +886,7 @@ function GeoFencingMap({ editorMode = "intersection" }) {
       });
 
       // Click lanes to select/unselect them for the SPaT zone draft
-      map.on("click", "lanes-line", (e) => {
+      map.on("click", "lanes-line-hitarea", (e) => {
         if (!spatLanePickModeRef.current) return;
         if (drawModeRef.current) return;
         if (spatSelectModeRef.current) return;
@@ -1169,12 +1034,6 @@ function GeoFencingMap({ editorMode = "intersection" }) {
     }
     if (!map.getSource("spat-exit-src")) {
       map.addSource("spat-exit-src", {
-        type: "geojson",
-        data: { type: "FeatureCollection", features: [] },
-      });
-    }
-    if (!map.getSource("preemption-zone-src")) {
-      map.addSource("preemption-zone-src", {
         type: "geojson",
         data: { type: "FeatureCollection", features: [] },
       });
@@ -1336,22 +1195,7 @@ function GeoFencingMap({ editorMode = "intersection" }) {
         paint: { "line-color": "#A78BFA", "line-width": 2 },
       });
     }
-    if (!map.getLayer("preemption-zone-fill")) {
-      map.addLayer({
-        id: "preemption-zone-fill",
-        type: "fill",
-        source: "preemption-zone-src",
-        paint: { "fill-color": "#F97316", "fill-opacity": 0.2 },
-      });
-    }
-    if (!map.getLayer("preemption-zone-outline")) {
-      map.addLayer({
-        id: "preemption-zone-outline",
-        type: "line",
-        source: "preemption-zone-src",
-        paint: { "line-color": "#FB923C", "line-width": 3 },
-      });
-    }
+    installPreemptionMapLayers(map);
     if (!map.getLayer("spat-draft-zone-fill")) {
       map.addLayer({
         id: "spat-draft-zone-fill",
@@ -1555,25 +1399,7 @@ function GeoFencingMap({ editorMode = "intersection" }) {
         });
       const exitSrc = map.getSource("spat-exit-src");
       if (exitSrc) exitSrc.setData({ type: "FeatureCollection", features: exitFeatures });
-      const preemptionZone = selectedPreemptionConfigRef.current;
-      const preemptionFeatures =
-        preemptionZone?.polygon
-          ? [{
-              type: "Feature",
-              geometry: {
-                type: "Polygon",
-                coordinates: [preemptionZone.polygon],
-              },
-              properties: { id: preemptionZone.id, name: preemptionZone.name },
-            },
-          ]
-        : [];
-      const preemptionSrc = map.getSource("preemption-zone-src");
-      if (preemptionSrc)
-        preemptionSrc.setData({
-          type: "FeatureCollection",
-          features: preemptionFeatures,
-        });
+      setPreemptionSourceData(map, selectedPreemptionConfigRef.current);
 
       // Draft preview
       const draftZoneSrc = map.getSource("spat-draft-zone-src");
@@ -1709,25 +1535,7 @@ function GeoFencingMap({ editorMode = "intersection" }) {
       entrySrc.setData({ type: "FeatureCollection", features: entryFeatures });
     const exitSrc = map.getSource("spat-exit-src");
     if (exitSrc) exitSrc.setData({ type: "FeatureCollection", features: exitFeatures });
-    const preemptionZone = selectedPreemptionConfig;
-    const preemptionFeatures =
-      preemptionZone?.polygon
-        ? [{
-            type: "Feature",
-            geometry: {
-              type: "Polygon",
-              coordinates: [preemptionZone.polygon],
-            },
-            properties: { id: preemptionZone.id, name: preemptionZone.name },
-          },
-        ]
-      : [];
-    const preemptionSrc = map.getSource("preemption-zone-src");
-    if (preemptionSrc)
-      preemptionSrc.setData({
-        type: "FeatureCollection",
-        features: preemptionFeatures,
-      });
+    setPreemptionSourceData(map, selectedPreemptionConfig);
 
     // Draft preview (drawn/edited zone)
     const draftZoneSrc = map.getSource("spat-draft-zone-src");
@@ -2213,80 +2021,6 @@ function GeoFencingMap({ editorMode = "intersection" }) {
     setSpatDraft((prev) => ({ ...prev, laneIds: [] }));
   };
 
-  const resetPreemptionDraft = () => {
-    setSelectedPreemptionConfigId(null);
-    setPreemptionDraft(
-      makeEmptyPreemptionDraft(zonesForActiveIntersection[0]?.id ?? ""),
-    );
-  };
-
-  const selectPreemptionConfig = (config) => {
-    setSelectedPreemptionConfigId(String(config.id));
-    setPreemptionDraft(draftFromPreemptionConfig(config));
-  };
-
-  const savePreemptionDraft = async () => {
-    if (activeIntersectionId == null) {
-      showMessage("Select or create an intersection first.", "error");
-      return;
-    }
-
-    if (!preemptionDraft.name.trim()) {
-      showMessage("Enter a preemption zone name first.", "error");
-      return;
-    }
-
-    if (!selectedPreemptionConfigId && !preemptionDraft.sourceSpatZoneId) {
-      showMessage("Choose a SPaT zone to create the preemption zone from.", "error");
-      return;
-    }
-
-    try {
-      if (selectedPreemptionConfigId) {
-        const updated = await updatePreemptionZoneConfigById(
-          selectedPreemptionConfigId,
-          {
-            name: preemptionDraft.name.trim(),
-            controllerIp: preemptionDraft.controllerIp,
-            status: preemptionDraft.status,
-          },
-        );
-        await loadPreemptionZoneConfigsForIntersection(activeIntersectionId);
-        setSelectedPreemptionConfigId(String(updated.id));
-        setPreemptionDraft(draftFromPreemptionConfig(updated));
-        showMessage("Preemption zone updated.");
-        return;
-      }
-
-      const created = await createPreemptionZoneConfig({
-        intersectionId: activeIntersectionId,
-        name: preemptionDraft.name.trim(),
-        sourceSpatZoneId: preemptionDraft.sourceSpatZoneId,
-        controllerIp: preemptionDraft.controllerIp,
-        status: preemptionDraft.status,
-      });
-      await loadPreemptionZoneConfigsForIntersection(activeIntersectionId);
-      setSelectedPreemptionConfigId(String(created.id));
-      setPreemptionDraft(draftFromPreemptionConfig(created));
-      showMessage("Preemption zone saved.");
-    } catch (err) {
-      showMessage(`Error: ${err.message}`, "error");
-    }
-  };
-
-  const deleteSelectedPreemptionConfig = async () => {
-    if (!selectedPreemptionConfigId) return;
-    try {
-      await deletePreemptionZoneConfigById(selectedPreemptionConfigId);
-      if (activeIntersectionId != null) {
-        await loadPreemptionZoneConfigsForIntersection(activeIntersectionId);
-      }
-      resetPreemptionDraft();
-      showMessage("Preemption zone deleted.");
-    } catch (err) {
-      showMessage(`Error: ${err.message}`, "error");
-    }
-  };
 
   const selectSpatEdge = (edge) => {
     const mode = spatSelectModeRef.current;
@@ -2597,9 +2331,9 @@ function GeoFencingMap({ editorMode = "intersection" }) {
           zIndex: 10,
           display: "flex",
           flexDirection: "column",
-          gap: 8,
-          maxWidth: 320,
-          maxHeight: "calc(100vh - 32px)",
+          gap: 10,
+          maxWidth: 370,
+          maxHeight: "calc(100vh - 24px)",
           overflowY: "auto",
           paddingRight: 4,
         }}
@@ -2778,7 +2512,7 @@ function GeoFencingMap({ editorMode = "intersection" }) {
                 </div>
               )}
             </CardHeader>
-            <CardContent className="px-4 pb-3 space-y-3">
+            <CardContent className="px-4 pb-4 space-y-4">
               {effectiveZoneTab === "spat" ? (
                 <>
                   {spatEditingId && (
@@ -3023,261 +2757,15 @@ function GeoFencingMap({ editorMode = "intersection" }) {
                   </div>
                 </>
               ) : (
-                <>
-                  <div className="text-xs text-zinc-400">
-                    Create named preemption zones from saved SPaT zones. The legacy
-                    integration row stays hidden from this page.
-                  </div>
-                  <div>
-                    <label className="text-xs text-zinc-400 mb-1 block">Preemption Name</label>
-                    <Input
-                      value={preemptionDraft.name}
-                      onChange={(e) => setPreemptionDraft((prev) => ({
-                        ...prev,
-                        name: e.target.value,
-                      }))}
-                      placeholder="e.g. MLK Fire Route"
-                      className="bg-zinc-800 border-zinc-700 text-white text-sm h-8"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs text-zinc-400 mb-1 block">
-                      Source SPaT Zone
-                    </label>
-                    <Select
-                      value={preemptionSourceSelectValue}
-                      onValueChange={(value) => {
-                        setPreemptionDraft((prev) => ({
-                          ...prev,
-                          sourceSpatZoneId: value === "none" ? "" : value,
-                        }));
-                      }}
-                      disabled={!zonesForActiveIntersection.length || !!selectedPreemptionConfigId}
-                    >
-                      <SelectTrigger className="bg-zinc-800 border-zinc-600 text-white text-xs h-8">
-                        <SelectValue placeholder="Select a saved SPaT zone..." />
-                      </SelectTrigger>
-                      <SelectContent className="dark bg-zinc-800 border-zinc-600">
-                        <SelectItem value="none" className="text-zinc-300 text-xs">
-                          Select a SPaT zone
-                        </SelectItem>
-                        {isSelectedPreemptionSourceMissing && (
-                          <SelectItem value="missing" className="text-zinc-300 text-xs">
-                            Original SPaT zone unavailable
-                          </SelectItem>
-                        )}
-                        {zonesForActiveIntersection.map((zone) => (
-                          <SelectItem
-                            key={zone.id}
-                            value={String(zone.id)}
-                            className="text-xs text-white"
-                          >
-                            {zone.name} (SG {zone.signalGroup})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {selectedPreemptionConfig && (
-                      <div className="text-[11px] text-zinc-500 mt-1">
-                        Source SPaT zone is locked for existing preemption zones in this phase.
-                      </div>
-                    )}
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="text-xs text-zinc-400 mb-1 block">
-                        Controller IP
-                      </label>
-                      <Input
-                        value={preemptionDraft.controllerIp}
-                        onChange={(e) => setPreemptionDraft((prev) => ({
-                          ...prev,
-                          controllerIp: e.target.value,
-                        }))}
-                        placeholder="Optional"
-                        className="bg-zinc-800 border-zinc-700 text-white text-sm h-8"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs text-zinc-400 mb-1 block">Status</label>
-                      <Select
-                        value={preemptionDraft.status || "active"}
-                        onValueChange={(value) => setPreemptionDraft((prev) => ({
-                          ...prev,
-                          status: value,
-                        }))}
-                      >
-                        <SelectTrigger className="bg-zinc-800 border-zinc-600 text-white text-xs h-8">
-                          <SelectValue placeholder="Select status" />
-                        </SelectTrigger>
-                        <SelectContent className="dark bg-zinc-800 border-zinc-600">
-                          <SelectItem value="active" className="text-white text-xs">
-                            Active
-                          </SelectItem>
-                          <SelectItem value="inactive" className="text-white text-xs">
-                            Inactive
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                  {!zonesForActiveIntersection.length && (
-                    <div className="text-xs text-zinc-500">
-                      No saved SPaT zones for this intersection yet. Create one in the
-                      SPaT page first.
-                    </div>
-                  )}
-                  {selectedPreemptionConfig && (
-                    <div className="rounded border border-orange-500/40 bg-orange-500/10 p-2 space-y-1">
-                      <div className="text-xs text-zinc-300">
-                        Selected zone:{" "}
-                        <span className="text-white font-medium">
-                          {selectedPreemptionConfig.name}
-                        </span>
-                      </div>
-                      <div className="text-xs text-zinc-400">
-                        From SPaT:{" "}
-                        {selectedPreemptionConfig.spatZoneName ||
-                          selectedPreemptionSourceZone?.name ||
-                          "—"}
-                      </div>
-                      <div className="text-xs text-zinc-400">
-                        SG {selectedPreemptionConfig.signalGroup} • Lanes{" "}
-                        {Array.isArray(selectedPreemptionConfig.laneIds) &&
-                        selectedPreemptionConfig.laneIds.length
-                          ? selectedPreemptionConfig.laneIds.join(", ")
-                          : "—"}
-                      </div>
-                    </div>
-                  )}
-                  <div className="grid grid-cols-2 gap-2">
-                    <Button
-                      size="sm"
-                      className="text-xs h-8 bg-orange-600 hover:bg-orange-700 text-white"
-                      onClick={savePreemptionDraft}
-                      disabled={!zonesForActiveIntersection.length && !selectedPreemptionConfigId}
-                    >
-                      {selectedPreemptionConfig ? "Save Changes" : "Create Zone"}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="text-xs h-8 bg-zinc-800 text-white border border-zinc-600 hover:bg-zinc-700"
-                      onClick={resetPreemptionDraft}
-                    >
-                      {selectedPreemptionConfig ? "New Zone" : "Reset"}
-                    </Button>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-8 text-xs text-white border bg-zinc-800 border-zinc-600 hover:bg-zinc-700"
-                      onClick={() => setSpatManageOpen(true)}
-                      disabled={!zonesForActiveIntersection.length}
-                    >
-                      Browse SPaT Zones
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="text-xs h-8 bg-red-600/10 text-red-400 border-red-500/30 hover:bg-red-600/20"
-                      onClick={deleteSelectedPreemptionConfig}
-                      disabled={!selectedPreemptionConfig}
-                    >
-                      Delete Selected
-                    </Button>
-                  </div>
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="text-xs text-zinc-400">Saved preemption zones</div>
-                      <div className="text-xs text-zinc-500">
-                        {preemptionConfigsForActiveIntersection.length}
-                      </div>
-                    </div>
-                    {preemptionConfigsForActiveIntersection.length ? (
-                      <div className="space-y-2 max-h-44 overflow-y-auto pr-1">
-                        {preemptionConfigsForActiveIntersection.map((config) => {
-                          const isSelected =
-                            String(config.id) === String(selectedPreemptionConfigId);
-                          return (
-                            <button
-                              key={config.id}
-                              type="button"
-                              onClick={() => selectPreemptionConfig(config)}
-                              className={`w-full rounded border px-3 py-2 text-left transition ${
-                                isSelected
-                                  ? "border-orange-500/60 bg-orange-500/15"
-                                  : "border-zinc-700 bg-zinc-800/80 hover:bg-zinc-800"
-                              }`}
-                            >
-                              <div className="flex items-center justify-between gap-2">
-                                <div className="text-xs font-medium text-white truncate">
-                                  {config.name}
-                                </div>
-                                <Badge
-                                  className={
-                                    config.status === "inactive"
-                                      ? "bg-zinc-700 text-zinc-200 border-zinc-600 text-[10px]"
-                                      : "bg-orange-500/15 text-orange-200 border-orange-500/30 text-[10px]"
-                                  }
-                                >
-                                  {config.status || "active"}
-                                </Badge>
-                              </div>
-                              <div className="text-[11px] text-zinc-400 mt-1">
-                                {config.spatZoneName || "SPaT source"} • SG{" "}
-                                {config.signalGroup ?? "—"} • Lanes{" "}
-                                {Array.isArray(config.laneIds) && config.laneIds.length
-                                  ? config.laneIds.join(", ")
-                                  : "—"}
-                              </div>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <div className="text-xs text-zinc-500">
-                        No named preemption zones saved for this intersection yet.
-                      </div>
-                    )}
-                  </div>
-                  <div className="text-xs text-zinc-500">
-                    The selected preemption zone is highlighted on the map in
-                    orange.
-                  </div>
-                </>
+                <PreemptionPanel
+                  preemption={preemption}
+                  onBrowseSpatZones={() => setSpatManageOpen(true)}
+                />
               )}
             </CardContent>
           </Card>
         )}
 
-        {/* Legend */}
-        <Card className="dark bg-zinc-900/95 border-zinc-700 backdrop-blur">
-          <CardHeader className="px-4 pt-3 pb-1">
-            <CardTitle className="text-xs text-zinc-400">Legend</CardTitle>
-          </CardHeader>
-          <CardContent className="px-4 pb-3">
-            <div className="grid grid-cols-2 gap-1 text-xs">
-              {Object.entries(LANE_COLORS).map(([name, color]) => (
-                <div key={name} className="flex items-center gap-1.5">
-                  <div
-                    className="w-3 h-1 rounded-full"
-                    style={{ backgroundColor: color }}
-                  />
-                  <span className="text-zinc-300">{name}</span>
-                </div>
-              ))}
-              <div className="flex items-center gap-1.5">
-                <div
-                  className="w-3 h-1 rounded-full"
-                  style={{ backgroundColor: connectionColor }}
-                />
-                <span className="text-zinc-300">Connection</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
       </div>
 
       {/* ── New Intersection Dialog ────────────────────────────── */}
