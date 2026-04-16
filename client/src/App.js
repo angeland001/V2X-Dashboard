@@ -1,5 +1,5 @@
 import React from "react";
-import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
+import { BrowserRouter as Router, Route, Routes, Navigate } from "react-router-dom";
 import { SettingsProvider } from "./contexts/SettingsContext";
 import Login from "./auth/Login";
 import DashboardLayout from "./components/navigation/SidebarNav";
@@ -86,14 +86,6 @@ export default function App() {
               }
             />
             <Route
-              path="/data-layers"
-              element={
-                <DashboardLayout>
-                  <DataLayersMap />
-                </DashboardLayout>
-              }
-            />
-            <Route
               path="/sdsm-events"
               element={
                 <DashboardLayout>
@@ -105,6 +97,5 @@ export default function App() {
           </Routes>
         </Router>
       </SettingsProvider>
-    </Provider>
   );
 }

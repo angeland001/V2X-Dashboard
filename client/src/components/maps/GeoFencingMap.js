@@ -1,6 +1,6 @@
 import "mapbox-gl/dist/mapbox-gl.css";
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { fetchSpatZones, createSpatZone, updateSpatZone, deleteSpatZone } from "../../services/spatZones";
+import { fetchSpatZones, createSpatZone, updateSpatZone, deleteSpatZone } from "../../services/spat/spatZones";
 import {
   fetchPreemptionZoneConfigs,
   createPreemptionZoneConfig,
