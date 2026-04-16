@@ -3,7 +3,7 @@ import keplerGlReducer from "@kepler.gl/reducers";
 import { createStore, combineReducers, applyMiddleware } from "redux";
 import { taskMiddleware } from "react-palm/tasks";
 import { Provider } from "react-redux";
-import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
+import { BrowserRouter as Router, Navigate, Route, Routes } from "react-router-dom";
 import { SettingsProvider } from "./contexts/SettingsContext";
 import Login from "./auth/Login";
 import DashboardLayout from "./components/navigation/SidebarNav";
@@ -79,7 +79,31 @@ export default function App() {
               path="/geofencing"
               element={
                 <DashboardLayout>
-                  <GeoFencingMap />
+                  <Navigate to="/geofencing/intersection" replace />
+                </DashboardLayout>
+              }
+            />
+            <Route
+              path="/geofencing/intersection"
+              element={
+                <DashboardLayout>
+                  <GeoFencingMap editorMode="intersection" />
+                </DashboardLayout>
+              }
+            />
+            <Route
+              path="/geofencing/spat-zone"
+              element={
+                <DashboardLayout>
+                  <GeoFencingMap editorMode="spat" />
+                </DashboardLayout>
+              }
+            />
+            <Route
+              path="/geofencing/preemption"
+              element={
+                <DashboardLayout>
+                  <GeoFencingMap editorMode="preemption" />
                 </DashboardLayout>
               }
             />

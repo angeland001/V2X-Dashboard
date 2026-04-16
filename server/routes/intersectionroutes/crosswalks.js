@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const db = require("../../database/postgis");
+const { parseCanonicalIntersectionId } = require("../../utils/intersectionIdentity");
 
 // ─── GET all crosswalks (optionally filtered by intersection_id) ─
 router.get("/", async (req, res) => {
@@ -12,12 +13,16 @@ router.get("/", async (req, res) => {
              c.approach_type, c.approach_id, c.name, c.metadata,
              c.created_at, c.updated_at
       FROM crosswalks c
-      JOIN intersections i ON i.id = c.intersection_id
+      JOIN intersections i ON i.intersection_id = c.intersection_id
     `;
     const params = [];
     if (intersection_id) {
+      const canonicalIntersectionId = parseCanonicalIntersectionId(intersection_id);
+      if (canonicalIntersectionId == null) {
+        return res.status(400).json({ error: "intersection_id must be a number" });
+      }
       query += " WHERE c.intersection_id = $1";
-      params.push(intersection_id);
+      params.push(canonicalIntersectionId);
     }
     query += " ORDER BY c.intersection_id, c.approach_id, c.id";
 
@@ -39,7 +44,7 @@ router.get("/:id", async (req, res) => {
               c.approach_type, c.approach_id, c.name, c.metadata,
               c.created_at, c.updated_at
        FROM crosswalks c
-       JOIN intersections i ON i.id = c.intersection_id
+       JOIN intersections i ON i.intersection_id = c.intersection_id
        WHERE c.id = $1`,
       [id]
     );
@@ -62,6 +67,11 @@ router.post("/", async (req, res) => {
       return res.status(400).json({ error: "intersection_id and geometry (GeoJSON Polygon) are required" });
     }
 
+    const canonicalIntersectionId = parseCanonicalIntersectionId(intersection_id);
+    if (canonicalIntersectionId == null) {
+      return res.status(400).json({ error: "intersection_id must be a number" });
+    }
+
     const result = await db.query(
       `INSERT INTO crosswalks (intersection_id, geometry, approach_type, approach_id, name, metadata)
        VALUES ($1, ST_SetSRID(ST_GeomFromGeoJSON($2), 4326), $3, $4, $5, $6)
@@ -70,7 +80,7 @@ router.post("/", async (req, res) => {
                  approach_type, approach_id, name, metadata,
                  created_at, updated_at`,
       [
-        intersection_id,
+        canonicalIntersectionId,
         JSON.stringify(geometry),
         approach_type || "Both",
         approach_id || null,

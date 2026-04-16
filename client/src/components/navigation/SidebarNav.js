@@ -58,6 +58,7 @@ function AppSidebar() {
   const [user, setUser] = useState(null);
 
   const isActive = (path) => location.pathname === path;
+  const isMapEditorRoute = location.pathname.startsWith("/geofencing");
 
   // Load user data from localStorage
   useEffect(() => {
@@ -134,16 +135,45 @@ function AppSidebar() {
                 </SidebarMenuButton>
               </SidebarMenuItem>
 
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  onClick={() => navigate("/geofencing")}
-                  isActive={isActive("/geofencing")}
-                  tooltip="Map Editor"
-                >
-                  <MapPin className="h-4 w-4" />
-                  <span className="normal-case">Map Editor</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
+              <Collapsible defaultOpen={isMapEditorRoute} className="group/collapsible">
+                <SidebarMenuItem>
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton tooltip="Map Editor" isActive={isMapEditorRoute}>
+                      <MapPin className="h-4 w-4" />
+                      <span className="normal-case">Map Editor</span>
+                      <ChevronDown className="ml-auto h-4 w-4 transition-transform group-data-[state=open]/collapsible:rotate-180" />
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <SidebarMenuSub>
+                      <SidebarMenuSubItem>
+                        <SidebarMenuSubButton
+                          onClick={() => navigate("/geofencing/intersection")}
+                          isActive={isActive("/geofencing/intersection")}
+                        >
+                          <span className="normal-case">Create Intersection</span>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                      <SidebarMenuSubItem>
+                        <SidebarMenuSubButton
+                          onClick={() => navigate("/geofencing/spat-zone")}
+                          isActive={isActive("/geofencing/spat-zone")}
+                        >
+                          <span className="normal-case">Create SPaT Zone</span>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                      <SidebarMenuSubItem>
+                        <SidebarMenuSubButton
+                          onClick={() => navigate("/geofencing/preemption")}
+                          isActive={isActive("/geofencing/preemption")}
+                        >
+                          <span className="normal-case">Create Preemption</span>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                    </SidebarMenuSub>
+                  </CollapsibleContent>
+                </SidebarMenuItem>
+              </Collapsible>
 
               {/* V2X Config with Submenu */}
               <Collapsible defaultOpen className="group/collapsible">
