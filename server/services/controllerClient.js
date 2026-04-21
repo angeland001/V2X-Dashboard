@@ -37,29 +37,73 @@ try {
 
 // ── NTCIP 1202 Object Identifiers ────────────────────────────────────────────
 // Canonical OIDs from NTCIP 1202 v02.19 (NEMA).
-// Append ".N" where N is the phase/signal-group number (1-indexed).
+//
+// OID anatomy (example: 1.3.6.1.4.1.1206.4.2.1.6.2.1.16.2):
+//   1.3.6.1.4.1.1206   = NTCIP enterprise tree
+//   .4.2.1             = NTCIP 1202 actuated signal controller objects
+//   .6                 = preempt group
+//   .6.2               = preemptTable
+//   .6.2.1             = preemptEntry (row structure)
+//   .6.2.1.16          = column 16 = preemptState
+//   .6.2.1.16.2        = preemptState for Preempt channel 2
+//
+// For table OIDs below: append "." + N (1-indexed channel/phase number).
 // Vendor-specific OIDs are defined inside the per-adapter sections below.
 const OID = {
+  // ── Phase table (NTCIP 1202 §4 / object group 1) ─────────────────────────
+  // Append ".N" for phase N.
   // Phase current state bitmask — see PHASE_BIT below for decode
-  // HINT: GET this.OID.phaseStatus + "." + signalGroup to read one phase
-  phaseStatus:           "1.3.6.1.4.1.1206.4.2.1.1.4.1.3",
+  phaseStatus:              "1.3.6.1.4.1.1206.4.2.1.1.4.1.3",
 
-  // Timing parameters — all values in tenths of a second, divide by 10 for seconds
-  phaseMinGreen:         "1.3.6.1.4.1.1206.4.2.1.1.4.1.6",
-  phaseMaxGreen:         "1.3.6.1.4.1.1206.4.2.1.1.4.1.7",
-  phaseWalk:             "1.3.6.1.4.1.1206.4.2.1.1.4.1.10",
-  phasePedestrianClear:  "1.3.6.1.4.1.1206.4.2.1.1.4.1.11",
-  phaseYellowChange:     "1.3.6.1.4.1.1206.4.2.1.1.4.1.12",
-  phaseRedClearance:     "1.3.6.1.4.1.1206.4.2.1.1.4.1.13",
+  // Phase timing — all raw values in tenths of a second; divide by 10 for seconds
+  phaseMinGreen:            "1.3.6.1.4.1.1206.4.2.1.1.4.1.6",
+  phaseMaxGreen:            "1.3.6.1.4.1.1206.4.2.1.1.4.1.7",
+  phaseWalk:                "1.3.6.1.4.1.1206.4.2.1.1.4.1.10",
+  phasePedestrianClear:     "1.3.6.1.4.1.1206.4.2.1.1.4.1.11",
+  phaseYellowChange:        "1.3.6.1.4.1.1206.4.2.1.1.4.1.12",
+  phaseRedClearance:        "1.3.6.1.4.1.1206.4.2.1.1.4.1.13",
 
-  // Preemption — unitPreemptState is read-only bitmask of active inputs;
-  // unitPreemptInput is writable — SET the bit for the desired input to assert
-  // HINT: bit N-1 corresponds to preemption input N (input 1 = bit 0)
-  unitPreemptState:      "1.3.6.1.4.1.1206.4.2.1.1.1.1.11",
-  unitPreemptInput:      "1.3.6.1.4.1.1206.4.2.1.1.1.1.12",
+  // ── Unit-level preemption (NTCIP 1202 §3 / object group 1 — legacy) ──────
+  // These are bitmask registers: bit N-1 = preempt input N.
+  // Prefer the preemptTable OIDs below for per-channel control on modern firmware.
+  unitPreemptState:         "1.3.6.1.4.1.1206.4.2.1.1.1.1.11",  // read-only
+  unitPreemptInput:         "1.3.6.1.4.1.1206.4.2.1.1.1.1.12",  // writable bitmask
 
-  // Controller identification string (same as sysDescr)
-  controllerType:        "1.3.6.1.2.1.1.1.0",
+  // ── Preempt group (NTCIP 1202 §6) — preferred per-channel interface ───────
+
+  // Scalar: total number of preemption channels this controller supports
+  maxPreempts:              "1.3.6.1.4.1.1206.4.2.1.6.1.0",
+
+  // preemptTable (§6.2) — status and timing for each preempt channel.
+  // Append ".N" for preempt channel N.
+  // Column 16: preemptState — read-only current status (see PREEMPT_STATE below)
+  preemptState:             "1.3.6.1.4.1.1206.4.2.1.6.2.1.16",
+
+  // Timing columns — raw values in tenths of a second; divide by 10 for seconds
+  // Column 3: delay before preempt phase begins after input asserted
+  preemptDelay:             "1.3.6.1.4.1.1206.4.2.1.6.2.1.3",
+  // Column 4: minimum green time on the preemption approach phase
+  preemptMinGreen:          "1.3.6.1.4.1.1206.4.2.1.6.2.1.4",
+  // Column 5: minimum total time the controller must stay in preempt service
+  preemptMinDuration:       "1.3.6.1.4.1.1206.4.2.1.6.2.1.5",
+  // Column 6: maximum time in preempt before automatic return to normal
+  preemptMaxOut:            "1.3.6.1.4.1.1206.4.2.1.6.2.1.6",
+  // Column 7: pedestrian walk interval during preempt service
+  preemptPedWalk:           "1.3.6.1.4.1.1206.4.2.1.6.2.1.7",
+  // Column 8: pedestrian clearance (flashing don't walk) during preempt service
+  preemptPedClear:          "1.3.6.1.4.1.1206.4.2.1.6.2.1.8",
+  // Column 9: yellow change interval at preempt exit
+  preemptYellow:            "1.3.6.1.4.1.1206.4.2.1.6.2.1.9",
+  // Column 10: red clearance interval at preempt exit
+  preemptRed:               "1.3.6.1.4.1.1206.4.2.1.6.2.1.10",
+
+  // preemptControl table (§6.3) — write commands to a specific preempt channel.
+  // Append ".N" for preempt channel N.
+  // Column 2: preemptControlState — writable (see PREEMPT_CONTROL below)
+  preemptControlState:      "1.3.6.1.4.1.1206.4.2.1.6.3.1.2",
+
+  // ── Controller identification ─────────────────────────────────────────────
+  controllerType:           "1.3.6.1.2.1.1.1.0",
 };
 
 // Phase status bitmask constants (NTCIP 1202 Table 4-11)
@@ -74,6 +118,22 @@ const PHASE_BIT = {
   RED_CLEAR:  0x20,
   RED:        0x40,
   NEXT:       0x80,  // phase next-in-sequence
+};
+
+// preemptState column 16 values (NTCIP 1202 §6.2, preemptEntry)
+// Read from OID.preemptState + "." + preemptNum
+const PREEMPT_STATE = {
+  INACTIVE:               1,  // preempt input not asserted
+  PREEMPTING:             2,  // preempt phase in service
+  LINKED_PREEMPT_WAITING: 3,  // waiting for a linked higher-priority preempt to finish
+};
+
+// preemptControlState column 2 values (NTCIP 1202 §6.3, preemptControlEntry)
+// Write to OID.preemptControlState + "." + preemptNum
+const PREEMPT_CONTROL = {
+  INACTIVE:  1,  // no active command; controller returns to normal
+  FORCE_ON:  2,  // assert preemption for this channel
+  FORCE_OFF: 3,  // clear / cancel active preemption for this channel
 };
 
 // ── SNMP Session Factory ──────────────────────────────────────────────────────
@@ -137,6 +197,27 @@ class StubAdapter {
     // TODO: set _preemptActive = false, return { cleared: true, source: "stub" }
   }
 
+  async getMaxPreempts() {
+    // TODO: return { maxPreempts: 8, source: "stub" }
+  }
+
+  async getPreemptChannelStatus(preemptNum) {
+    // TODO: return {
+    //   preemptNum,
+    //   state: PREEMPT_STATE.INACTIVE,
+    //   stateLabel: "INACTIVE",
+    //   source: "stub",
+    // }
+    // When _preemptActive is true and preemptNum === 1, use PREEMPT_STATE.PREEMPTING
+  }
+
+  async getPreemptChannelTimings(preemptNum) {
+    // TODO: return realistic stub timing values matching the preemptTable columns:
+    // { preemptNum, delay_s, minGreen_s, minDuration_s, maxOut_s,
+    //   pedWalk_s, pedClear_s, yellow_s, red_s, source: "stub" }
+    // Use MUTCD-compliant defaults (pedWalk=7, pedClear=11, yellow=4, red=2)
+  }
+
   close() {}
 }
 
@@ -170,16 +251,42 @@ class Ntcip1202Adapter {
   async getPreemptionStatus() {
     // HINT: GET OID.unitPreemptState (scalar, no instance suffix)
     // Decode bits 0–7 as preemption inputs 1–8
+    // For per-channel detail, prefer getPreemptChannelStatus(preemptNum) below
   }
 
   async sendPreemptionCall(signalGroup, options = {}) {
-    // HINT: read current unitPreemptInput value, OR in the bit for signalGroup,
-    // then SET unitPreemptInput to the new value (type = snmp.ObjectType.Integer)
-    // bit index = signalGroup - 1
+    // Preferred path: SET OID.preemptControlState + "." + signalGroup
+    //   to PREEMPT_CONTROL.FORCE_ON (type = snmp.ObjectType.Integer)
+    // Legacy fallback: read unitPreemptInput, OR in bit (signalGroup - 1),
+    //   SET unitPreemptInput — only if preemptControlState SET fails (SNMP noSuchObject)
   }
 
   async clearPreemptionCall(signalGroup) {
-    // HINT: same as sendPreemptionCall but AND with the inverted bit mask (~inputBit)
+    // Preferred path: SET OID.preemptControlState + "." + signalGroup
+    //   to PREEMPT_CONTROL.FORCE_OFF (type = snmp.ObjectType.Integer)
+    // Legacy fallback: read unitPreemptInput, AND with ~(1 << (signalGroup - 1)),
+    //   SET unitPreemptInput — only if preemptControlState SET fails
+  }
+
+  async getMaxPreempts() {
+    // HINT: GET OID.maxPreempts (scalar — already has the ".0" suffix)
+    // Return { maxPreempts: number, source: "ntcip1202" }
+  }
+
+  async getPreemptChannelStatus(preemptNum) {
+    // HINT: GET OID.preemptState + "." + preemptNum
+    // Map raw integer to PREEMPT_STATE key for the stateLabel field
+    // Return { preemptNum, state: raw, stateLabel, source: "ntcip1202" }
+  }
+
+  async getPreemptChannelTimings(preemptNum) {
+    // HINT: fetch all 8 timing columns in one snmpGet call:
+    //   [preemptDelay, preemptMinGreen, preemptMinDuration, preemptMaxOut,
+    //    preemptPedWalk, preemptPedClear, preemptYellow, preemptRed]
+    //   each appended with "." + preemptNum
+    // All raw values are tenths-of-second; divide by 10 before returning
+    // Return { preemptNum, delay_s, minGreen_s, minDuration_s, maxOut_s,
+    //          pedWalk_s, pedClear_s, yellow_s, red_s, source: "ntcip1202" }
   }
 
   close() {
@@ -292,4 +399,4 @@ const ControllerClientFactory = {
   },
 };
 
-module.exports = { ControllerClientFactory, OID, PHASE_BIT };
+module.exports = { ControllerClientFactory, OID, PHASE_BIT, PREEMPT_STATE, PREEMPT_CONTROL };
