@@ -8,6 +8,7 @@ import {
   Shield,
   HelpCircle,
   ChevronRight,
+  Radio,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -41,6 +42,12 @@ const settingsNav = [
     description: 'Protect your data and privacy',
     icon: Shield,
     href: '/dashboard/settings/security',
+  },
+  {
+    label: 'Controller Configuration',
+    description: 'NTCIP adapters, timing constraints, preemption',
+    icon: Radio,
+    href: '/dashboard/settings/controllers',
   },
   {
     label: 'Support & Help',

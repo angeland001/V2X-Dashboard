@@ -19,6 +19,8 @@ const laneConnectionRoutes = require("./routes/intersectionroutes/lane_connectio
 const spatZoneRoutes = require("./routes/spat_zones"); // adjust path if needed
 const preemptionZoneRoutes = require("./routes/preemption_zones"); // adjust path if needed
 const preemptionZoneConfigsRoutes = require("./routes/preemption_zone_configs_plural"); // adjust path if needed
+const controllerRoutes            = require("./routes/api/controllers");
+const preemptionCommandRoutes     = require("./routes/api/preemption_commands");
 
 const db = require("./database/postgis");
 const sdsmPoller = require("./services/sdsmPoller");
@@ -46,6 +48,8 @@ app.use("/api/lane-connections", laneConnectionRoutes);
 app.use("/api/spat-zones", spatZoneRoutes);
 app.use("/api/preemption-zones", preemptionZoneRoutes);
 app.use("/api/preemption-zone-configs", preemptionZoneConfigsRoutes);
+app.use("/api/controllers", controllerRoutes);
+app.use("/api/preemption-commands", preemptionCommandRoutes);
 
 // Health check endpoint
 app.get("/health", (req, res) => {
@@ -85,7 +89,7 @@ app.listen(PORT, () => {
   );
   console.log(`SPaT Zones API: http://localhost:${PORT}/api/spat-zones`);
   console.log(`Preemption Zones API: http://localhost:${PORT}/api/preemption-zones`);
-  console.log(
-    `Preemption Zone Configs API: http://localhost:${PORT}/api/preemption-zone-configs`,
-  );
+  console.log(`Preemption Zone Configs API: http://localhost:${PORT}/api/preemption-zone-configs`);
+  console.log(`Controllers API: http://localhost:${PORT}/api/controllers`);
+  console.log(`Preemption Commands API: http://localhost:${PORT}/api/preemption-commands`);
 });

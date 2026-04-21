@@ -19,6 +19,7 @@ import { UserProfiles } from "./components/dashboard/pages/settings/pages/UserPr
 import { DataAnalytics } from "./components/dashboard/pages/settings/pages/DataAnalytics";
 import { SecurityPrivacy } from "./components/dashboard/pages/settings/pages/Security&Privacy";
 import { Support } from "./components/dashboard/pages/settings/pages/Support";
+import { ControllerConfig } from "./components/dashboard/pages/settings/pages/ControllerConfig";
 
 export default function App() {
   return (
@@ -50,6 +51,7 @@ export default function App() {
               <Route path="data" element={<DataAnalytics />} />
               <Route path="security" element={<SecurityPrivacy />} />
               <Route path="support" element={<Support />} />
+              <Route path="controllers" element={<ControllerConfig />} />
             </Route>
           </Route>
 
