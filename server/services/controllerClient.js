@@ -32,6 +32,7 @@ try {
   snmp = require("net-snmp");
 } catch {
   // net-snmp not installed; all adapters will use StubAdapter
+  console.error("[ControllerClient] net-snmp not found; using stub adapters");
 }
 
 // ── NTCIP 1202 Object Identifiers ────────────────────────────────────────────
