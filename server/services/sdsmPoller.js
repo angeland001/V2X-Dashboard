@@ -97,11 +97,7 @@ async function pollOnce() {
   for (const intersection of INTERSECTIONS) {
     try {
       const inserted = await ingestIntersection(intersection);
-      if (inserted > 0) {
-        console.log(
-          `[SDSM Poller] ${intersection}: ingested ${inserted} new events`,
-        );
-      }
+      
     } catch (err) {
       console.error(`[SDSM Poller] ${intersection}: ${err.message}`);
     }

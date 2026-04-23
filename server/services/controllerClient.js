@@ -26,14 +26,7 @@
  * Install: cd server && npm install net-snmp
  */
 
-// Attempt to load net-snmp; fall back gracefully to stub mode
-let snmp = null;
-try {
-  snmp = require("net-snmp");
-} catch {
-  // net-snmp not installed; all adapters will use StubAdapter
-  console.error("[ControllerClient] net-snmp not found; using stub adapters");
-}
+const snmp = require("net-snmp");
 
 // ── NTCIP 1202 Object Identifiers ────────────────────────────────────────────
 // Canonical OIDs from NTCIP 1202 v02.19 (NEMA).
@@ -139,9 +132,19 @@ const PREEMPT_CONTROL = {
 // ── SNMP Session Factory ──────────────────────────────────────────────────────
 
 function buildSnmpSession(adapter) {
+  // Adapter row (Each row of controller_adapters table) has: { ip_address, snmp_port, snmp_community, timeout_seconds }
   // HINT: snmp.Version2c is the right version for NTCIP 1202 deployments
   // snmp.createSession(host, community, options) returns a session object
   // TODO: implement using net-snmp session options from the adapter row
+  const ip = adapter.ip_address;
+  const community = adapter.snmp_community || "public";
+  const snmp_port = adapter.snmp_port || 161;
+  const timeout = (adapter.timeout_seconds || 5) * 1000;  // convert to ms
+  const retryCount = adapter.retry_count || 2;
+
+  return snmp.createSession(ip, community);
+
+ 
 }
 
 // ── Promisified SNMP wrappers ─────────────────────────────────────────────────
@@ -152,73 +155,33 @@ function buildSnmpSession(adapter) {
 
 function snmpGet(session, oids) {
   // TODO: wrap session.get in a Promise, resolve with { oid: value } map
+  return new Promise((resolve, reject) => {
+    session.get(oids, (err, varbinds) => {
+      if (err) {
+        console.log("SNMP GET error:", err);
+        reject(err);
+      } else {
+        const result = {};
+        varbinds.forEach(varbind => {
+          if (snmp.isVarbindError(varbind)) {
+            reject(snmp.varbindError(varbind));
+            return;
+          }
+          result[varbind.oid] = varbind.value;
+        });
+        resolve(result);
+      }
+    });
+  });
 }
 
 function snmpSet(session, varbinds) {
-  // TODO: wrap session.set in a Promise
-}
-
-// ── Stub Adapter ──────────────────────────────────────────────────────────────
-// Returns hardcoded realistic data.  All methods must match the real adapter API.
-// The factory returns this when net-snmp is unavailable or IP is unreachable.
-
-class StubAdapter {
-  constructor(adapter) {
-    this._adapter = adapter;
-    this._preemptActive = false;
-  }
-
-  async probe() {
-    // TODO: return { controllerType: "STUB/...", supported: [...OID keys] }
-  }
-
-  async getPhaseStatus(signalGroup) {
-    // TODO: return an object shaped like the real adapter result:
-    // { signalGroup, raw, walk, pedClear, minGreen, green, yellow, redClear, red, label, source }
-    // label should be one of: "WALK" | "PED_CLEAR" | "GREEN" | "YELLOW" | "RED"
-  }
-
-  async getTimingParameters(signalGroup) {
-    // TODO: return { signalGroup, minGreen_s, maxGreen_s, walk_s, pedClear_s,
-    //                yellowChange_s, redClearance_s, source }
-    // Use realistic MUTCD-compliant defaults (walk=7, pedClear=11, yellow=4, allRed=2)
-  }
-
-  async getPreemptionStatus() {
-    // TODO: return { activeInputs: [], raw: 0, source: "stub" }
-    // When _preemptActive is true, include input 1 in activeInputs
-  }
-
-  async sendPreemptionCall(signalGroup, _options = {}) {
-    // TODO: set _preemptActive = true, log the call, return { sent: true, source: "stub" }
-  }
-
-  async clearPreemptionCall(signalGroup) {
-    // TODO: set _preemptActive = false, return { cleared: true, source: "stub" }
-  }
-
-  async getMaxPreempts() {
-    // TODO: return { maxPreempts: 8, source: "stub" }
-  }
-
-  async getPreemptChannelStatus(preemptNum) {
-    // TODO: return {
-    //   preemptNum,
-    //   state: PREEMPT_STATE.INACTIVE,
-    //   stateLabel: "INACTIVE",
-    //   source: "stub",
-    // }
-    // When _preemptActive is true and preemptNum === 1, use PREEMPT_STATE.PREEMPTING
-  }
-
-  async getPreemptChannelTimings(preemptNum) {
-    // TODO: return realistic stub timing values matching the preemptTable columns:
-    // { preemptNum, delay_s, minGreen_s, minDuration_s, maxOut_s,
-    //   pedWalk_s, pedClear_s, yellow_s, red_s, source: "stub" }
-    // Use MUTCD-compliant defaults (pedWalk=7, pedClear=11, yellow=4, red=2)
-  }
-
-  close() {}
+  return new Promise((resolve, reject) => {
+    session.set(varbinds, (err) => {
+      if (err) return reject(err);
+      resolve();
+    });
+  });
 }
 
 // ── Base NTCIP 1202 Adapter ───────────────────────────────────────────────────
@@ -235,6 +198,7 @@ class Ntcip1202Adapter {
   async probe() {
     // HINT: GET OID.controllerType (no instance suffix — it's a scalar)
     // Return { controllerType: string, supported: Object.keys(OID) }
+    
   }
 
   async getPhaseStatus(signalGroup) {
@@ -365,19 +329,8 @@ const ControllerClientFactory = {
    * @returns {Ntcip1202Adapter|StubAdapter}
    */
   forAdapter(adapterRow) {
-    if (!snmp) {
-      console.warn("[ControllerClient] net-snmp unavailable — using stub");
-      return new StubAdapter(adapterRow);
-    }
-
     const AdapterClass = ADAPTER_MAP[adapterRow.adapter_type] ?? Ntcip1202Adapter;
-
-    try {
-      return new AdapterClass(adapterRow);
-    } catch (err) {
-      console.warn(`[ControllerClient] Init failed (${err.message}) — using stub`);
-      return new StubAdapter(adapterRow);
-    }
+    return new AdapterClass(adapterRow);
   },
 
   /**
