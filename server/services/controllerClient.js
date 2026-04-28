@@ -20,8 +20,6 @@
  *   generic_snmp     — Fallback: NTCIP 1202 with no extensions
  *
  * SNMP communication uses the `net-snmp` npm package.
- * If it's not installed, the factory silently returns a StubAdapter
- * that returns realistic fake data so the UI works without hardware.
  *
  * Install: cd server && npm install net-snmp
  */
@@ -198,6 +196,18 @@ class Ntcip1202Adapter {
   async probe() {
     // HINT: GET OID.controllerType (no instance suffix — it's a scalar)
     // Return { controllerType: string, supported: Object.keys(OID) }
+    const result = await snmpGet(this._session, [OID.controllerType]);
+    // OID.controllerType is already "1.3.6.1.2.1.1.1.0" - Scalar no instance suffix needed.
+
+    const rawValue = result[ OID.controllerType]
+    // net-snmp returns a buffer for OctetString; convert to a readable string
+    const controllerType = rawValue.toString();
+
+    return {
+      controllerType: controllerType,   // Example: "Siemens M60", "Econolite Cobalt", "Generic SNMP Controller"
+      supported: Object.keys(OID),      // list of all OID keys this adapter knows
+    }
+
     
   }
 
@@ -205,56 +215,230 @@ class Ntcip1202Adapter {
     // HINT: instance OID = OID.phaseStatus + "." + signalGroup
     // Decode the bitmask using PHASE_BIT constants
     // Derive a human label: WALK > PED_CLEAR > GREEN > YELLOW > RED
+    const oid = OID.phaseStatus + "." + signalGroup;
+    const result = await snmpGet(this._session, [oid]);
+    const raw = result[oid];
+
+    const flags = {
+      walk: !!(raw & PHASE_BIT.WALK),
+      pedClear: !!(raw & PHASE_BIT.PED_CLEAR),
+      minGreen: !!(raw & PHASE_BIT.MIN_GREEN),
+      green: !!(raw & PHASE_BIT.GREEN),
+      yellow: !!(raw & PHASE_BIT.YELLOW),
+      redClear: !!(raw & PHASE_BIT.RED_CLEAR),
+      red: !!(raw & PHASE_BIT.RED),
+      next: !!(raw & PHASE_BIT.NEXT),
+    }
+
+    let label = "";
+    switch (true) {
+      case flags.walk:
+        label = "WALK";
+        break;
+      case flags.pedClear:
+        label = "PED_CLEAR";
+        break;
+      case flags.green:
+        label = "GREEN";
+        break;
+      case flags.yellow:
+        label = "YELLOW";
+        break;
+      default:
+        label = "RED";
+    }
+
+    return {
+      signalGroup,
+      raw,
+      flags,
+      label, 
+    }
+
   }
 
+  // Purpose: Reads all 6 timing intervals for a specific signal phase from the controller in a single SNMP round-trip. 
+  // These values define how long each light interval lasts (green, yellow, walk, etc.) and are used to validate timing plans or display configuration in the UI
   async getTimingParameters(signalGroup) {
     // HINT: fetch all 6 phase timing OIDs with one snmpGet call (array of instance OIDs)
+
+    const oids = [
+      OID.phaseMinGreen + "." + signalGroup,
+      OID.phaseMaxGreen + "." + signalGroup,
+      OID.phaseWalk + "." + signalGroup,
+      OID.phasePedestrianClear + "." + signalGroup,
+      OID.phaseYellowChange + "." + signalGroup,
+      OID.phaseRedClearance + "." + signalGroup,
+    ];
+
+    // One network call fetches all 6 at once
+    const result = await snmpGet(this._session, oids);
+
     // All raw values are tenths-of-second; divide by 10 before returning
+    return {
+      signalGroup,
+      minGreen_s: result[oids[0]] / 10,
+      maxGreen_s: result[oids[1]] / 10,
+      walk_s: result[oids[2]] / 10,
+      pedClear_s: result[oids[3]] / 10,
+      yellowChange_s: result[oids[4]] / 10,
+      redClearance_s: result[oids[5]] / 10,
+    }
   }
 
   async getPreemptionStatus() {
     // HINT: GET OID.unitPreemptState (scalar, no instance suffix)
     // Decode bits 0–7 as preemption inputs 1–8
     // For per-channel detail, prefer getPreemptChannelStatus(preemptNum) below
-  }
+      const result = await snmpGet(this._session, [OID.unitPreemptState]);
+      const raw = result[OID.unitPreemptState]; //integer bitmask, bits 0-7
 
+      // Bit N-1 corresponds to preempt input N (1-indexed)
+      const inputs = {};
+      for (let n = 1; n <= 8; n++) {
+        inputs[n] = !!(raw & (1 << (n - 1)));
+      }
+      return {
+        raw,
+        inputs,
+        active: Object.keys(inputs)
+          .filter((n) => inputs[n])
+          .map(Number),
+      };
+
+  }
+  // Asserts a preemption request on a specific signal channel — this is what you call to give a train/emergency vehicle a green light. 
+  // It tries the modern per-channel NTCIP command first, then falls back to the older bitmask register for controllers with outdated
+  // firmware.        
   async sendPreemptionCall(signalGroup, options = {}) {
     // Preferred path: SET OID.preemptControlState + "." + signalGroup
     //   to PREEMPT_CONTROL.FORCE_ON (type = snmp.ObjectType.Integer)
     // Legacy fallback: read unitPreemptInput, OR in bit (signalGroup - 1),
     //   SET unitPreemptInput — only if preemptControlState SET fails (SNMP noSuchObject)
+
+    const controlOid = OID.preemptControlState + "." + signalGroup;
+    try {
+      //preferred path - modern NTCIP 1202 6.3 per channel command
+      await snmpSet(this._session, [{
+        oid: controlOid,
+        type: snmp.ObjectType.Integer,
+        value: PREEMPT_CONTROL.FORCE_ON // = 2
+      }])
+    }
+    catch (err){
+      //// Legacy fallback — only if controller doesn't support preemptControlState
+      // (older firmware returns noSuchObject for that OID)
+
+      // Read current bitmask
+      const result = await snmpGet(this._session, [OID.unitPreemptInput]);
+      const current = result[OID.unitPreemptInput];
+
+      // Or in the bit for this channel (bit N-1 for channel N)
+      const updated = current | (1 << (signalGroup - 1))
+
+      // write the updated bitmask back to the controller to trigger the preempt`
+      await snmpSet(this._session, [{
+        oid: OID.unitPreemptInput,
+        type: snmp.ObjectType.Integer,
+        value: updated
+      }])
+
+    }  
   }
 
   async clearPreemptionCall(signalGroup) {
-    // Preferred path: SET OID.preemptControlState + "." + signalGroup
-    //   to PREEMPT_CONTROL.FORCE_OFF (type = snmp.ObjectType.Integer)
-    // Legacy fallback: read unitPreemptInput, AND with ~(1 << (signalGroup - 1)),
-    //   SET unitPreemptInput — only if preemptControlState SET fails
+    // Mirror of sendPreemptionCall — cancels an active preempt request on this channel.
+    // Same two-path strategy: modern per-channel command first, bitmask fallback second.
+    const controlOid = OID.preemptControlState + "." + signalGroup;
+    try {
+      // Preferred path — tell the controller to exit preempt on this channel
+      await snmpSet(this._session, [{
+        oid:   controlOid,
+        type:  snmp.ObjectType.Integer,
+        value: PREEMPT_CONTROL.FORCE_OFF,  // = 3
+      }]);
+    } catch (err) {
+      // Legacy fallback — read the bitmask, clear only this channel's bit, write back
+      const result = await snmpGet(this._session, [OID.unitPreemptInput]);
+      const current = result[OID.unitPreemptInput];
+
+      // AND with the bitwise complement to zero out only bit (signalGroup - 1)
+      const updated = current & ~(1 << (signalGroup - 1));
+
+      await snmpSet(this._session, [{
+        oid:   OID.unitPreemptInput,
+        type:  snmp.ObjectType.Integer,
+        value: updated,
+      }]);
+    }
   }
 
   async getMaxPreempts() {
-    // HINT: GET OID.maxPreempts (scalar — already has the ".0" suffix)
-    // Return { maxPreempts: number, source: "ntcip1202" }
+    // Queries how many preemption channels this controller supports.
+    // Used at startup to know the valid range for preemptNum (1 to maxPreempts).
+    // OID.maxPreempts already has the ".0" scalar suffix — no instance append needed.
+    const result = await snmpGet(this._session, [OID.maxPreempts]);
+    return {
+      maxPreempts: result[OID.maxPreempts],
+      source: "ntcip1202",
+    };
   }
 
   async getPreemptChannelStatus(preemptNum) {
-    // HINT: GET OID.preemptState + "." + preemptNum
-    // Map raw integer to PREEMPT_STATE key for the stateLabel field
-    // Return { preemptNum, state: raw, stateLabel, source: "ntcip1202" }
+    // Returns the live status of a single preemption channel.
+    // More precise than getPreemptionStatus() which only gives a unit-level bitmask.
+    const oid = OID.preemptState + "." + preemptNum;
+    const result = await snmpGet(this._session, [oid]);
+    const raw = result[oid];
+
+    // Reverse-lookup the PREEMPT_STATE key by matching the raw integer value
+    const stateLabel = Object.keys(PREEMPT_STATE).find(
+      (key) => PREEMPT_STATE[key] === raw
+    ) ?? "UNKNOWN";
+
+    return {
+      preemptNum,
+      state: raw,
+      stateLabel,   // "INACTIVE" | "PREEMPTING" | "LINKED_PREEMPT_WAITING"
+      source: "ntcip1202",
+    };
   }
 
   async getPreemptChannelTimings(preemptNum) {
-    // HINT: fetch all 8 timing columns in one snmpGet call:
-    //   [preemptDelay, preemptMinGreen, preemptMinDuration, preemptMaxOut,
-    //    preemptPedWalk, preemptPedClear, preemptYellow, preemptRed]
-    //   each appended with "." + preemptNum
-    // All raw values are tenths-of-second; divide by 10 before returning
-    // Return { preemptNum, delay_s, minGreen_s, minDuration_s, maxOut_s,
-    //          pedWalk_s, pedClear_s, yellow_s, red_s, source: "ntcip1202" }
+    // Reads all 8 timing parameters for a preemption channel in one SNMP round-trip.
+    // Used to display or validate preempt timing plans in the UI.
+    const oids = [
+      OID.preemptDelay       + "." + preemptNum,
+      OID.preemptMinGreen    + "." + preemptNum,
+      OID.preemptMinDuration + "." + preemptNum,
+      OID.preemptMaxOut      + "." + preemptNum,
+      OID.preemptPedWalk     + "." + preemptNum,
+      OID.preemptPedClear    + "." + preemptNum,
+      OID.preemptYellow      + "." + preemptNum,
+      OID.preemptRed         + "." + preemptNum,
+    ];
+
+    const result = await snmpGet(this._session, oids);
+
+    // All raw values are tenths-of-second; divide by 10 to return seconds
+    return {
+      preemptNum,
+      delay_s:       result[oids[0]] / 10,
+      minGreen_s:    result[oids[1]] / 10,
+      minDuration_s: result[oids[2]] / 10,
+      maxOut_s:      result[oids[3]] / 10,
+      pedWalk_s:     result[oids[4]] / 10,
+      pedClear_s:    result[oids[5]] / 10,
+      yellow_s:      result[oids[6]] / 10,
+      red_s:         result[oids[7]] / 10,
+      source: "ntcip1202",
+    };
   }
 
   close() {
-    // TODO: call this._session.close() if session exists
+    // Frees the underlying SNMP UDP socket — call when done with this adapter
+    // to avoid dangling open handles that block process exit.
+    if (this._session) this._session.close();
   }
 }
 
@@ -275,19 +459,54 @@ const SIEMENS_OID = {
 
 class SiemensM60Adapter extends Ntcip1202Adapter {
   async getPhaseStatus(signalGroup) {
-    // TODO: try snmpGet on SIEMENS_OID.sepacActivePhase;
-    //       activePhase === signalGroup means GREEN
-    //       on catch, fall back to super.getPhaseStatus(signalGroup)
+    // SEPAC exposes a single "active phase" scalar rather than a bitmask table.
+    // If this OID isn't present (non-SEPAC M60), fall back to the standard NTCIP path.
+    try {
+      const result = await snmpGet(this._session, [SIEMENS_OID.sepacActivePhase]);
+      const activePhase = result[SIEMENS_OID.sepacActivePhase];
+
+      // SEPAC tells us exactly which phase is green; everything else is red.
+      const isGreen = activePhase === signalGroup;
+      return {
+        signalGroup,
+        raw: activePhase,
+        flags: { green: isGreen, red: !isGreen },
+        label: isGreen ? "GREEN" : "RED",
+        source: "siemens_sepac",
+      };
+    } catch (err) {
+      return super.getPhaseStatus(signalGroup);
+    }
   }
 
   async sendPreemptionCall(signalGroup, options = {}) {
-    // TODO: SET SIEMENS_OID.sepacPreemptRequest to signalGroup (integer)
-    //       on catch, fall back to super.sendPreemptionCall(...)
+    // SEPAC uses a single integer register: write the channel number to request preempt.
+    // On failure (OID absent), fall back to the standard NTCIP two-path logic.
+    try {
+      await snmpSet(this._session, [{
+        oid:   SIEMENS_OID.sepacPreemptRequest,
+        type:  snmp.ObjectType.Integer,
+        value: signalGroup,
+      }]);
+    } catch (err) {
+      return super.sendPreemptionCall(signalGroup, options);
+    }
   }
 
   async getPreemptionStatus() {
-    // TODO: GET SIEMENS_OID.sepacPreemptStatus; raw > 0 means active
-    //       on catch, fall back to super.getPreemptionStatus()
+    // SEPAC status register returns the active channel number, or 0 if none.
+    // On failure fall back to the standard NTCIP bitmask approach.
+    try {
+      const result = await snmpGet(this._session, [SIEMENS_OID.sepacPreemptStatus]);
+      const raw = result[SIEMENS_OID.sepacPreemptStatus];
+      return {
+        raw,
+        active: raw > 0 ? [raw] : [],   // SEPAC only supports one active preempt at a time
+        source: "siemens_sepac",
+      };
+    } catch (err) {
+      return super.getPreemptionStatus();
+    }
   }
 }
 
@@ -302,8 +521,18 @@ const ECONOLITE_OID = {
 
 class EconoliteAriesAdapter extends Ntcip1202Adapter {
   async sendPreemptionCall(signalGroup, options = {}) {
-    // TODO: SET ECONOLITE_OID.preemptInput to signalGroup (integer)
-    //       on catch, fall back to super.sendPreemptionCall(...)
+    // Econolite ARIES/Cobalt uses a proprietary preempt input register instead of
+    // the NTCIP preemptControlState table — write the channel number directly to it.
+    // On failure, fall back to the standard NTCIP two-path logic.
+    try {
+      await snmpSet(this._session, [{
+        oid:   ECONOLITE_OID.preemptInput,
+        type:  snmp.ObjectType.Integer,
+        value: signalGroup,
+      }]);
+    } catch (err) {
+      return super.sendPreemptionCall(signalGroup, options);
+    }
   }
 }
 
