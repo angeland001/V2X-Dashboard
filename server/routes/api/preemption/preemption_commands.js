@@ -29,13 +29,13 @@
 
 const express = require("express");
 const router  = express.Router();
-const db      = require("../../database/postgis");
-const { ControllerClientFactory } = require("../../services/controllerClient");
+const db      = require("../../../database/postgis");
+const { ControllerClientFactory } = require("../../../services/controllerClient");
 const {
   PreemptionValidator,
   loadTimingConstraints,
   loadAdapterForZoneConfig,
-} = require("../../services/preemptionValidator");
+} = require("../../../services/preemptionValidator");
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 

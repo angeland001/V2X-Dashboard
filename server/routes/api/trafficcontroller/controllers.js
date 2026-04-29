@@ -21,9 +21,9 @@
 
 const express = require("express");
 const router  = express.Router();
-const db      = require("../../database/postgis");
-const { parseCanonicalIntersectionId } = require("../../utils/intersectionIdentity");
-const { ControllerClientFactory }      = require("../../services/controllerClient");
+const db      = require("../../../database/postgis");
+const { parseCanonicalIntersectionId } = require("../../../utils/intersectionIdentity");
+const { ControllerClientFactory }      = require("../../../services/controllerClient");
 
 // ── Validation helpers ────────────────────────────────────────────────────────
 

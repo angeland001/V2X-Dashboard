@@ -14,69 +14,155 @@ const API_URL = process.env.REACT_APP_API_URL || "http://localhost:3001";
 // ── Normalisers ───────────────────────────────────────────────────────────────
 
 function normalizeAdapter(row) {
-  
-  // Keys to map:
-  //   id, intersection_id → intersectionId, intersection_name → intersectionName,
-  //   label, ip_address → ipAddress, snmp_port → snmpPort,
-  //   snmp_community → snmpCommunity, adapter_type → adapterType,
-  //   firmware_version → firmwareVersion, supported_oids → supportedOids,
-  //   timeout_seconds → timeoutSeconds, retry_count → retryCount,
-  //   connection_status → connectionStatus, last_seen_at → lastSeenAt,
-  //   created_at → createdAt, updated_at → updatedAt
   return {
     id: row.id,
     intersectionId: row.intersection_id,
     intersectionName: row.intersection_name,
     label: row.label,
     ipAddress: row.ip_address,
-
-  }
-
+    snmpPort: row.snmp_port,
+    snmpCommunity: row.snmp_community,
+    adapterType: row.adapter_type,
+    firmwareVersion: row.firmware_version,
+    supportedOids: row.supported_oids,
+    timeoutSeconds: row.timeout_seconds,
+    retryCount: row.retry_count,
+    connectionStatus: row.connection_status,
+    lastSeenAt: row.last_seen_at,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
 }
 
 function normalizeTimingConstraints(row) {
-  // TODO: map all snake_case fields to camelCase
-  // Keys to map:
-  //   id, preemption_zone_config_id → preemptionZoneConfigId,
-  //   min_green_before_preempt_s → minGreenBeforePreemptS,
-  //   ped_walk_interval_s → pedWalkIntervalS,
-  //   ped_clearance_interval_s → pedClearanceIntervalS,
-  //   yellow_change_interval_s → yellowChangeIntervalS,
-  //   all_red_clearance_s → allRedClearanceS,
-  //   preempt_green_hold_s → preemptGreenHoldS,
-  //   max_preempt_duration_s → maxPreemptDurationS,
-  //   min_call_interval_s → minCallIntervalS,
-  //   created_at → createdAt, updated_at → updatedAt
+  return {
+    id: row.id,
+    preemptionZoneConfigId: row.preemption_zone_config_id,
+    minGreenBeforePreemptS: row.min_green_before_preempt_s,
+    pedWalkIntervalS: row.ped_walk_interval_s,
+    pedClearanceIntervalS: row.ped_clearance_interval_s,
+    yellowChangeIntervalS: row.yellow_change_interval_s,
+    allRedClearanceS: row.all_red_clearance_s,
+    preemptGreenHoldS: row.preempt_green_hold_s,
+    maxPreemptDurationS: row.max_preempt_duration_s,
+    minCallIntervalS: row.min_call_interval_s,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
 }
 
 function normalizeCommandLog(row) {
-  // TODO: map snake_case to camelCase
-  // Keys to map:
-  //   id, preemption_zone_config_id → preemptionZoneConfigId,
-  //   controller_adapter_id → controllerAdapterId,
-  //   triggered_by → triggeredBy, user_id → userId,
-  //   status, validator_result → validatorResult,
-  //   raw_command → rawCommand, raw_response → rawResponse,
-  //   error_message → errorMessage,
-  //   requested_at → requestedAt, sent_at → sentAt, confirmed_at → confirmedAt
+  return {
+    id: row.id,
+    preemptionZoneConfigId: row.preemption_zone_config_id,
+    controllerAdapterId: row.controller_adapter_id,
+    triggeredBy: row.triggered_by,
+    userId: row.user_id,
+    status: row.status,
+    validatorResult: row.validator_result,
+    rawCommand: row.raw_command,
+    rawResponse: row.raw_response,
+    errorMessage: row.error_message,
+    requestedAt: row.requested_at,
+    sentAt: row.sent_at,
+    confirmedAt: row.confirmed_at,
+  };
 }
 
 function normalizePhaseStatus(row) {
-  // TODO: row is already camelCase-ish from the server but normalise for safety
-  // Expected keys: signalGroup, raw, walk, pedClear, minGreen, green,
-  //                yellow, redClear, red, label, source
+  if (!row) return null;
+  return {
+    signalGroup: row.signalGroup ?? null,
+    raw: row.raw ?? null,
+    walk: Boolean(row.walk),
+    pedClear: Boolean(row.pedClear),
+    minGreen: Boolean(row.minGreen),
+    green: Boolean(row.green),
+    yellow: Boolean(row.yellow),
+    redClear: Boolean(row.redClear),
+    red: Boolean(row.red),
+    label: row.label ?? null,
+    source: row.source ?? null,
+  };
 }
 
 // ── Request body builders ─────────────────────────────────────────────────────
 
-function buildAdapterBody(payload) {
-  // TODO: convert camelCase payload keys back to snake_case for the API
-  // Only include keys that are actually present in the payload (use `in` check)
-  // HINT: follow the same withValue / body pattern from preemptionZoneConfigs.js
+function toFiniteNumberOrNull(value) {
+  if (value == null || value === "") return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
 }
 
+function withValue(body, key, value) {
+  if (value !== undefined) {
+    body[key] = value;
+  }
+}
+
+function buildAdapterBody(payload) {
+  var body = {};
+
+  withValue(body, "label", payload?.label);
+
+  if (payload?.ipAddress !== undefined) {
+    withValue(body, "ip_address", payload.ipAddress == null ? null : String(payload.ipAddress).trim());
+  }
+  if (payload?.intersectionId !== undefined) {
+    withValue(body, "intersection_id", toFiniteNumberOrNull(payload.intersectionId));
+  }
+  if (payload?.snmpPort !== undefined) {
+    withValue(body, "snmp_port", toFiniteNumberOrNull(payload.snmpPort));
+  }
+  if (payload?.timeoutSeconds !== undefined) {
+    withValue(body, "timeout_seconds", toFiniteNumberOrNull(payload.timeoutSeconds));
+  }
+  if (payload?.retryCount !== undefined) {
+    withValue(body, "retry_count", toFiniteNumberOrNull(payload.retryCount));
+  }
+
+  withValue(body, "snmp_community", payload?.snmpCommunity);
+  withValue(body, "adapter_type", payload?.adapterType);
+  withValue(body, "firmware_version", payload?.firmwareVersion);
+  withValue(body, "supported_oids", payload?.supportedOids);
+
+  return body;
+}
+
+// Converts camelCase timing constraint fields back to snake_case for POST/PUT bodies.
+// Only includes keys present in the payload so partial updates don't overwrite unset fields.
 function buildTimingConstraintsBody(payload) {
-  // TODO: convert camelCase timing constraint fields to snake_case
+  var body = {};
+
+  if (payload?.preemptionZoneConfigId !== undefined) {
+    withValue(body, "preemption_zone_config_id", toFiniteNumberOrNull(payload.preemptionZoneConfigId));
+  }
+  if (payload?.minGreenBeforePreemptS !== undefined) {
+    withValue(body, "min_green_before_preempt_s", toFiniteNumberOrNull(payload.minGreenBeforePreemptS));
+  }
+  if (payload?.pedWalkIntervalS !== undefined) {
+    withValue(body, "ped_walk_interval_s", toFiniteNumberOrNull(payload.pedWalkIntervalS));
+  }
+  if (payload?.pedClearanceIntervalS !== undefined) {
+    withValue(body, "ped_clearance_interval_s", toFiniteNumberOrNull(payload.pedClearanceIntervalS));
+  }
+  if (payload?.yellowChangeIntervalS !== undefined) {
+    withValue(body, "yellow_change_interval_s", toFiniteNumberOrNull(payload.yellowChangeIntervalS));
+  }
+  if (payload?.allRedClearanceS !== undefined) {
+    withValue(body, "all_red_clearance_s", toFiniteNumberOrNull(payload.allRedClearanceS));
+  }
+  if (payload?.preemptGreenHoldS !== undefined) {
+    withValue(body, "preempt_green_hold_s", toFiniteNumberOrNull(payload.preemptGreenHoldS));
+  }
+  if (payload?.maxPreemptDurationS !== undefined) {
+    withValue(body, "max_preempt_duration_s", toFiniteNumberOrNull(payload.maxPreemptDurationS));
+  }
+  if (payload?.minCallIntervalS !== undefined) {
+    withValue(body, "min_call_interval_s", toFiniteNumberOrNull(payload.minCallIntervalS));
+  }
+
+  return body;
 }
 
 // ── Controller Adapter CRUD ───────────────────────────────────────────────────
@@ -194,8 +280,7 @@ export async function fetchLiveTimingParameters(adapterId, signalGroup) {
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || `Timing read failed (${res.status})`);
 
-  // TODO: normalise the response (all values already in seconds from server)
-  return data;
+  return normalizeTimingConstraints(data);
 }
 
 // ── Timing Constraints CRUD ───────────────────────────────────────────────────
