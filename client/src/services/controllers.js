@@ -14,7 +14,7 @@ const API_URL = process.env.REACT_APP_API_URL || "http://localhost:3001";
 // ── Normalisers ───────────────────────────────────────────────────────────────
 
 function normalizeAdapter(row) {
-  // TODO: map snake_case fields to camelCase
+  
   // Keys to map:
   //   id, intersection_id → intersectionId, intersection_name → intersectionName,
   //   label, ip_address → ipAddress, snmp_port → snmpPort,
@@ -23,6 +23,15 @@ function normalizeAdapter(row) {
   //   timeout_seconds → timeoutSeconds, retry_count → retryCount,
   //   connection_status → connectionStatus, last_seen_at → lastSeenAt,
   //   created_at → createdAt, updated_at → updatedAt
+  return {
+    id: row.id,
+    intersectionId: row.intersection_id,
+    intersectionName: row.intersection_name,
+    label: row.label,
+    ipAddress: row.ip_address,
+
+  }
+
 }
 
 function normalizeTimingConstraints(row) {
