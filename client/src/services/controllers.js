@@ -9,6 +9,8 @@
  *   - buildAdapterBody / buildCommandBody convert frontend payloads back to snake_case
  */
 
+import { toFiniteNumberOrNull, withValue } from "../lib/utils";
+
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:3001";
 
 // ── Normalisers ───────────────────────────────────────────────────────────────
@@ -87,18 +89,6 @@ function normalizePhaseStatus(row) {
 }
 
 // ── Request body builders ─────────────────────────────────────────────────────
-
-function toFiniteNumberOrNull(value) {
-  if (value == null || value === "") return null;
-  const n = Number(value);
-  return Number.isFinite(n) ? n : null;
-}
-
-function withValue(body, key, value) {
-  if (value !== undefined) {
-    body[key] = value;
-  }
-}
 
 function buildAdapterBody(payload) {
   var body = {};
