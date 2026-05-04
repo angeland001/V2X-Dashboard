@@ -140,19 +140,20 @@ function buildSnmpSession(adapter) {
   const timeout = (adapter.timeout_seconds || 5) * 1000;  // convert to ms
   const retryCount = adapter.retry_count || 2;
 
-  return snmp.createSession(ip, community);
-
- 
+  return snmp.createSession(ip, community, {
+    port: snmp_port,
+    timeout,
+    retries: retryCount,
+    version: snmp.Version2c,
+  });
 }
 
-// ── Promisified SNMP wrappers ─────────────────────────────────────────────────
-// HINT: net-snmp uses callbacks; wrap them in Promises for async/await usage.
+// ── Promisified SNMP wrappers ────────────────────────────────────────────────
 // session.get(oids, callback(err, varbinds)) — varbinds is an array of { oid, value }
 // session.set(varbinds, callback(err))       — each varbind needs { oid, type, value }
 // Use snmp.isVarbindError(vb) to check for per-OID errors in the get response
 
 function snmpGet(session, oids) {
-  // TODO: wrap session.get in a Promise, resolve with { oid: value } map
   return new Promise((resolve, reject) => {
     session.get(oids, (err, varbinds) => {
       if (err) {

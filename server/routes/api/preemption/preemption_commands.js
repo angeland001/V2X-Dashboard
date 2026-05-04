@@ -37,13 +37,6 @@ const {
   loadAdapterForZoneConfig,
 } = require("../../../services/preemptionValidator");
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function parseId(value) {
-  const n = Number(value);
-  return Number.isInteger(n) && n > 0 ? n : null;
-}
-
 /**
  * Load the full zone config row (with signal_group and controller_ip) by id.
  * @param {number} zoneConfigId
@@ -52,6 +45,15 @@ function parseId(value) {
 async function loadZoneConfig(zoneConfigId) {
   // TODO: SELECT id, intersection_id, name, signal_group, controller_ip, status
   //       FROM preemption_zone_configs WHERE id = $1 LIMIT 1
+  let response;
+  try {
+    // ... return the row as an object, or null if not found
+    response = await db.query('SELECT id, intersection_id, name, signal_group, controller_ip, status FROM preemption_zone_configs WHERE id = $1 LIMIT 1', [zoneConfigId]);
+  } catch (err) {
+    console.error("DB error loading zone config:", err);
+    throw new Error("Database error");
+  }
+  return response.rows[0] ?? null;
 }
 
 /**
@@ -62,6 +64,15 @@ async function loadZoneConfig(zoneConfigId) {
  */
 async function createLogEntry(fields) {
   // TODO: INSERT INTO preemption_command_log (...) VALUES (...) RETURNING id
+  let response;
+  try {
+    response = await db.query('INSERT INTO preemption_command_log (preemption_zone_config_id, controller_adapter_id, triggered_by, user_id, status, validator_result, raw_response, requested_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id',
+      [fields.preemption_zone_config_id, fields.controller_adapter_id, fields.triggered_by, fields.user_id, fields.status, fields.validator_result, fields.raw_response, fields.requested_at]);
+  } catch (err) {
+    console.error("DB error creating log entry:", err);
+    throw new Error("Database error");
+  }
+  return response.rows[0] ?? null;
 }
 
 /**
@@ -71,8 +82,30 @@ async function createLogEntry(fields) {
  *                            sent_at, confirmed_at }
  */
 async function updateLogEntry(logId, updates) {
-  // HINT: build a dynamic SET clause — only include keys that are present in updates
-  // TODO: UPDATE preemption_command_log SET ... WHERE id = $N
+  
+  // Example: calling updateLogEntry(42, { status: 'done', completed_at: new Date() }) produces:                                                                                    
+  // UPDATE preemption_command_log SET status = $1, completed_at = $2 WHERE id = $3                                                                                                 
+  //-- values: ['done', <Date>, 42]             
+  const keys = Object.keys(updates);
+  if (keys.length === 0) return; // nothing to update
+
+  // Build: ["col1 = $1", "col2 = $2", ...]
+  const setClauses = keys.map((key,i) => `${key} = $${i + 1}`);
+  const values = keys.map(k => updates[k]);
+
+  // logId goes in as the last param ($N)
+  values.push(logId);
+  const whereParam = `$${values.length}`;
+
+  const sql = `UPDATE preemption_command_command_log SET ${setClauses.join(',')} WHERE id = ${whereParam}`;
+  let response;
+  try {
+    response = await db.query(sql, values);
+  } catch {
+    console.error("DB error updating log entry:", err);
+    throw new Error("Database error");
+  }
+  return response;
 }
 
 // ── POST /api/preemption-commands ─────────────────────────────────────────────
@@ -80,7 +113,21 @@ router.post("/", async (req, res) => {
   // Full preemption command flow:
   //
   // 1. Parse & validate request body (preemption_zone_config_id required)
+  const preemptionZoneConfigId = parseId(req.body.preemption_zone_config_id);
+  if (!preemptionZoneConfigId) {
+    return res.status(400).json({ error: "Invalid preemption_zone_config_id" });
+  }
+
   // 2. Load zone config — 404 if not found; 400 if status !== 'active'
+  const zoneConfig = await loadZoneConfig(preemptionZoneConfigId);
+  if (!zoneConfig) {
+    return res.status(404).json({ error: "Preemption zone config not found"});
+  } 
+  if (zoneConfig.status !== 'active') {
+    return res.status(400).json({error: "Preemption zone is not active"});
+  }
+
+  
   // 3. Load controller adapter for this zone (via controller_ip join)
   //    If no adapter row exists, fall back to ControllerClientFactory.forIp(controller_ip)
   //    so the system still works for zones with a raw IP but no adapter record yet
@@ -104,6 +151,9 @@ router.post("/", async (req, res) => {
   // Always call client.close() in a finally block.
   //
   // TODO: implement
+
+
+
 });
 
 // ── POST /api/preemption-commands/:logId/clear ────────────────────────────────
