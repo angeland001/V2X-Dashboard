@@ -144,3 +144,35 @@ CREATE INDEX IF NOT EXISTS idx_preempt_log_status
     ON preemption_command_log(status);
 CREATE INDEX IF NOT EXISTS idx_preempt_log_requested_at
     ON preemption_command_log(requested_at DESC);
+
+
+-- ── 4. CONTROLLER_ADAPTER_AUDIT_LOG ──────────────────────────────────────────
+-- Append-only record of every CREATE / UPDATE / DELETE on controller_adapters.
+-- Supports security review, operator accountability, and change tracking for
+-- controller settings (IP, community string, adapter type, timeouts, etc.).
+-- Survives adapter deletion: adapter_id goes NULL but the history remains.
+
+CREATE TABLE IF NOT EXISTS controller_adapter_audit_log (
+    id                  SERIAL PRIMARY KEY,
+    -- NULL when the adapter is later deleted (ON DELETE SET NULL)
+    adapter_id          INTEGER REFERENCES controller_adapters(id) ON DELETE SET NULL,
+    -- CREATE | UPDATE | DELETE
+    action              VARCHAR(10) NOT NULL CHECK (action IN ('CREATE', 'UPDATE', 'DELETE')),
+    -- User who made the change; NULL for system/automated changes.
+    -- ON DELETE SET NULL preserves the audit row if the user account is later removed.
+    changed_by_user_id  INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    -- How the change was triggered: api | migration | system
+    triggered_by        VARCHAR(32) NOT NULL DEFAULT 'api',
+    -- Full row snapshot BEFORE the change (NULL on CREATE)
+    old_values          JSONB,
+    -- Full row snapshot AFTER the change (NULL on DELETE)
+    new_values          JSONB,
+    changed_at          TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_adapter_audit_adapter_id
+    ON controller_adapter_audit_log(adapter_id);
+CREATE INDEX IF NOT EXISTS idx_adapter_audit_changed_at
+    ON controller_adapter_audit_log(changed_at DESC);
+CREATE INDEX IF NOT EXISTS idx_adapter_audit_action
+    ON controller_adapter_audit_log(action);

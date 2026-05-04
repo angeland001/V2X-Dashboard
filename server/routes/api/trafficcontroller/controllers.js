@@ -14,9 +14,10 @@
  *                                               and supported_oids, sets last_seen_at)
  *   GET    /api/controllers/:id/phase/:group    live phase status for one signal group
  *   GET    /api/controllers/:id/timings/:group  live timing parameters for one signal group
+ *   GET    /api/controllers/audit-log           full audit log (filter by adapter_id)
+ *   GET    /api/controllers/:id/audit-log       audit log for one adapter
  *
- * All write operations validate intersection_id existence using the same
- * parseCanonicalIntersectionId helper used by the rest of the codebase.
+ * Every CREATE / UPDATE / DELETE writes a row to controller_adapter_audit_log.
  */
 
 const express = require("express");
@@ -25,6 +26,15 @@ const db      = require("../../../database/postgis");
 const { parseCanonicalIntersectionId } = require("../../../utils/intersectionIdentity");
 const { ControllerClientFactory }      = require("../../../services/controllerClient");
 
+// ── Constants ─────────────────────────────────────────────────────────────────
+
+const VALID_ADAPTER_TYPES = ["ntcip1202", "siemens_m60", "econolite_aries", "peek_ada", "generic_snmp"];
+const VALID_STATUSES      = ["active", "offline", "maintenance"];
+const UPDATABLE_FIELDS    = [
+  "label", "ip_address", "snmp_port", "snmp_community", "adapter_type",
+  "firmware_version", "timeout_seconds", "retry_count", "connection_status",
+];
+
 // ── Validation helpers ────────────────────────────────────────────────────────
 
 function parseId(value) {
@@ -32,24 +42,74 @@ function parseId(value) {
   return Number.isInteger(n) && n > 0 ? n : null;
 }
 
-// Valid adapter_type values must match ADAPTER_MAP keys in controllerClient.js
-const VALID_ADAPTER_TYPES = ["ntcip1202", "siemens_m60", "econolite_aries", "peek_ada", "generic_snmp"];
+/**
+ * Validate a create or update payload.
+ * Pass isCreate=true to enforce required fields.
+ * Returns null if valid, or an error string.
+ */
+function validateAdapterPayload(body, isCreate = false) {
+  if (isCreate) {
+    if (!body.ip_address || typeof body.ip_address !== "string" || !body.ip_address.trim()) {
+      return "ip_address is required";
+    }
+    const iid = Number(body.intersection_id);
+    if (!Number.isInteger(iid) || iid <= 0) {
+      return "intersection_id must be a positive integer";
+    }
+  }
+  if (body.ip_address !== undefined) {
+    if (typeof body.ip_address !== "string" || !body.ip_address.trim()) {
+      return "ip_address must be a non-empty string";
+    }
+  }
+  if (body.adapter_type !== undefined && !VALID_ADAPTER_TYPES.includes(body.adapter_type)) {
+    return `adapter_type must be one of: ${VALID_ADAPTER_TYPES.join(", ")}`;
+  }
+  if (body.snmp_port !== undefined) {
+    const port = Number(body.snmp_port);
+    if (!Number.isInteger(port) || port < 1 || port > 65535) {
+      return "snmp_port must be an integer between 1 and 65535";
+    }
+  }
+  if (body.timeout_seconds !== undefined) {
+    const t = Number(body.timeout_seconds);
+    if (!Number.isInteger(t) || t <= 0) {
+      return "timeout_seconds must be a positive integer";
+    }
+  }
+  if (body.retry_count !== undefined) {
+    const r = Number(body.retry_count);
+    if (!Number.isInteger(r) || r < 0) {
+      return "retry_count must be a non-negative integer";
+    }
+  }
+  if (body.connection_status !== undefined && !VALID_STATUSES.includes(body.connection_status)) {
+    return `connection_status must be one of: ${VALID_STATUSES.join(", ")}`;
+  }
+  return null;
+}
 
-function validateAdapterPayload(body) {
-  // Returns null if valid, or an error string if invalid.
-  // Required on create: ip_address, intersection_id
-  // Optional: label, snmp_port, snmp_community, adapter_type, timeout_seconds, retry_count
-  // TODO: implement validation logic
-  // HINT: check ip_address is non-empty string, intersection_id is a positive integer,
-  //       adapter_type is one of VALID_ADAPTER_TYPES if provided,
-  //       snmp_port is 1–65535 if provided, timeout_seconds > 0 if provided
+// ── Audit log helper ──────────────────────────────────────────────────────────
+
+async function insertAuditLog(adapterId, action, oldValues, newValues, triggeredBy = "api", userId = null) {
+  await db.query(
+    `INSERT INTO controller_adapter_audit_log
+       (adapter_id, action, changed_by_user_id, triggered_by, old_values, new_values)
+     VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb)`,
+    [
+      adapterId,
+      action,
+      userId,
+      triggeredBy,
+      oldValues ? JSON.stringify(oldValues) : null,
+      newValues ? JSON.stringify(newValues) : null,
+    ],
+  );
 }
 
 // ── SELECT helper ─────────────────────────────────────────────────────────────
 
 function baseSelect() {
-  // HINT: join controller_adapters (ca) with intersections (i) on
-  //       ca.intersection_id = i.intersection_id to include intersection name
   return `
     SELECT
       ca.id,
@@ -73,71 +133,337 @@ function baseSelect() {
   `;
 }
 
+// ── GET /api/controllers/audit-log ───────────────────────────────────────────
+// Must be registered BEFORE /:id so Express doesn't match "audit-log" as an id.
+router.get("/audit-log", async (req, res) => {
+  try {
+    const conditions = [];
+    const values     = [];
+
+    if (req.query.adapter_id !== undefined) {
+      const aid = parseId(req.query.adapter_id);
+      if (!aid) return res.status(400).json({ error: "adapter_id must be a positive integer" });
+      conditions.push(`al.adapter_id = $${values.length + 1}`);
+      values.push(aid);
+    }
+    if (req.query.action !== undefined) {
+      if (!["CREATE", "UPDATE", "DELETE"].includes(req.query.action.toUpperCase())) {
+        return res.status(400).json({ error: "action must be CREATE, UPDATE, or DELETE" });
+      }
+      conditions.push(`al.action = $${values.length + 1}`);
+      values.push(req.query.action.toUpperCase());
+    }
+
+    const limit  = Math.min(Number(req.query.limit)  || 100, 500);
+    const offset = Number(req.query.offset) || 0;
+
+    const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+    const result = await db.query(
+      `SELECT
+         al.id,
+         al.adapter_id,
+         ca.label                                        AS adapter_label,
+         ca.ip_address                                   AS adapter_ip,
+         al.action,
+         al.changed_by_user_id,
+         u.username                                      AS changed_by_username,
+         u.first_name || ' ' || u.last_name              AS changed_by_name,
+         al.triggered_by,
+         al.old_values,
+         al.new_values,
+         al.changed_at
+       FROM controller_adapter_audit_log al
+       LEFT JOIN controller_adapters ca ON ca.id = al.adapter_id
+       LEFT JOIN users u ON u.id = al.changed_by_user_id
+       ${where}
+       ORDER BY al.changed_at DESC
+       LIMIT $${values.length + 1} OFFSET $${values.length + 2}`,
+      [...values, limit, offset],
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error("GET /api/controllers/audit-log error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 // ── GET /api/controllers ──────────────────────────────────────────────────────
 router.get("/", async (req, res) => {
-  // TODO: if req.query.intersection_id is provided, filter by it
-  //       otherwise return all adapters ordered by intersection_id, label
-  // HINT: use parseCanonicalIntersectionId for the query param
+  try {
+    if (req.query.intersection_id !== undefined) {
+      const intersectionId = parseCanonicalIntersectionId(req.query.intersection_id);
+      if (!intersectionId) {
+        return res.status(400).json({ error: "intersection_id must be a positive integer" });
+      }
+      const result = await db.query(
+        `${baseSelect()} WHERE ca.intersection_id = $1 ORDER BY ca.label`,
+        [intersectionId],
+      );
+      return res.json(result.rows);
+    }
+    const result = await db.query(`${baseSelect()} ORDER BY ca.intersection_id, ca.label`);
+    res.json(result.rows);
+  } catch (err) {
+    console.error("GET /api/controllers error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
 });
 
 // ── GET /api/controllers/:id ──────────────────────────────────────────────────
 router.get("/:id", async (req, res) => {
-  // TODO: fetch single adapter by id, return 404 if not found
+  const id = parseId(req.params.id);
+  if (!id) return res.status(400).json({ error: "Invalid id" });
+  try {
+    const result = await db.query(`${baseSelect()} WHERE ca.id = $1 LIMIT 1`, [id]);
+    if (!result.rows[0]) return res.status(404).json({ error: "Controller adapter not found" });
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error("GET /api/controllers/:id error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
 });
 
 // ── POST /api/controllers ─────────────────────────────────────────────────────
 router.post("/", async (req, res) => {
-  // TODO: validate payload with validateAdapterPayload
-  //       verify intersection exists with ensureIntersectionExists
-  //       INSERT into controller_adapters, return 201 with the new row
-  // HINT: conflict on ip_address unique constraint → 409 with friendly message
+  const validationError = validateAdapterPayload(req.body, true);
+  if (validationError) return res.status(400).json({ error: validationError });
+
+  const intersectionId = parseCanonicalIntersectionId(req.body.intersection_id);
+  const intersectionCheck = await db.query(
+    "SELECT 1 FROM intersections WHERE intersection_id = $1 LIMIT 1",
+    [intersectionId],
+  );
+  if (!intersectionCheck.rows.length) {
+    return res.status(404).json({ error: `Intersection ${intersectionId} not found` });
+  }
+
+  const {
+    ip_address,
+    label            = ip_address,
+    snmp_port        = 161,
+    snmp_community   = "public",
+    adapter_type     = "ntcip1202",
+    firmware_version = null,
+    timeout_seconds  = 5,
+    retry_count      = 2,
+    connection_status = "active",
+    user_id          = null,
+  } = req.body;
+
+  try {
+    const result = await db.query(
+      `INSERT INTO controller_adapters
+         (intersection_id, label, ip_address, snmp_port, snmp_community,
+          adapter_type, firmware_version, timeout_seconds, retry_count, connection_status)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+       RETURNING *`,
+      [
+        intersectionId, label, ip_address.trim(), snmp_port, snmp_community,
+        adapter_type, firmware_version, timeout_seconds, retry_count, connection_status,
+      ],
+    );
+    const newRow = result.rows[0];
+    await insertAuditLog(newRow.id, "CREATE", null, newRow, "api", user_id);
+    res.status(201).json(newRow);
+  } catch (err) {
+    if (err.code === "23505") {
+      return res.status(409).json({ error: `A controller with IP address ${ip_address} already exists` });
+    }
+    console.error("POST /api/controllers error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
 });
 
 // ── PUT /api/controllers/:id ──────────────────────────────────────────────────
 router.put("/:id", async (req, res) => {
-  // TODO: build a dynamic SET clause from whichever fields are present in body
-  //       intersection_id is immutable — reject attempts to change it
-  //       return 404 if id not found, 409 on ip_address conflict
+  const id = parseId(req.params.id);
+  if (!id) return res.status(400).json({ error: "Invalid id" });
+
+  if (req.body.intersection_id !== undefined) {
+    return res.status(400).json({ error: "intersection_id cannot be changed after creation" });
+  }
+
+  const validationError = validateAdapterPayload(req.body, false);
+  if (validationError) return res.status(400).json({ error: validationError });
+
+  const fields = UPDATABLE_FIELDS.filter(f => req.body[f] !== undefined);
+  if (!fields.length) return res.status(400).json({ error: "No updatable fields provided" });
+
+  try {
+    const oldResult = await db.query(
+      "SELECT * FROM controller_adapters WHERE id = $1 LIMIT 1",
+      [id],
+    );
+    if (!oldResult.rows[0]) return res.status(404).json({ error: "Controller adapter not found" });
+    const oldRow = oldResult.rows[0];
+
+    const setClauses = fields.map((f, i) => `${f} = $${i + 1}`);
+    const values     = fields.map(f => f === "ip_address" ? req.body[f].trim() : req.body[f]);
+    values.push(id);
+
+    const result = await db.query(
+      `UPDATE controller_adapters SET ${setClauses.join(", ")} WHERE id = $${fields.length + 1} RETURNING *`,
+      values,
+    );
+    const newRow = result.rows[0];
+    await insertAuditLog(id, "UPDATE", oldRow, newRow, "api", req.body.user_id ?? null);
+    res.json(newRow);
+  } catch (err) {
+    if (err.code === "23505") {
+      return res.status(409).json({ error: "A controller with that IP address already exists" });
+    }
+    console.error("PUT /api/controllers/:id error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
 });
 
 // ── DELETE /api/controllers/:id ───────────────────────────────────────────────
 router.delete("/:id", async (req, res) => {
-  // TODO: DELETE by id, return 404 if not found
+  const id = parseId(req.params.id);
+  if (!id) return res.status(400).json({ error: "Invalid id" });
+
+  try {
+    const result = await db.query(
+      "DELETE FROM controller_adapters WHERE id = $1 RETURNING *",
+      [id],
+    );
+    if (!result.rows[0]) return res.status(404).json({ error: "Controller adapter not found" });
+    const deletedRow = result.rows[0];
+    // adapter_id will be NULL in the audit row due to ON DELETE SET NULL on the FK
+    await insertAuditLog(null, "DELETE", deletedRow, null, "api", req.query.user_id ?? null);
+    res.json({ deleted: true, id });
+  } catch (err) {
+    console.error("DELETE /api/controllers/:id error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
 });
 
 // ── POST /api/controllers/:id/probe ──────────────────────────────────────────
 router.post("/:id/probe", async (req, res) => {
-  // Live SNMP probe — connects to the controller, reads controllerType OID,
-  // and updates firmware_version, supported_oids, last_seen_at, connection_status.
-  //
-  // HINT:
-  //   1. Fetch the adapter row by id
-  //   2. ControllerClientFactory.forAdapter(adapterRow)
-  //   3. client.probe() → { controllerType, supported }
-  //   4. UPDATE controller_adapters SET firmware_version=$1, supported_oids=$2,
-  //         last_seen_at=NOW(), connection_status='active' WHERE id=$3
-  //   5. On SNMP error, set connection_status='offline', return 502 with error
-  //   6. Always call client.close() in a finally block
+  const id = parseId(req.params.id);
+  if (!id) return res.status(400).json({ error: "Invalid id" });
+
+  let client = null;
+  try {
+    const adapterResult = await db.query(
+      "SELECT * FROM controller_adapters WHERE id = $1 LIMIT 1",
+      [id],
+    );
+    if (!adapterResult.rows[0]) return res.status(404).json({ error: "Controller adapter not found" });
+
+    client = ControllerClientFactory.forAdapter(adapterResult.rows[0]);
+    const { controllerType, supported } = await client.probe();
+
+    const updated = await db.query(
+      `UPDATE controller_adapters
+         SET firmware_version  = $1,
+             supported_oids    = $2::jsonb,
+             last_seen_at      = NOW(),
+             connection_status = 'active'
+       WHERE id = $3
+       RETURNING *`,
+      [controllerType, JSON.stringify(supported), id],
+    );
+    res.json({ probed: true, controllerType, supported, adapter: updated.rows[0] });
+  } catch (err) {
+    await db.query(
+      "UPDATE controller_adapters SET connection_status = 'offline' WHERE id = $1",
+      [id],
+    ).catch(() => {});
+    console.error("POST /api/controllers/:id/probe error:", err);
+    res.status(502).json({ error: "Controller unreachable", detail: err.message });
+  } finally {
+    if (client) client.close();
+  }
 });
 
 // ── GET /api/controllers/:id/phase/:group ────────────────────────────────────
 router.get("/:id/phase/:group", async (req, res) => {
-  // Returns live phase status for a single signal group from the controller.
-  //
-  // HINT:
-  //   1. Parse id and group as integers
-  //   2. Fetch adapter row, build client
-  //   3. client.getPhaseStatus(group)
-  //   4. Return the result; always close client in finally
-  //   5. On SNMP timeout or connection error return 502
+  const id    = parseId(req.params.id);
+  const group = parseId(req.params.group);
+  if (!id || !group) return res.status(400).json({ error: "Invalid id or group" });
+
+  let client = null;
+  try {
+    const adapterResult = await db.query(
+      "SELECT * FROM controller_adapters WHERE id = $1 LIMIT 1",
+      [id],
+    );
+    if (!adapterResult.rows[0]) return res.status(404).json({ error: "Controller adapter not found" });
+    client = ControllerClientFactory.forAdapter(adapterResult.rows[0]);
+    const phaseStatus = await client.getPhaseStatus(group);
+    res.json(phaseStatus);
+  } catch (err) {
+    console.error("GET /api/controllers/:id/phase/:group error:", err);
+    res.status(502).json({ error: "Controller unreachable", detail: err.message });
+  } finally {
+    if (client) client.close();
+  }
 });
 
 // ── GET /api/controllers/:id/timings/:group ───────────────────────────────────
 router.get("/:id/timings/:group", async (req, res) => {
-  // Returns live timing parameters for a single signal group.
-  // Useful to pre-fill or validate the timing constraints form in the UI.
-  //
-  // HINT: same pattern as /phase/:group but call client.getTimingParameters(group)
+  const id    = parseId(req.params.id);
+  const group = parseId(req.params.group);
+  if (!id || !group) return res.status(400).json({ error: "Invalid id or group" });
+
+  let client = null;
+  try {
+    const adapterResult = await db.query(
+      "SELECT * FROM controller_adapters WHERE id = $1 LIMIT 1",
+      [id],
+    );
+    if (!adapterResult.rows[0]) return res.status(404).json({ error: "Controller adapter not found" });
+    client = ControllerClientFactory.forAdapter(adapterResult.rows[0]);
+    const timings = await client.getTimingParameters(group);
+    res.json(timings);
+  } catch (err) {
+    console.error("GET /api/controllers/:id/timings/:group error:", err);
+    res.status(502).json({ error: "Controller unreachable", detail: err.message });
+  } finally {
+    if (client) client.close();
+  }
+});
+
+// ── GET /api/controllers/:id/audit-log ───────────────────────────────────────
+router.get("/:id/audit-log", async (req, res) => {
+  const id = parseId(req.params.id);
+  if (!id) return res.status(400).json({ error: "Invalid id" });
+
+  try {
+    const exists = await db.query(
+      "SELECT 1 FROM controller_adapters WHERE id = $1 LIMIT 1",
+      [id],
+    );
+    if (!exists.rows[0]) return res.status(404).json({ error: "Controller adapter not found" });
+
+    const limit  = Math.min(Number(req.query.limit)  || 100, 500);
+    const offset = Number(req.query.offset) || 0;
+
+    const result = await db.query(
+      `SELECT
+         al.id,
+         al.adapter_id,
+         al.action,
+         al.changed_by_user_id,
+         u.username                     AS changed_by_username,
+         u.first_name || ' ' || u.last_name AS changed_by_name,
+         al.triggered_by,
+         al.old_values,
+         al.new_values,
+         al.changed_at
+       FROM controller_adapter_audit_log al
+       LEFT JOIN users u ON u.id = al.changed_by_user_id
+       WHERE al.adapter_id = $1
+       ORDER BY al.changed_at DESC
+       LIMIT $2 OFFSET $3`,
+      [id, limit, offset],
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error("GET /api/controllers/:id/audit-log error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
 });
 
 module.exports = router;

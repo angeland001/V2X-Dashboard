@@ -19,8 +19,8 @@ const laneConnectionRoutes = require("./routes/intersectionroutes/lane_connectio
 const spatZoneRoutes = require("./routes/spat_zones"); // adjust path if needed
 const preemptionZoneRoutes = require("./routes/preemption_zones"); // adjust path if needed
 const preemptionZoneConfigsRoutes = require("./routes/preemption_zone_configs_plural"); // adjust path if needed
-const controllerRoutes            = require("./routes/api/controllers");
-const preemptionCommandRoutes     = require("./routes/api/preemption_commands");
+const controllerRoutes            = require("./routes/api/trafficcontroller/controllers");
+const preemptionCommandRoutes     = require("./routes/api/preemption/preemption_commands");
 
 const db = require("./database/postgis");
 const sdsmPoller = require("./services/sdsmPoller");
