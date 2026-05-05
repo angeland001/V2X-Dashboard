@@ -20,6 +20,7 @@ import { DataAnalytics } from "./components/dashboard/pages/settings/pages/DataA
 import { SecurityPrivacy } from "./components/dashboard/pages/settings/pages/Security&Privacy";
 import { Support } from "./components/dashboard/pages/settings/pages/Support";
 import { ControllerConfig } from "./components/dashboard/pages/settings/pages/ControllerConfig";
+import { ControllersPage } from "./components/dashboard/pages/controllers/ControllersPage";
 
 export default function App() {
   return (
@@ -41,6 +42,7 @@ export default function App() {
             <Route path="lanes" element={<LanesPage />} />
             <Route path="crosswalks" element={<CrosswalksPage />} />
             <Route path="analytics" element={<AnalyticsPage />} />
+            <Route path="controllers" element={<ControllersPage />} />
             <Route path="settings" element={<SettingsLayout />}>
               <Route
                 path="dashboard-visualization"

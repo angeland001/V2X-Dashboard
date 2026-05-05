@@ -29,6 +29,7 @@ import {
   MoreHorizontal,
   FileText,
   Waypoints,
+  Cpu,
 } from "lucide-react";
 import {
   Collapsible,
@@ -188,6 +189,17 @@ function AppSidebar() {
                   </CollapsibleContent>
                 </SidebarMenuItem>
               </Collapsible>
+
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  onClick={() => navigate("/dashboard/controllers")}
+                  isActive={isActive("/dashboard/controllers")}
+                  tooltip="Traffic Controllers"
+                >
+                  <Cpu className="w-4 h-4" />
+                  <span className="normal-case">Traffic Controllers</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
 
               {/* Data Layers with Submenu */}
               <Collapsible defaultOpen className="group/collapsible">

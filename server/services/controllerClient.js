@@ -25,6 +25,7 @@
  */
 
 const snmp = require("net-snmp");
+const { TelnetClient } = require("./telnetClient");
 
 // ── NTCIP 1202 Object Identifiers ────────────────────────────────────────────
 // Canonical OIDs from NTCIP 1202 v02.19 (NEMA).
@@ -507,6 +508,52 @@ class SiemensM60Adapter extends Ntcip1202Adapter {
       };
     } catch (err) {
       return super.getPreemptionStatus();
+    }
+  }
+
+  /**
+   * Test Telnet connectivity using credentials stored in the adapter row.
+   * Opens a session, logs in, then closes immediately.
+   *
+   * @param {string} username
+   * @param {string} password
+   * @returns {Promise<{ success: true, latencyMs: number }>}
+   */
+  async testTelnetConnection(username, password) {
+    const host    = this._adapter.ip_address;
+    const port    = this._adapter.telnet_port ?? 23;
+    const t0      = Date.now();
+    const client  = new TelnetClient(host, port);
+    try {
+      await client.connect();
+      await client.login(username, password);
+      return { success: true, latencyMs: Date.now() - t0 };
+    } finally {
+      client.close();
+    }
+  }
+
+  /**
+   * Open a Telnet session, run a single command, close the session, return output.
+   * Each call is stateless — the session is not reused across requests.
+   *
+   * @param {string} username
+   * @param {string} password
+   * @param {string} command
+   * @returns {Promise<{ output: string, latencyMs: number }>}
+   */
+  async sendTelnetCommand(username, password, command) {
+    const host    = this._adapter.ip_address;
+    const port    = this._adapter.telnet_port ?? 23;
+    const t0      = Date.now();
+    const client  = new TelnetClient(host, port);
+    try {
+      await client.connect();
+      await client.login(username, password);
+      const output = await client.sendCommand(command);
+      return { output, latencyMs: Date.now() - t0 };
+    } finally {
+      client.close();
     }
   }
 }

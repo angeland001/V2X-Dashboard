@@ -17,7 +17,7 @@ export function withValue(body, key, value) {
   }
 }
 
-function parseId(value) {
+export function parseId(value) {
   const n = Number(value);
   return Number.isInteger(n) && n > 0 ? n : null;
 }

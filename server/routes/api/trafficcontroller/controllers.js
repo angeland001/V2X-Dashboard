@@ -28,11 +28,13 @@ const { ControllerClientFactory }      = require("../../../services/controllerCl
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const VALID_ADAPTER_TYPES = ["ntcip1202", "siemens_m60", "econolite_aries", "peek_ada", "generic_snmp"];
-const VALID_STATUSES      = ["active", "offline", "maintenance"];
-const UPDATABLE_FIELDS    = [
+const VALID_ADAPTER_TYPES    = ["ntcip1202", "siemens_m60", "econolite_aries", "peek_ada", "generic_snmp"];
+const VALID_STATUSES         = ["active", "offline", "maintenance"];
+const VALID_CONNECTION_MODES = ["snmp", "telnet", "both"];
+const UPDATABLE_FIELDS       = [
   "label", "ip_address", "snmp_port", "snmp_community", "adapter_type",
   "firmware_version", "timeout_seconds", "retry_count", "connection_status",
+  "telnet_port", "telnet_username", "telnet_password", "connection_mode",
 ];
 
 // ── Validation helpers ────────────────────────────────────────────────────────
@@ -86,6 +88,15 @@ function validateAdapterPayload(body, isCreate = false) {
   if (body.connection_status !== undefined && !VALID_STATUSES.includes(body.connection_status)) {
     return `connection_status must be one of: ${VALID_STATUSES.join(", ")}`;
   }
+  if (body.telnet_port !== undefined) {
+    const tp = Number(body.telnet_port);
+    if (!Number.isInteger(tp) || tp < 1 || tp > 65535) {
+      return "telnet_port must be an integer between 1 and 65535";
+    }
+  }
+  if (body.connection_mode !== undefined && !VALID_CONNECTION_MODES.includes(body.connection_mode)) {
+    return `connection_mode must be one of: ${VALID_CONNECTION_MODES.join(", ")}`;
+  }
   return null;
 }
 
@@ -127,7 +138,10 @@ function baseSelect() {
       ca.connection_status,
       ca.last_seen_at,
       ca.created_at,
-      ca.updated_at
+      ca.updated_at,
+      ca.telnet_port,
+      ca.telnet_username,
+      ca.connection_mode
     FROM controller_adapters ca
     JOIN intersections i ON i.intersection_id = ca.intersection_id
   `;
@@ -187,6 +201,81 @@ router.get("/audit-log", async (req, res) => {
   }
 });
 
+// ── GET /api/controllers/timing-constraints ───────────────────────────────────
+// Must be registered BEFORE /:id to avoid Express matching the literal string as an id.
+router.get("/timing-constraints", async (req, res) => {
+  const zoneConfigId = Number(req.query.preemption_zone_config_id);
+  if (!Number.isInteger(zoneConfigId) || zoneConfigId <= 0) {
+    return res.status(400).json({ error: "preemption_zone_config_id is required and must be a positive integer" });
+  }
+  try {
+    const result = await db.query(
+      "SELECT * FROM controller_timing_constraints WHERE preemption_zone_config_id = $1 LIMIT 1",
+      [zoneConfigId],
+    );
+    res.json(result.rows[0] ?? null);
+  } catch (err) {
+    console.error("GET /api/controllers/timing-constraints error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ── PUT /api/controllers/timing-constraints ───────────────────────────────────
+router.put("/timing-constraints", async (req, res) => {
+  const {
+    preemption_zone_config_id,
+    min_green_before_preempt_s,
+    ped_walk_interval_s,
+    ped_clearance_interval_s,
+    yellow_change_interval_s,
+    all_red_clearance_s,
+    preempt_green_hold_s,
+    max_preempt_duration_s,
+    min_call_interval_s,
+  } = req.body;
+
+  const zoneConfigId = Number(preemption_zone_config_id);
+  if (!Number.isInteger(zoneConfigId) || zoneConfigId <= 0) {
+    return res.status(400).json({ error: "preemption_zone_config_id is required and must be a positive integer" });
+  }
+
+  try {
+    const result = await db.query(
+      `INSERT INTO controller_timing_constraints
+         (preemption_zone_config_id, min_green_before_preempt_s, ped_walk_interval_s,
+          ped_clearance_interval_s, yellow_change_interval_s, all_red_clearance_s,
+          preempt_green_hold_s, max_preempt_duration_s, min_call_interval_s)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       ON CONFLICT (preemption_zone_config_id) DO UPDATE SET
+         min_green_before_preempt_s = COALESCE(EXCLUDED.min_green_before_preempt_s, controller_timing_constraints.min_green_before_preempt_s),
+         ped_walk_interval_s        = COALESCE(EXCLUDED.ped_walk_interval_s,        controller_timing_constraints.ped_walk_interval_s),
+         ped_clearance_interval_s   = COALESCE(EXCLUDED.ped_clearance_interval_s,   controller_timing_constraints.ped_clearance_interval_s),
+         yellow_change_interval_s   = COALESCE(EXCLUDED.yellow_change_interval_s,   controller_timing_constraints.yellow_change_interval_s),
+         all_red_clearance_s        = COALESCE(EXCLUDED.all_red_clearance_s,        controller_timing_constraints.all_red_clearance_s),
+         preempt_green_hold_s       = COALESCE(EXCLUDED.preempt_green_hold_s,       controller_timing_constraints.preempt_green_hold_s),
+         max_preempt_duration_s     = COALESCE(EXCLUDED.max_preempt_duration_s,     controller_timing_constraints.max_preempt_duration_s),
+         min_call_interval_s        = COALESCE(EXCLUDED.min_call_interval_s,        controller_timing_constraints.min_call_interval_s),
+         updated_at                 = NOW()
+       RETURNING *`,
+      [
+        zoneConfigId,
+        min_green_before_preempt_s ?? null,
+        ped_walk_interval_s        ?? null,
+        ped_clearance_interval_s   ?? null,
+        yellow_change_interval_s   ?? null,
+        all_red_clearance_s        ?? null,
+        preempt_green_hold_s       ?? null,
+        max_preempt_duration_s     ?? null,
+        min_call_interval_s        ?? null,
+      ],
+    );
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error("PUT /api/controllers/timing-constraints error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 // ── GET /api/controllers ──────────────────────────────────────────────────────
 router.get("/", async (req, res) => {
   try {
@@ -239,27 +328,33 @@ router.post("/", async (req, res) => {
 
   const {
     ip_address,
-    label            = ip_address,
-    snmp_port        = 161,
-    snmp_community   = "public",
-    adapter_type     = "ntcip1202",
-    firmware_version = null,
-    timeout_seconds  = 5,
-    retry_count      = 2,
+    label             = ip_address,
+    snmp_port         = 161,
+    snmp_community    = "public",
+    adapter_type      = "ntcip1202",
+    firmware_version  = null,
+    timeout_seconds   = 5,
+    retry_count       = 2,
     connection_status = "active",
-    user_id          = null,
+    telnet_port       = 23,
+    telnet_username   = null,
+    telnet_password   = null,
+    connection_mode   = "snmp",
+    user_id           = null,
   } = req.body;
 
   try {
     const result = await db.query(
       `INSERT INTO controller_adapters
          (intersection_id, label, ip_address, snmp_port, snmp_community,
-          adapter_type, firmware_version, timeout_seconds, retry_count, connection_status)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+          adapter_type, firmware_version, timeout_seconds, retry_count, connection_status,
+          telnet_port, telnet_username, telnet_password, connection_mode)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
        RETURNING *`,
       [
         intersectionId, label, ip_address.trim(), snmp_port, snmp_community,
         adapter_type, firmware_version, timeout_seconds, retry_count, connection_status,
+        telnet_port, telnet_username, telnet_password, connection_mode,
       ],
     );
     const newRow = result.rows[0];
@@ -463,6 +558,78 @@ router.get("/:id/audit-log", async (req, res) => {
   } catch (err) {
     console.error("GET /api/controllers/:id/audit-log error:", err);
     res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ── POST /api/controllers/:id/telnet/test ─────────────────────────────────────
+router.post("/:id/telnet/test", async (req, res) => {
+  const id = parseId(req.params.id);
+  if (!id) return res.status(400).json({ error: "Invalid id" });
+
+  try {
+    const adapterResult = await db.query(
+      "SELECT * FROM controller_adapters WHERE id = $1 LIMIT 1",
+      [id],
+    );
+    if (!adapterResult.rows[0]) return res.status(404).json({ error: "Controller adapter not found" });
+    const row = adapterResult.rows[0];
+
+    if (row.adapter_type !== "siemens_m60") {
+      return res.status(400).json({ error: "Telnet test is only available for siemens_m60 adapters" });
+    }
+    if (!row.telnet_username || !row.telnet_password) {
+      return res.status(400).json({ error: "Telnet credentials not configured on this adapter" });
+    }
+
+    const client = ControllerClientFactory.forAdapter(row);
+    const result = await client.testTelnetConnection(row.telnet_username, row.telnet_password);
+    res.json(result);
+  } catch (err) {
+    console.error("POST /api/controllers/:id/telnet/test error:", err);
+    const status = err.name === "TelnetAuthError" ? 401 : 502;
+    res.status(status).json({ error: err.message });
+  }
+});
+
+// ── POST /api/controllers/:id/telnet/command ──────────────────────────────────
+router.post("/:id/telnet/command", async (req, res) => {
+  const id = parseId(req.params.id);
+  if (!id) return res.status(400).json({ error: "Invalid id" });
+
+  const { command } = req.body;
+  if (!command || typeof command !== "string" || !command.trim()) {
+    return res.status(400).json({ error: "command is required" });
+  }
+
+  try {
+    const adapterResult = await db.query(
+      "SELECT * FROM controller_adapters WHERE id = $1 LIMIT 1",
+      [id],
+    );
+    if (!adapterResult.rows[0]) return res.status(404).json({ error: "Controller adapter not found" });
+    const row = adapterResult.rows[0];
+
+    if (row.adapter_type !== "siemens_m60") {
+      return res.status(400).json({ error: "Telnet commands are only available for siemens_m60 adapters" });
+    }
+    if (!row.telnet_username || !row.telnet_password) {
+      return res.status(400).json({ error: "Telnet credentials not configured on this adapter" });
+    }
+
+    const client = ControllerClientFactory.forAdapter(row);
+    const result = await client.sendTelnetCommand(row.telnet_username, row.telnet_password, command.trim());
+
+    // Log the command to the audit trail (output truncated to 200 chars)
+    await insertAuditLog(id, "UPDATE", null, {
+      telnet_command: command.trim(),
+      output_preview: result.output.slice(0, 200),
+    }, "api", req.body.user_id ?? null);
+
+    res.json(result);
+  } catch (err) {
+    console.error("POST /api/controllers/:id/telnet/command error:", err);
+    const status = err.name === "TelnetAuthError" ? 401 : 502;
+    res.status(status).json({ error: err.message });
   }
 });
 

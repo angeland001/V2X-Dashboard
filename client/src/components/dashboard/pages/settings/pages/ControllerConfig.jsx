@@ -1,608 +1,580 @@
-/**
- * Controller Configuration Settings Page
- *
- * Per-intersection panel for:
- *   - Viewing / editing controller adapter records (IP, vendor, SNMP params)
- *   - Live SNMP health probe (updates firmware version + last-seen timestamp)
- *   - Live phase state readout for the configured signal group
- *   - Editing pedestrian + preemption timing constraints per zone
- *   - Triggering / clearing preemption calls with full validator feedback
- *   - Viewing preemption command history log
- *
- * Data flow:
- *   fetchControllerAdapters(intersectionId)  → adapter list
- *   probeControllerAdapter(id)               → updates firmware / last-seen
- *   fetchLivePhaseStatus(adapterId, group)   → live signal state
- *   upsertTimingConstraints(payload)         → save timing constraints row
- *   triggerPreemption({ preemptionZoneConfigId }) → validator + SNMP send
- *   fetchPreemptionCommandLog({ intersectionId }) → history
- *
- * All service functions live in client/src/services/controllers.js.
- * See that file for the full API surface and normalised response shapes.
- */
-
-import React, { useState, useEffect, useCallback } from 'react'
-import { Radio, AlertTriangle, CheckCircle, RefreshCw, Zap, ZapOff, Clock } from 'lucide-react'
-import { Separator } from '@/components/ui/shadcn/separator'
-import { SettingsPageWrapper } from '../components'
+import React, { useState, useEffect, useCallback } from "react";
+import { Plus, Pencil, Trash2, Wifi, Eye, EyeOff, RefreshCw, Save } from "lucide-react";
+import { Button }    from "../../../../ui/shadcn/button";
+import { Badge }     from "../../../../ui/shadcn/badge";
+import { Skeleton }  from "../../../../ui/shadcn/skeleton";
 import {
-  Card,
-  CardHeader,
-  CardBody,
-  FieldLabel,
-  TextInput,
-  OutlineButton,
-  StatusBadge,
-  PrimaryButton,
-} from '@/components/ui/global/subcomponents'
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from "../../../../ui/shadcn/dialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+  AlertDialogTrigger,
+} from "../../../../ui/shadcn/alert-dialog";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "../../../../ui/shadcn/select";
+
 import {
   fetchControllerAdapters,
+  createControllerAdapter,
+  updateControllerAdapter,
+  deleteControllerAdapter,
   probeControllerAdapter,
-  fetchLivePhaseStatus,
-  upsertTimingConstraints,
   fetchTimingConstraints,
-  triggerPreemption,
-  clearPreemption,
-  fetchPreemptionCommandLog,
-} from '@/services/controllers'
-import { fetchPreemptionZoneConfigs } from '@/services/preemptionZoneConfigs'
+  upsertTimingConstraints,
+} from "../../../../../services/controllers";
 
-// ── Constants ─────────────────────────────────────────────────────────────────
+const API_URL = process.env.REACT_APP_API_URL || "http://localhost:3001";
 
 const ADAPTER_TYPES = [
-  { value: 'ntcip1202',       label: 'NTCIP 1202 (Generic)' },
-  { value: 'siemens_m60',     label: 'Siemens M60 + SEPAC' },
-  { value: 'econolite_aries', label: 'Econolite ARIES/Cobalt' },
-  { value: 'peek_ada',        label: 'Peek ATC/ADA' },
-  { value: 'generic_snmp',    label: 'Generic SNMP Fallback' },
-]
+  { value: "siemens_m60",     label: "Siemens M60" },
+  { value: "econolite_aries", label: "Econolite ARIES" },
+  { value: "peek_ada",        label: "Peek ADA" },
+  { value: "ntcip1202",       label: "NTCIP 1202" },
+  { value: "generic_snmp",    label: "Generic SNMP" },
+];
 
-// Phase label → badge colour mapping
-const PHASE_COLOURS = {
-  GREEN:     'text-green-400',
-  WALK:      'text-green-300',
-  PED_CLEAR: 'text-yellow-300',
-  YELLOW:    'text-yellow-400',
-  RED:       'text-red-400',
-  RED_CLEAR: 'text-red-300',
-}
+const CONNECTION_MODES = [
+  { value: "snmp",   label: "SNMP only" },
+  { value: "telnet", label: "Telnet only" },
+  { value: "both",   label: "SNMP + Telnet" },
+];
 
-// ── Sub-components ────────────────────────────────────────────────────────────
+const STATUS_DOT = {
+  active:      "bg-green-500",
+  offline:     "bg-red-500",
+  maintenance: "bg-yellow-500",
+};
 
-/**
- * Shows the live connection status badge for a controller adapter.
- * status: 'active' | 'offline' | 'maintenance'
- */
-function ConnectionStatusBadge({ status }) {
-  // TODO: render a coloured dot + status text
-  // active → green dot, offline → red dot, maintenance → yellow dot
-  // HINT: use inline style or Tailwind classes; StatusBadge from subcomponents
-  //       is a good wrapper
-  return <StatusBadge>{status ?? '—'}</StatusBadge>
-}
+const EMPTY_FORM = {
+  label: "", intersectionId: "", ipAddress: "", adapterType: "ntcip1202",
+  snmpPort: "161", snmpCommunity: "public", connectionMode: "snmp",
+  telnetPort: "23", telnetUsername: "", telnetPassword: "",
+  timeoutSeconds: "5", retryCount: "2", connectionStatus: "active",
+};
 
-/**
- * Displays the live phase state for one signal group.
- * phaseState shape: { label, green, yellow, red, walk, pedClear, source }
- */
-function PhaseStateBadge({ phaseState }) {
-  if (!phaseState) return <span className="text-sm text-[#a1a1a1]">—</span>
+const TIMING_FIELDS = [
+  { key: "minGreenBeforePreemptS", label: "Min Green Before Preempt (s)" },
+  { key: "pedWalkIntervalS",       label: "Ped Walk Interval (s)" },
+  { key: "pedClearanceIntervalS",  label: "Ped Clearance Interval (s)" },
+  { key: "yellowChangeIntervalS",  label: "Yellow Change Interval (s)" },
+  { key: "allRedClearanceS",       label: "All-Red Clearance (s)" },
+  { key: "preemptGreenHoldS",      label: "Preempt Green Hold (s)" },
+  { key: "maxPreemptDurationS",    label: "Max Preempt Duration (s)" },
+  { key: "minCallIntervalS",       label: "Min Call Interval (s)" },
+];
 
-  const colour = PHASE_COLOURS[phaseState.label] ?? 'text-[#fafafa]'
-
-  // TODO: render the phase label with appropriate colour and a source tag
-  // HINT: source will be 'ntcip1202', 'siemens_m60_sepac', or 'stub'
-  //       show it as a small greyed-out note beside the label
+function SectionHeader({ title, description }) {
   return (
-    <span className={`text-sm font-mono font-semibold ${colour}`}>
-      {phaseState.label}
-    </span>
-  )
-}
-
-/**
- * Compact row for one preemption zone config showing its validator result
- * after a trigger attempt.
- */
-function ValidatorFeedback({ result }) {
-  if (!result) return null
-
-  // TODO: if result.approved render a green checkmark + warnings list
-  //       if not approved render a red warning icon + violations list
-  // HINT: result shape: { approved, violations: string[], warnings: string[] }
-  return (
-    <div className="rounded-lg px-3 py-2 text-sm" style={{ border: '1px solid #262626' }}>
-      {result.approved
-        ? <span className="text-green-400 flex items-center gap-1"><CheckCircle className="h-3.5 w-3.5" /> Approved</span>
-        : <span className="text-red-400 flex items-center gap-1"><AlertTriangle className="h-3.5 w-3.5" /> Rejected</span>
-      }
-      {/* TODO: render result.violations and result.warnings as <ul> lists */}
+    <div className="mb-4">
+      <h3 className="text-base font-semibold text-neutral-100">{title}</h3>
+      {description && <p className="text-xs text-neutral-400 mt-0.5">{description}</p>}
     </div>
-  )
+  );
 }
 
-// ── Section: Adapter Panel ────────────────────────────────────────────────────
-
-function AdapterPanel({ intersectionId }) {
-  const [adapters, setAdapters]       = useState([])
-  const [loading, setLoading]         = useState(false)
-  const [probing, setProbing]         = useState(null)  // adapter id being probed
-  const [error, setError]             = useState(null)
-
-  const load = useCallback(async () => {
-    if (!intersectionId) return
-    setLoading(true)
-    setError(null)
-    try {
-      const data = await fetchControllerAdapters(intersectionId)
-      setAdapters(data)
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setLoading(false)
-    }
-  }, [intersectionId])
-
-  useEffect(() => { load() }, [load])
-
-  async function handleProbe(adapterId) {
-    setProbing(adapterId)
-    try {
-      const updated = await probeControllerAdapter(adapterId)
-      // Replace the probed adapter in local state with the updated row
-      setAdapters(prev => prev.map(a => a.id === adapterId ? updated : a))
-    } catch (err) {
-      // TODO: surface probe error to the user (e.g. set a per-adapter error field)
-    } finally {
-      setProbing(null)
-    }
-  }
-
-  // TODO: implement handleCreate, handleEdit, handleDelete
-  // HINT: for create/edit, a modal or inline form with TextInput fields for:
-  //   label, ipAddress, snmpPort, snmpCommunity, adapterType, timeoutSeconds, retryCount
-  // Call createControllerAdapter(payload) / updateControllerAdapter(id, payload) from service
-
+function Field({ label, children }) {
   return (
-    <Card>
-      <CardHeader
-        title="Controller Adapters"
-        description="Physical signal controller connection settings for this intersection"
-      />
-      <CardBody>
-        {error && (
-          <p className="text-sm text-red-400">{error}</p>
-        )}
-
-        {loading && (
-          <p className="text-sm text-[#a1a1a1]">Loading adapters…</p>
-        )}
-
-        {!loading && adapters.length === 0 && (
-          <p className="text-sm text-[#a1a1a1]">
-            No controller adapters configured for this intersection.
-          </p>
-        )}
-
-        {adapters.map(adapter => (
-          <div key={adapter.id} className="space-y-2">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-[#fafafa]">{adapter.label || adapter.ipAddress}</p>
-                <p className="text-xs text-[#a1a1a1] mt-0.5">
-                  {adapter.adapterType} · {adapter.ipAddress}:{adapter.snmpPort}
-                  {adapter.firmwareVersion && ` · ${adapter.firmwareVersion}`}
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <ConnectionStatusBadge status={adapter.connectionStatus} />
-                <OutlineButton
-                  className="h-7 text-xs"
-                  onClick={() => handleProbe(adapter.id)}
-                  disabled={probing === adapter.id}
-                >
-                  <RefreshCw className={`h-3 w-3 mr-1 ${probing === adapter.id ? 'animate-spin' : ''}`} />
-                  Probe
-                </OutlineButton>
-              </div>
-            </div>
-            {adapter.lastSeenAt && (
-              <p className="text-xs text-[#a1a1a1]">
-                Last seen: {new Date(adapter.lastSeenAt).toLocaleString()}
-              </p>
-            )}
-            <Separator className="bg-[#262626]" />
-          </div>
-        ))}
-
-        {/* TODO: add "+ Add Controller" button that opens create form */}
-        <OutlineButton className="w-full" onClick={() => { /* TODO: open create form */ }}>
-          + Add Controller Adapter
-        </OutlineButton>
-      </CardBody>
-    </Card>
-  )
-}
-
-// ── Section: Live Phase Monitor ───────────────────────────────────────────────
-
-function LivePhaseMonitor({ intersectionId }) {
-  const [zones, setZones]           = useState([])
-  const [phaseStates, setPhaseStates] = useState({})  // keyed by zoneConfigId
-  const [loading, setLoading]       = useState(false)
-  const [polling, setPolling]       = useState(false)
-
-  useEffect(() => {
-    if (!intersectionId) return
-    fetchPreemptionZoneConfigs(intersectionId).then(setZones).catch(() => {})
-  }, [intersectionId])
-
-  async function refreshAllPhases() {
-    // TODO: for each zone in zones:
-    //   1. find the matching adapter by controller_ip (or load adapter list)
-    //   2. call fetchLivePhaseStatus(adapterId, zone.signalGroup)
-    //   3. update phaseStates[zone.id] with the result
-    // HINT: run fetches in parallel with Promise.allSettled so one failure
-    //       doesn't block the others
-    setPolling(true)
-    try {
-      // TODO: implement
-    } finally {
-      setPolling(false)
-    }
-  }
-
-  return (
-    <Card>
-      <CardHeader
-        title="Live Phase States"
-        description="Real-time signal phase status pulled directly from the controller"
-      />
-      <CardBody>
-        <div className="flex justify-end">
-          <OutlineButton className="h-7 text-xs" onClick={refreshAllPhases} disabled={polling}>
-            <RefreshCw className={`h-3 w-3 mr-1 ${polling ? 'animate-spin' : ''}`} />
-            Refresh All
-          </OutlineButton>
-        </div>
-
-        {zones.length === 0 && (
-          <p className="text-sm text-[#a1a1a1]">No preemption zones configured.</p>
-        )}
-
-        {zones.map(zone => (
-          <div key={zone.id} className="flex items-center justify-between py-1">
-            <div>
-              <p className="text-sm font-medium text-[#fafafa]">{zone.name}</p>
-              <p className="text-xs text-[#a1a1a1]">Signal group {zone.signalGroup}</p>
-            </div>
-            <PhaseStateBadge phaseState={phaseStates[zone.id] ?? null} />
-          </div>
-        ))}
-      </CardBody>
-    </Card>
-  )
-}
-
-// ── Section: Timing Constraints Editor ───────────────────────────────────────
-
-function TimingConstraintsEditor({ zone }) {
-  // zone: normalised preemption zone config row (from fetchPreemptionZoneConfigs)
-
-  const [constraints, setConstraints] = useState(null)
-  const [saving, setSaving]           = useState(false)
-  const [saved, setSaved]             = useState(false)
-  const [error, setError]             = useState(null)
-
-  useEffect(() => {
-    if (!zone?.id) return
-    fetchTimingConstraints(zone.id)
-      .then(data => setConstraints(data ?? {
-        // Sensible MUTCD-compliant defaults if no row exists yet
-        minGreenBeforePreemptS: 7,
-        pedWalkIntervalS:       7,
-        pedClearanceIntervalS:  11,
-        yellowChangeIntervalS:  4,
-        allRedClearanceS:       2,
-        preemptGreenHoldS:      20,
-        maxPreemptDurationS:    60,
-        minCallIntervalS:       30,
-      }))
-      .catch(() => {})
-  }, [zone?.id])
-
-  function handleChange(field, value) {
-    setConstraints(prev => ({ ...prev, [field]: value }))
-    setSaved(false)
-  }
-
-  async function handleSave() {
-    setSaving(true)
-    setError(null)
-    try {
-      const updated = await upsertTimingConstraints({
-        preemptionZoneConfigId: zone.id,
-        ...constraints,
-      })
-      setConstraints(updated)
-      setSaved(true)
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  if (!constraints) return null
-
-  // Each row: { label, field, hint }
-  const fields = [
-    { label: 'Min Green Before Preempt (s)',  field: 'minGreenBeforePreemptS',  hint: 'NEMA TS2 §4.2.5' },
-    { label: 'Pedestrian Walk Interval (s)',  field: 'pedWalkIntervalS',        hint: 'MUTCD 4E.09 min 7s' },
-    { label: 'Pedestrian Clearance (s)',      field: 'pedClearanceIntervalS',   hint: 'MUTCD 4E.08' },
-    { label: 'Yellow Change Interval (s)',    field: 'yellowChangeIntervalS',   hint: 'NEMA TS2' },
-    { label: 'All-Red Clearance (s)',         field: 'allRedClearanceS',        hint: 'NEMA TS2 §4.2.5' },
-    { label: 'Preemption Green Hold (s)',     field: 'preemptGreenHoldS',       hint: 'How long preempt green is held' },
-    { label: 'Max Preemption Duration (s)',   field: 'maxPreemptDurationS',     hint: 'Hard cap before auto-return' },
-    { label: 'Min Call Interval (s)',         field: 'minCallIntervalS',        hint: 'Cooldown between successive calls' },
-  ]
-
-  return (
-    <div className="space-y-3">
-      {fields.map(({ label, field, hint }) => (
-        <div key={field}>
-          <FieldLabel>{label}</FieldLabel>
-          <div className="flex items-center gap-2">
-            <TextInput
-              type="number"
-              value={constraints[field] ?? ''}
-              onChange={e => handleChange(field, parseFloat(e.target.value))}
-              placeholder="0"
-            />
-            <span className="text-xs text-[#a1a1a1] whitespace-nowrap">{hint}</span>
-          </div>
-        </div>
-      ))}
-
-      {error && <p className="text-sm text-red-400">{error}</p>}
-
-      <div className="flex items-center gap-2 pt-1">
-        <OutlineButton onClick={handleSave} disabled={saving} className="h-8 text-sm">
-          {saving ? 'Saving…' : 'Save Constraints'}
-        </OutlineButton>
-        {saved && <span className="text-xs text-green-400 flex items-center gap-1"><CheckCircle className="h-3 w-3" /> Saved</span>}
-      </div>
+    <div>
+      <label className="block text-xs text-neutral-400 mb-1">{label}</label>
+      {children}
     </div>
-  )
+  );
 }
 
-// ── Section: Preemption Control Panel ────────────────────────────────────────
+function TextInput({ value, onChange, placeholder, type = "text", disabled }) {
+  return (
+    <input
+      type={type}
+      value={value ?? ""}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={placeholder}
+      disabled={disabled}
+      className="w-full rounded-md border border-neutral-700 bg-neutral-800 text-neutral-200 text-sm px-3 py-1.5 placeholder:text-neutral-500 focus:outline-none focus:ring-1 focus:ring-neutral-500"
+    />
+  );
+}
 
-function PreemptionControlPanel({ intersectionId }) {
-  const [zones, setZones]           = useState([])
-  const [selectedZone, setSelected] = useState(null)
-  const [validatorResult, setResult] = useState(null)
-  const [triggering, setTriggering]  = useState(false)
-  const [activeLogId, setActiveLogId] = useState(null)
+function AdapterFormDialog({ open, onClose, editTarget, onSaved, intersections }) {
+  const [form,      setForm]      = useState(EMPTY_FORM);
+  const [showPass,  setShowPass]  = useState(false);
+  const [saving,    setSaving]    = useState(false);
+  const [formError, setFormError] = useState(null);
 
   useEffect(() => {
-    if (!intersectionId) return
-    fetchPreemptionZoneConfigs(intersectionId)
-      .then(data => {
-        setZones(data)
-        if (data.length > 0) setSelected(data[0])
-      })
-      .catch(() => {})
-  }, [intersectionId])
+    if (!open) return;
+    if (editTarget) {
+      setForm({
+        label:           editTarget.label          ?? "",
+        intersectionId:  String(editTarget.intersectionId ?? ""),
+        ipAddress:       editTarget.ipAddress      ?? "",
+        adapterType:     editTarget.adapterType    ?? "ntcip1202",
+        snmpPort:        String(editTarget.snmpPort ?? 161),
+        snmpCommunity:   editTarget.snmpCommunity  ?? "public",
+        connectionMode:  editTarget.connectionMode ?? "snmp",
+        telnetPort:      String(editTarget.telnetPort ?? 23),
+        telnetUsername:  editTarget.telnetUsername  ?? "",
+        telnetPassword:  "",
+        timeoutSeconds:  String(editTarget.timeoutSeconds ?? 5),
+        retryCount:      String(editTarget.retryCount ?? 2),
+        connectionStatus: editTarget.connectionStatus ?? "active",
+      });
+    } else {
+      setForm(EMPTY_FORM);
+    }
+    setFormError(null);
+    setShowPass(false);
+  }, [open, editTarget]);
 
-  async function handleTrigger() {
-    if (!selectedZone) return
-    setTriggering(true)
-    setResult(null)
+  const set = (key) => (val) => setForm((prev) => ({ ...prev, [key]: val }));
+
+  const handleSave = async () => {
+    setSaving(true);
+    setFormError(null);
     try {
-      const result = await triggerPreemption({
-        preemptionZoneConfigId: selectedZone.id,
-        triggeredBy: 'operator',
-      })
-      setResult(result)
-      if (result.approved) setActiveLogId(result.logId)
+      const payload = {
+        label:            form.label || form.ipAddress,
+        intersectionId:   Number(form.intersectionId),
+        ipAddress:        form.ipAddress,
+        adapterType:      form.adapterType,
+        snmpPort:         Number(form.snmpPort),
+        snmpCommunity:    form.snmpCommunity,
+        connectionMode:   form.connectionMode,
+        telnetPort:       Number(form.telnetPort),
+        telnetUsername:   form.telnetUsername || undefined,
+        telnetPassword:   form.telnetPassword || undefined,
+        timeoutSeconds:   Number(form.timeoutSeconds),
+        retryCount:       Number(form.retryCount),
+        connectionStatus: form.connectionStatus,
+      };
+      await onSaved(editTarget?.id ?? null, payload);
+      onClose();
     } catch (err) {
-      setResult({ approved: false, violations: [err.message], warnings: [] })
+      setFormError(err.message);
     } finally {
-      setTriggering(false)
+      setSaving(false);
     }
-  }
-
-  async function handleClear() {
-    if (!activeLogId) return
-    try {
-      await clearPreemption(activeLogId)
-      setActiveLogId(null)
-      setResult(null)
-    } catch (err) {
-      // TODO: surface error
-    }
-  }
+  };
 
   return (
-    <Card>
-      <CardHeader
-        title="Preemption Control"
-        description="Trigger or clear a preemption call after NEMA TS2 / MUTCD validation"
-      />
-      <CardBody>
-        {zones.length === 0 ? (
-          <p className="text-sm text-[#a1a1a1]">No preemption zones configured for this intersection.</p>
-        ) : (
-          <>
-            <div>
-              <FieldLabel>Preemption Zone</FieldLabel>
-              {/* TODO: replace with SelectDropdown shadcn component once wired;
-                  for now a native select keeps the template minimal */}
-              <select
-                className="w-full rounded-lg px-3 h-9 text-sm text-[#fafafa] bg-transparent outline-none"
-                style={{ background: 'rgba(38,38,38,0.3)', border: '1px solid #262626' }}
-                value={selectedZone?.id ?? ''}
-                onChange={e => setSelected(zones.find(z => z.id === Number(e.target.value)))}
-              >
-                {zones.map(z => (
-                  <option key={z.id} value={z.id}>{z.name} (group {z.signalGroup})</option>
+    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
+      <DialogContent className="bg-neutral-900 border-neutral-700 text-neutral-100 max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="text-neutral-100">
+            {editTarget ? "Edit Controller" : "Add Controller"}
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="grid grid-cols-2 gap-4 mt-2">
+          <Field label="Label">
+            <TextInput value={form.label} onChange={set("label")} placeholder="e.g. MLK & Main – M60" />
+          </Field>
+          <Field label="Intersection *">
+            <Select value={form.intersectionId} onValueChange={set("intersectionId")}>
+              <SelectTrigger className="bg-neutral-800 border-neutral-700 text-neutral-200 text-sm h-[34px]">
+                <SelectValue placeholder="Select intersection…" />
+              </SelectTrigger>
+              <SelectContent className="bg-neutral-800 border-neutral-700 max-h-52 overflow-y-auto">
+                {intersections.map((i) => (
+                  <SelectItem key={i.intersection_id} value={String(i.intersection_id)} className="text-neutral-200">
+                    {i.name}
+                  </SelectItem>
                 ))}
-              </select>
-            </div>
+              </SelectContent>
+            </Select>
+          </Field>
 
-            <Separator className="bg-[#262626]" />
+          <Field label="IP Address *">
+            <TextInput value={form.ipAddress} onChange={set("ipAddress")} placeholder="192.168.1.10" />
+          </Field>
+          <Field label="Adapter Type">
+            <Select value={form.adapterType} onValueChange={set("adapterType")}>
+              <SelectTrigger className="bg-neutral-800 border-neutral-700 text-neutral-200 text-sm h-[34px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="bg-neutral-800 border-neutral-700">
+                {ADAPTER_TYPES.map((t) => (
+                  <SelectItem key={t.value} value={t.value} className="text-neutral-200">{t.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
 
-            {selectedZone && (
-              <TimingConstraintsEditor zone={selectedZone} />
-            )}
+          <Field label="SNMP Port">
+            <TextInput value={form.snmpPort} onChange={set("snmpPort")} type="number" placeholder="161" />
+          </Field>
+          <Field label="SNMP Community">
+            <TextInput value={form.snmpCommunity} onChange={set("snmpCommunity")} placeholder="public" />
+          </Field>
 
-            <Separator className="bg-[#262626]" />
+          <Field label="Connection Mode">
+            <Select value={form.connectionMode} onValueChange={set("connectionMode")}>
+              <SelectTrigger className="bg-neutral-800 border-neutral-700 text-neutral-200 text-sm h-[34px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="bg-neutral-800 border-neutral-700">
+                {CONNECTION_MODES.map((m) => (
+                  <SelectItem key={m.value} value={m.value} className="text-neutral-200">{m.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+          <Field label="Telnet Port">
+            <TextInput value={form.telnetPort} onChange={set("telnetPort")} type="number" placeholder="23" />
+          </Field>
 
-            <ValidatorFeedback result={validatorResult} />
-
-            <div className="flex gap-2 pt-1">
-              <OutlineButton
-                className="flex items-center gap-1 h-8 text-sm"
-                onClick={handleTrigger}
-                disabled={triggering || !!activeLogId}
+          <Field label="Telnet Username">
+            <TextInput value={form.telnetUsername} onChange={set("telnetUsername")} placeholder="admin" />
+          </Field>
+          <Field label={editTarget ? "Telnet Password (blank = unchanged)" : "Telnet Password"}>
+            <div className="relative">
+              <TextInput
+                value={form.telnetPassword}
+                onChange={set("telnetPassword")}
+                type={showPass ? "text" : "password"}
+                placeholder={editTarget ? "••••••••" : "Enter password"}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPass((v) => !v)}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-neutral-300"
               >
-                <Zap className="h-3.5 w-3.5" />
-                {triggering ? 'Validating…' : 'Trigger Preemption'}
-              </OutlineButton>
-
-              {activeLogId && (
-                <OutlineButton
-                  className="flex items-center gap-1 h-8 text-sm text-red-400"
-                  onClick={handleClear}
-                >
-                  <ZapOff className="h-3.5 w-3.5" />
-                  Clear Preemption
-                </OutlineButton>
-              )}
+                {showPass ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+              </button>
             </div>
-          </>
-        )}
-      </CardBody>
-    </Card>
-  )
-}
+          </Field>
 
-// ── Section: Command History ──────────────────────────────────────────────────
+          <Field label="Timeout (s)">
+            <TextInput value={form.timeoutSeconds} onChange={set("timeoutSeconds")} type="number" placeholder="5" />
+          </Field>
+          <Field label="Retry Count">
+            <TextInput value={form.retryCount} onChange={set("retryCount")} type="number" placeholder="2" />
+          </Field>
+        </div>
 
-function CommandHistory({ intersectionId }) {
-  const [log, setLog]         = useState([])
-  const [loading, setLoading] = useState(false)
-
-  useEffect(() => {
-    if (!intersectionId) return
-    setLoading(true)
-    fetchPreemptionCommandLog({ intersectionId, limit: 20 })
-      .then(setLog)
-      .catch(() => {})
-      .finally(() => setLoading(false))
-  }, [intersectionId])
-
-  const statusColour = {
-    confirmed: 'text-green-400',
-    sent:      'text-blue-400',
-    validated: 'text-yellow-400',
-    pending:   'text-[#a1a1a1]',
-    failed:    'text-red-400',
-    rejected:  'text-orange-400',
-  }
-
-  return (
-    <Card>
-      <CardHeader
-        title="Command History"
-        description="Recent preemption commands and their outcomes"
-      />
-      <CardBody>
-        {loading && <p className="text-sm text-[#a1a1a1]">Loading…</p>}
-
-        {!loading && log.length === 0 && (
-          <p className="text-sm text-[#a1a1a1]">No commands yet.</p>
-        )}
-
-        {log.map(entry => (
-          <div key={entry.id} className="flex items-start justify-between gap-4 py-1">
-            <div className="min-w-0">
-              <p className="text-sm text-[#fafafa] truncate">
-                {/* TODO: show zone name — join through preemption_zone_config_id */}
-                Zone {entry.preemptionZoneConfigId}
-              </p>
-              <p className="text-xs text-[#a1a1a1] mt-0.5 flex items-center gap-1">
-                <Clock className="h-3 w-3" />
-                {new Date(entry.requestedAt).toLocaleString()} · {entry.triggeredBy}
-              </p>
-              {entry.errorMessage && (
-                <p className="text-xs text-red-400 mt-0.5">{entry.errorMessage}</p>
-              )}
-            </div>
-            <span className={`text-xs font-semibold shrink-0 ${statusColour[entry.status] ?? 'text-[#fafafa]'}`}>
-              {entry.status.toUpperCase()}
-            </span>
+        {formError && (
+          <div className="mt-3 text-xs text-red-400 bg-red-900/30 border border-red-700/40 rounded px-3 py-2">
+            {formError}
           </div>
-        ))}
-      </CardBody>
-    </Card>
-  )
-}
+        )}
 
-// ── Page Root ─────────────────────────────────────────────────────────────────
+        <DialogFooter className="mt-4 gap-2">
+          <Button variant="ghost" className="text-neutral-300 hover:bg-neutral-800" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            className="bg-neutral-700 hover:bg-neutral-600 text-white"
+            onClick={handleSave}
+            disabled={saving || !form.ipAddress || !form.intersectionId}
+          >
+            {saving ? "Saving…" : (editTarget ? "Save Changes" : "Add Controller")}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 export function ControllerConfig() {
-  // TODO: in a real implementation, read the active intersectionId from
-  // a shared context (e.g. SettingsContext) or a URL param so the operator
-  // can switch between intersections without leaving this page.
-  // For now, a local select lets you pick from the loaded intersection list.
+  const [adapters,         setAdapters]         = useState([]);
+  const [loadingAdapters,  setLoadingAdapters]  = useState(true);
+  const [intersections,    setIntersections]    = useState([]);
+  const [dialogOpen,       setDialogOpen]       = useState(false);
+  const [editTarget,       setEditTarget]       = useState(null);
+  const [probingId,        setProbingId]        = useState(null);
+  const [probeResult,      setProbeResult]      = useState({});
 
-  const [intersections, setIntersections] = useState([])
-  const [selectedId, setSelectedId]       = useState(null)
+  const [zoneConfigs,        setZoneConfigs]        = useState([]);
+  const [selectedZoneConfig, setSelectedZoneConfig] = useState(null);
+  const [timingForm,         setTimingForm]         = useState({});
+  const [savingTiming,       setSavingTiming]       = useState(false);
+  const [timingSaved,        setTimingSaved]        = useState(false);
+
+  const loadAdapters = useCallback(() => {
+    setLoadingAdapters(true);
+    fetchControllerAdapters()
+      .then(setAdapters)
+      .catch(() => {})
+      .finally(() => setLoadingAdapters(false));
+  }, []);
 
   useEffect(() => {
-    // TODO: fetch intersection list from /api/intersections
-    //       set intersections state, default selectedId to first entry
-    // HINT: this mirrors how GeoFencingMap loads intersections on mount
-  }, [])
+    loadAdapters();
+    fetch(`${API_URL}/api/intersections`)
+      .then((r) => r.json())
+      .then(setIntersections)
+      .catch(() => {});
+    fetch(`${API_URL}/api/preemption-zone-configs`)
+      .then((r) => r.json())
+      .then((data) => setZoneConfigs(Array.isArray(data) ? data : []))
+      .catch(() => {});
+  }, [loadAdapters]);
+
+  const handleSaveAdapter = async (id, payload) => {
+    if (id) {
+      const updated = await updateControllerAdapter(id, payload);
+      setAdapters((prev) => prev.map((a) => (a.id === id ? updated : a)));
+    } else {
+      const created = await createControllerAdapter(payload);
+      setAdapters((prev) => [...prev, created]);
+    }
+  };
+
+  const handleDelete = async (id) => {
+    await deleteControllerAdapter(id);
+    setAdapters((prev) => prev.filter((a) => a.id !== id));
+  };
+
+  const handleProbe = async (id) => {
+    setProbingId(id);
+    setProbeResult((prev) => ({ ...prev, [id]: null }));
+    try {
+      const updated = await probeControllerAdapter(id);
+      setAdapters((prev) => prev.map((a) => (a.id === id ? updated : a)));
+      setProbeResult((prev) => ({ ...prev, [id]: { ok: true, type: updated.firmwareVersion } }));
+    } catch (err) {
+      setProbeResult((prev) => ({ ...prev, [id]: { ok: false, error: err.message } }));
+    } finally {
+      setProbingId(null);
+    }
+  };
+
+  useEffect(() => {
+    if (!selectedZoneConfig) { setTimingForm({}); return; }
+    fetchTimingConstraints(selectedZoneConfig.id)
+      .then((data) => {
+        if (!data) { setTimingForm({}); return; }
+        setTimingForm({
+          minGreenBeforePreemptS: String(data.minGreenBeforePreemptS ?? ""),
+          pedWalkIntervalS:       String(data.pedWalkIntervalS       ?? ""),
+          pedClearanceIntervalS:  String(data.pedClearanceIntervalS  ?? ""),
+          yellowChangeIntervalS:  String(data.yellowChangeIntervalS  ?? ""),
+          allRedClearanceS:       String(data.allRedClearanceS       ?? ""),
+          preemptGreenHoldS:      String(data.preemptGreenHoldS      ?? ""),
+          maxPreemptDurationS:    String(data.maxPreemptDurationS    ?? ""),
+          minCallIntervalS:       String(data.minCallIntervalS       ?? ""),
+        });
+      })
+      .catch(() => {});
+  }, [selectedZoneConfig]);
+
+  const handleSaveTiming = async () => {
+    if (!selectedZoneConfig) return;
+    setSavingTiming(true);
+    setTimingSaved(false);
+    try {
+      await upsertTimingConstraints({
+        preemptionZoneConfigId: selectedZoneConfig.id,
+        minGreenBeforePreemptS: parseFloat(timingForm.minGreenBeforePreemptS) || null,
+        pedWalkIntervalS:       parseFloat(timingForm.pedWalkIntervalS)       || null,
+        pedClearanceIntervalS:  parseFloat(timingForm.pedClearanceIntervalS)  || null,
+        yellowChangeIntervalS:  parseFloat(timingForm.yellowChangeIntervalS)  || null,
+        allRedClearanceS:       parseFloat(timingForm.allRedClearanceS)       || null,
+        preemptGreenHoldS:      parseFloat(timingForm.preemptGreenHoldS)      || null,
+        maxPreemptDurationS:    parseFloat(timingForm.maxPreemptDurationS)    || null,
+        minCallIntervalS:       parseFloat(timingForm.minCallIntervalS)       || null,
+      });
+      setTimingSaved(true);
+      setTimeout(() => setTimingSaved(false), 3000);
+    } catch (err) {
+      // error surfaced via form state
+    } finally {
+      setSavingTiming(false);
+    }
+  };
 
   return (
-    <SettingsPageWrapper
-      icon={Radio}
-      title="Controller Configuration"
-      description="Manage NTCIP 1202 controller connections, timing constraints, and preemption"
-    >
-      <div className="space-y-4">
-        {/* Intersection selector */}
-        <Card>
-          <CardBody>
-            <FieldLabel>Active Intersection</FieldLabel>
-            <select
-              className="w-full rounded-lg px-3 h-9 text-sm text-[#fafafa]"
-              style={{ background: 'rgba(38,38,38,0.3)', border: '1px solid #262626' }}
-              value={selectedId ?? ''}
-              onChange={e => setSelectedId(Number(e.target.value) || null)}
+    <div className="p-6 space-y-10 max-w-5xl">
+      {/* ── Adapter Registry ── */}
+      <section>
+        <div className="flex items-center justify-between mb-1">
+          <SectionHeader
+            title="Controller Adapter Registry"
+            description="Manage NTCIP controller connections. Telnet credentials are stored server-side and never returned in GET responses."
+          />
+          <div className="flex gap-2 mb-4">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-neutral-500"
+              onClick={loadAdapters}
             >
-              <option value="">— select intersection —</option>
-              {intersections.map(i => (
-                <option key={i.intersection_id} value={i.intersection_id}>{i.name}</option>
-              ))}
-            </select>
-          </CardBody>
-        </Card>
+              <RefreshCw className={`h-4 w-4 ${loadingAdapters ? "animate-spin" : ""}`} />
+            </Button>
+            <Button
+              size="sm"
+              className="gap-1.5 bg-neutral-700 hover:bg-neutral-600 text-white text-sm h-8"
+              onClick={() => { setEditTarget(null); setDialogOpen(true); }}
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Add Controller
+            </Button>
+          </div>
+        </div>
 
-        {selectedId && (
-          <>
-            <AdapterPanel         intersectionId={selectedId} />
-            <LivePhaseMonitor     intersectionId={selectedId} />
-            <PreemptionControlPanel intersectionId={selectedId} />
-            <CommandHistory       intersectionId={selectedId} />
-          </>
+        {loadingAdapters ? (
+          <div className="space-y-2">
+            {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-12 w-full rounded" />)}
+          </div>
+        ) : adapters.length === 0 ? (
+          <div className="text-center py-10 border border-neutral-800 rounded-lg text-neutral-500 text-sm">
+            No controllers configured yet.
+          </div>
+        ) : (
+          <div className="rounded-lg border border-neutral-800 overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-neutral-800/60 text-neutral-400 text-xs">
+                  <th className="text-left px-4 py-2.5 font-medium">Label</th>
+                  <th className="text-left px-4 py-2.5 font-medium">IP</th>
+                  <th className="text-left px-4 py-2.5 font-medium">Type</th>
+                  <th className="text-left px-4 py-2.5 font-medium">Mode</th>
+                  <th className="text-left px-4 py-2.5 font-medium">Status</th>
+                  <th className="text-right px-4 py-2.5 font-medium">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {adapters.map((adapter, idx) => (
+                  <tr key={adapter.id} className={idx % 2 === 0 ? "bg-neutral-900" : "bg-neutral-900/60"}>
+                    <td className="px-4 py-2.5 text-neutral-200 font-medium">
+                      {adapter.label}
+                      {probeResult[adapter.id] && (
+                        <span className={`ml-2 text-xs ${probeResult[adapter.id].ok ? "text-green-400" : "text-red-400"}`}>
+                          {probeResult[adapter.id].ok
+                            ? `✓ ${probeResult[adapter.id].type ?? "online"}`
+                            : `✗ ${probeResult[adapter.id].error}`}
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-2.5 text-neutral-400 font-mono text-xs">{adapter.ipAddress}</td>
+                    <td className="px-4 py-2.5">
+                      <Badge variant="secondary" className="text-xs">
+                        {ADAPTER_TYPES.find((t) => t.value === adapter.adapterType)?.label ?? adapter.adapterType}
+                      </Badge>
+                    </td>
+                    <td className="px-4 py-2.5 text-neutral-400 text-xs capitalize">
+                      {adapter.connectionMode ?? "snmp"}
+                    </td>
+                    <td className="px-4 py-2.5">
+                      <span className="flex items-center gap-1.5">
+                        <span className={`h-2 w-2 rounded-full ${STATUS_DOT[adapter.connectionStatus] ?? "bg-neutral-500"}`} />
+                        <span className="text-xs text-neutral-300 capitalize">{adapter.connectionStatus}</span>
+                      </span>
+                    </td>
+                    <td className="px-4 py-2.5">
+                      <div className="flex items-center justify-end gap-1">
+                        <Button
+                          variant="ghost" size="icon"
+                          className="h-7 w-7 text-neutral-500 hover:text-green-400"
+                          onClick={() => handleProbe(adapter.id)}
+                          disabled={probingId === adapter.id}
+                          title="Probe"
+                        >
+                          <Wifi className={`h-3.5 w-3.5 ${probingId === adapter.id ? "animate-pulse" : ""}`} />
+                        </Button>
+                        <Button
+                          variant="ghost" size="icon"
+                          className="h-7 w-7 text-neutral-500 hover:text-neutral-200"
+                          onClick={() => { setEditTarget(adapter); setDialogOpen(true); }}
+                          title="Edit"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-neutral-500 hover:text-red-400" title="Delete">
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent className="bg-neutral-900 border-neutral-700">
+                            <AlertDialogHeader>
+                              <AlertDialogTitle className="text-neutral-100">Delete Controller?</AlertDialogTitle>
+                              <AlertDialogDescription className="text-neutral-400">
+                                This will permanently remove <strong>{adapter.label}</strong>.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel className="bg-neutral-800 border-neutral-700 text-neutral-200 hover:bg-neutral-700">Cancel</AlertDialogCancel>
+                              <AlertDialogAction className="bg-red-700 hover:bg-red-600 text-white" onClick={() => handleDelete(adapter.id)}>
+                                Delete
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
-      </div>
-    </SettingsPageWrapper>
-  )
+      </section>
+
+      {/* ── Timing Constraints ── */}
+      <section>
+        <SectionHeader
+          title="Timing Constraints"
+          description="Safety timing bounds per preemption zone config (NEMA TS2 / MUTCD compliance)."
+        />
+        <div className="mb-4">
+          <label className="text-xs text-neutral-400 mb-1 block">Preemption Zone Config</label>
+          <Select
+            value={selectedZoneConfig ? String(selectedZoneConfig.id) : ""}
+            onValueChange={(v) => setSelectedZoneConfig(zoneConfigs.find((c) => c.id === Number(v)) ?? null)}
+          >
+            <SelectTrigger className="w-80 bg-neutral-800 border-neutral-700 text-neutral-200 text-sm">
+              <SelectValue placeholder="Select zone config…" />
+            </SelectTrigger>
+            <SelectContent className="bg-neutral-800 border-neutral-700">
+              {zoneConfigs.map((c) => (
+                <SelectItem key={c.id} value={String(c.id)} className="text-neutral-200">
+                  {c.name}{c.intersection_name ? ` — ${c.intersection_name}` : ""}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {selectedZoneConfig && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              {TIMING_FIELDS.map(({ key, label }) => (
+                <Field key={key} label={label}>
+                  <TextInput
+                    value={timingForm[key] ?? ""}
+                    onChange={(val) => setTimingForm((prev) => ({ ...prev, [key]: val }))}
+                    type="number"
+                    placeholder="seconds"
+                  />
+                </Field>
+              ))}
+            </div>
+            <div className="flex items-center gap-3">
+              <Button
+                className="gap-1.5 bg-neutral-700 hover:bg-neutral-600 text-white text-sm"
+                onClick={handleSaveTiming}
+                disabled={savingTiming}
+              >
+                <Save className="h-3.5 w-3.5" />
+                {savingTiming ? "Saving…" : "Save Constraints"}
+              </Button>
+              {timingSaved && <span className="text-xs text-green-400">✓ Saved successfully</span>}
+            </div>
+          </div>
+        )}
+      </section>
+
+      <AdapterFormDialog
+        open={dialogOpen}
+        onClose={() => { setDialogOpen(false); setEditTarget(null); }}
+        editTarget={editTarget}
+        onSaved={handleSaveAdapter}
+        intersections={intersections}
+      />
+    </div>
+  );
 }
 
-export default ControllerConfig
+export default ControllerConfig;

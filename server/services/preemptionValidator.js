@@ -73,41 +73,89 @@ class PreemptionValidator {
     // ── Step 1: Fetch live phase state from controller ──────────────────────
     // HINT: call this._client.getPhaseStatus(signalGroup)
     // Wrap in try/catch — a controller comms failure is itself a blocking violation
-    // TODO: implement
+    try {
+      phaseState = await this._client.getPhaseStatus(signalGroup);
+    } catch (err) {
+      violations.push("Controller communication failure");
+      return { approved: false, violations, warnings, phaseState: null, liveTimings: null };
+    }
 
     // ── Step 2: Pedestrian phase clearance check (MUTCD 4E.08 / NEMA TS2 §6.3.2) ──
-    // If the phase is currently in WALK or PED_CLEAR state it must be allowed
-    // to complete its full clearance interval before preemption can interrupt.
-    // HINT: check phaseState.walk or phaseState.pedClear
-    // HINT: push a violation string like:
-    //   "Pedestrian phase active — clearance interval must complete before preemption"
-    // TODO: implement
+    if (phaseState.flags.walk || phaseState.flags.pedClear) {
+      violations.push("Pedestrian phase active — clearance interval must complete before preemption");
+    }
 
     // ── Step 3: Minimum green time check (NEMA TS2 §4.2.5) ─────────────────
-    // If the phase is in MIN_GREEN state the minimum green has not elapsed yet.
-    // Preemption cannot interrupt until min-green completes.
-    // HINT: check phaseState.minGreen
-    // TODO: implement
+    if (phaseState.flags.minGreen) {
+      violations.push("Minimum green time has not elapsed - preemption not allowed until minimum green completes");
+    }
+
+
 
     // ── Step 4: Fetch live timing parameters and compare against constraints ─
-    // HINT: call this._client.getTimingParameters(signalGroup)
+    // call this._client.getTimingParameters(signalGroup)
     // Compare each live value against the corresponding constraint field.
     // If the controller reports a walk interval shorter than ped_walk_interval_s
     // that is a warning (controller may be misconfigured).
-    // TODO: implement
+    try {
+      liveTimings = await this._client.getTimingParameters(signalGroup);
+
+      if (liveTimings.walk_s < this._constraints.ped_walk_interval_s) {
+        warnings.push(`Controller walk interval (${liveTimings.walk_s}s) is shorter than configured minimum (${this._constraints.ped_walk_interval_s}s)`);
+      }
+
+      if (liveTimings.pedClear_s < this._constraints.ped_clearance_interval_s) {
+        warnings.push(`Controller pedestrian clearance interval (${liveTimings.pedClear_s}s) is shorter than configured minimum (${this._constraints.ped_clearance_interval_s}s)`);
+      }
+
+      if (liveTimings.yellowChange_s < this._constraints.yellow_change_interval_s) {
+        warnings.push(`Controller yellow change interval (${liveTimings.yellowChange_s}s) is shorter than configured minimum (${this._constraints.yellow_change_interval_s}s)`);
+      }
+
+      if (liveTimings.redClearance_s < this._constraints.all_red_clearance_s) {
+        warnings.push(`Controller all-red clearance (${liveTimings.redClearance_s}s) is shorter than configured minimum (${this._constraints.all_red_clearance_s}s)`);
+      }
+
+    } catch (err) {
+      violations.push("Controller communication failure when fetching timing parameters");
+    } 
 
     // ── Step 5: Cooldown check — minimum time between successive calls ───────
     // Query preemption_command_log for the most recent confirmed/sent entry for
     // this zone config and check whether min_call_interval_s has elapsed.
-    // HINT: SELECT MAX(sent_at) FROM preemption_command_log WHERE ...
+    //  SELECT MAX(sent_at) FROM preemption_command_log WHERE ...
     //       compare (NOW() - sent_at) in seconds against min_call_interval_s
-    // TODO: implement
+
+    const zoneConfigId = this._constraints.preemption_zone_config_id;
+    if (zoneConfigId) {
+      const cooldownResult = await db.query(
+        `SELECT MAX(sent_at) AS last_sent
+        FROM preemption_command_log
+        WHERE preemption_zone_config_id = $1
+          AND status IN ('sent', 'confirmed')`, [zoneConfigId]
+      );
+      const lastSent = cooldownResult.rows[0]?.last_sent;
+      if (lastSent) {
+        const elapsedSeconds = (Date.now() - new Date(lastSent).getTime()) / 1000;
+        const remaining = this._constraints.min_call_interval_s - elapsedSeconds;
+        if (remaining > 0) {
+          violations.push(`Cooldown active - ${Math.ceil(remaining)}s remaining until next preemption allowed`)
+        }
+      }
+    }
+
+
+     
 
     // ── Step 6: Phase is RED — preemption is safe to send immediately ────────
     // If the phase is already red there are no pedestrian or green-time concerns.
-    // HINT: if phaseState.red is true and no other violations, add a note to warnings
+    //  if phaseState.red is true and no other violations, add a note to warnings
     //       that this is a red-phase call (lowest disruption)
-    // TODO: implement
+    // 
+
+    if (phaseState.flags.red && violations.length === 0) {
+      warnings.push("Phase is already red - preemption can be sent immediately with minimal disruption");
+    }
 
     return {
       approved:    violations.length === 0,
@@ -129,6 +177,11 @@ class PreemptionValidator {
 async function loadTimingConstraints(preemptionZoneConfigId) {
   // TODO: SELECT * FROM controller_timing_constraints WHERE preemption_zone_config_id = $1
   // return result.rows[0] || null
+  const result = await db.query(
+    `SELECT * FROM controller_timing_constraints WHERE preemption_zone_config_id = $1`,
+    [preemptionZoneConfigId]
+  );
+  return result.rows[0] || null;
 }
 
 /**
@@ -139,9 +192,19 @@ async function loadTimingConstraints(preemptionZoneConfigId) {
  * @returns {Promise<Object|null>}
  */
 async function loadAdapterForZoneConfig(preemptionZoneConfigId) {
-  // HINT: JOIN preemption_zone_configs pzc ON pzc.controller_ip = ca.ip_address
+  // JOIN preemption_zone_configs pzc ON pzc.controller_ip = ca.ip_address
   //       WHERE pzc.id = preemptionZoneConfigId
-  // TODO: implement query, return result.rows[0] || null
+  // return result.rows[0] || null
+  const result = await db.query(
+    `SELECT ca.*
+    FROM controller_adapters ca
+    JOIN preemption_zone_configs pzc ON pzc.controller_ip = ca.ip_address
+    WHERE pzc.id = $1
+    LIMIT 1`,
+    [preemptionZoneConfigId]
+  );
+  return result.rows[0] || null;
+
 }
 
 module.exports = { PreemptionValidator, loadTimingConstraints, loadAdapterForZoneConfig };
