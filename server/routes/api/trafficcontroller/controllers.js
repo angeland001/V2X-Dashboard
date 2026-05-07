@@ -28,11 +28,19 @@ const { ControllerClientFactory }      = require("../../../services/controllerCl
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const VALID_ADAPTER_TYPES = ["ntcip1202", "siemens_m60", "econolite_aries", "peek_ada", "generic_snmp"];
-const VALID_STATUSES      = ["active", "offline", "maintenance"];
-const UPDATABLE_FIELDS    = [
+const VALID_ADAPTER_TYPES   = ["ntcip1202", "siemens_m60", "econolite_aries", "peek_ada", "generic_snmp"];
+const VALID_STATUSES        = ["active", "offline", "maintenance"];
+const VALID_SNMP_VERSIONS   = ["v1", "v2c", "v3"];
+const VALID_AUTH_PROTOCOLS  = ["md5", "sha", "sha224", "sha256", "sha384", "sha512"];
+const VALID_PRIV_PROTOCOLS  = ["des", "ide", "aes", "aes256b", "aes256r"];
+const VALID_SECURITY_LEVELS = ["noAuthNoPriv", "authNoPriv", "authPriv"];
+
+const UPDATABLE_FIELDS = [
   "label", "ip_address", "snmp_port", "snmp_community", "adapter_type",
   "firmware_version", "timeout_seconds", "retry_count", "connection_status",
+  "snmp_version", "snmp_v3_security_level", "snmp_v3_username",
+  "snmp_v3_auth_protocol", "snmp_v3_auth_key",
+  "snmp_v3_priv_protocol", "snmp_v3_priv_key",
 ];
 
 // ── Validation helpers ────────────────────────────────────────────────────────
@@ -86,6 +94,18 @@ function validateAdapterPayload(body, isCreate = false) {
   if (body.connection_status !== undefined && !VALID_STATUSES.includes(body.connection_status)) {
     return `connection_status must be one of: ${VALID_STATUSES.join(", ")}`;
   }
+  if (body.snmp_version !== undefined && !VALID_SNMP_VERSIONS.includes(body.snmp_version)) {
+    return `snmp_version must be one of: ${VALID_SNMP_VERSIONS.join(", ")}`;
+  }
+  if (body.snmp_v3_security_level !== undefined && !VALID_SECURITY_LEVELS.includes(body.snmp_v3_security_level)) {
+    return `snmp_v3_security_level must be one of: ${VALID_SECURITY_LEVELS.join(", ")}`;
+  }
+  if (body.snmp_v3_auth_protocol !== undefined && !VALID_AUTH_PROTOCOLS.includes(body.snmp_v3_auth_protocol)) {
+    return `snmp_v3_auth_protocol must be one of: ${VALID_AUTH_PROTOCOLS.join(", ")}`;
+  }
+  if (body.snmp_v3_priv_protocol !== undefined && !VALID_PRIV_PROTOCOLS.includes(body.snmp_v3_priv_protocol)) {
+    return `snmp_v3_priv_protocol must be one of: ${VALID_PRIV_PROTOCOLS.join(", ")}`;
+  }
   return null;
 }
 
@@ -127,7 +147,12 @@ function baseSelect() {
       ca.connection_status,
       ca.last_seen_at,
       ca.created_at,
-      ca.updated_at
+      ca.updated_at,
+      ca.snmp_version,
+      ca.snmp_v3_security_level,
+      ca.snmp_v3_username,
+      ca.snmp_v3_auth_protocol,
+      ca.snmp_v3_priv_protocol
     FROM controller_adapters ca
     JOIN intersections i ON i.intersection_id = ca.intersection_id
   `;
@@ -314,27 +339,38 @@ router.post("/", async (req, res) => {
 
   const {
     ip_address,
-    label             = ip_address,
-    snmp_port         = 161,
-    snmp_community    = "public",
-    adapter_type      = "ntcip1202",
-    firmware_version  = null,
-    timeout_seconds   = 5,
-    retry_count       = 2,
-    connection_status = "active",
-    user_id           = null,
+    label                  = ip_address,
+    snmp_port              = 161,
+    snmp_community         = "public",
+    adapter_type           = "ntcip1202",
+    firmware_version       = null,
+    timeout_seconds        = 5,
+    retry_count            = 2,
+    connection_status      = "active",
+    snmp_version           = "v2c",
+    snmp_v3_security_level = null,
+    snmp_v3_username       = null,
+    snmp_v3_auth_protocol  = null,
+    snmp_v3_auth_key       = null,
+    snmp_v3_priv_protocol  = null,
+    snmp_v3_priv_key       = null,
+    user_id                = null,
   } = req.body;
 
   try {
     const result = await db.query(
       `INSERT INTO controller_adapters
          (intersection_id, label, ip_address, snmp_port, snmp_community,
-          adapter_type, firmware_version, timeout_seconds, retry_count, connection_status)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+          adapter_type, firmware_version, timeout_seconds, retry_count, connection_status,
+          snmp_version, snmp_v3_security_level, snmp_v3_username,
+          snmp_v3_auth_protocol, snmp_v3_auth_key, snmp_v3_priv_protocol, snmp_v3_priv_key)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
        RETURNING *`,
       [
         intersectionId, label, ip_address.trim(), snmp_port, snmp_community,
         adapter_type, firmware_version, timeout_seconds, retry_count, connection_status,
+        snmp_version, snmp_v3_security_level, snmp_v3_username,
+        snmp_v3_auth_protocol, snmp_v3_auth_key, snmp_v3_priv_protocol, snmp_v3_priv_key,
       ],
     );
     const newRow = result.rows[0];
@@ -495,6 +531,69 @@ router.get("/:id/timings/:group", async (req, res) => {
   } catch (err) {
     console.error("GET /api/controllers/:id/timings/:group error:", err);
     res.status(502).json({ error: "Controller unreachable", detail: err.message });
+  } finally {
+    if (client) client.close();
+  }
+});
+
+// ── GET /api/controllers/:id/phases ──────────────────────────────────────────
+// Returns live status for all 8 phases in a single SNMP request.
+router.get("/:id/phases", async (req, res) => {
+  const id = parseId(req.params.id);
+  if (!id) return res.status(400).json({ error: "Invalid id" });
+
+  let client = null;
+  try {
+    const adapterResult = await db.query(
+      "SELECT * FROM controller_adapters WHERE id = $1 LIMIT 1",
+      [id],
+    );
+    if (!adapterResult.rows[0]) return res.status(404).json({ error: "Controller adapter not found" });
+    client = ControllerClientFactory.forAdapter(adapterResult.rows[0]);
+    const phases = await client.getAllPhaseStatuses();
+    res.json(phases);
+  } catch (err) {
+    console.error("GET /api/controllers/:id/phases error:", err);
+    res.status(502).json({ error: "Controller unreachable", detail: err.message });
+  } finally {
+    if (client) client.close();
+  }
+});
+
+// ── PUT /api/controllers/:id/timings/:group ───────────────────────────────────
+// Writes timing parameters to the controller via SNMP SET, then reads them back.
+router.put("/:id/timings/:group", async (req, res) => {
+  const id    = parseId(req.params.id);
+  const group = parseId(req.params.group);
+  if (!id || !group) return res.status(400).json({ error: "Invalid id or group" });
+
+  const TIMING_KEYS = ["minGreen_s", "maxGreen_s", "walk_s", "pedClear_s", "yellowChange_s", "redClearance_s"];
+  for (const key of TIMING_KEYS) {
+    if (req.body[key] !== undefined) {
+      const v = Number(req.body[key]);
+      if (isNaN(v) || v < 0) {
+        return res.status(400).json({ error: `${key} must be a non-negative number` });
+      }
+    }
+  }
+
+  let client = null;
+  try {
+    const adapterResult = await db.query(
+      "SELECT * FROM controller_adapters WHERE id = $1 LIMIT 1",
+      [id],
+    );
+    if (!adapterResult.rows[0]) return res.status(404).json({ error: "Controller adapter not found" });
+    client = ControllerClientFactory.forAdapter(adapterResult.rows[0]);
+    await client.setTimingParameters(group, req.body);
+    const updated = await client.getTimingParameters(group);
+    res.json(updated);
+  } catch (err) {
+    console.error("PUT /api/controllers/:id/timings/:group error:", err);
+    const isReadOnly = err.message?.includes("could not be written");
+    res
+      .status(isReadOnly ? 422 : 502)
+      .json({ error: isReadOnly ? "Controller does not support timing writes" : "Controller unreachable", detail: err.message });
   } finally {
     if (client) client.close();
   }

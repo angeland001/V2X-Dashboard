@@ -130,21 +130,39 @@ const PREEMPT_CONTROL = {
 // ── SNMP Session Factory ──────────────────────────────────────────────────────
 
 function buildSnmpSession(adapter) {
-  // Adapter row (Each row of controller_adapters table) has: { ip_address, snmp_port, snmp_community, timeout_seconds }
-  // HINT: snmp.Version2c is the right version for NTCIP 1202 deployments
-  // snmp.createSession(host, community, options) returns a session object
-  // TODO: implement using net-snmp session options from the adapter row
-  const ip = adapter.ip_address;
+  const ip        = adapter.ip_address;
+  const port      = adapter.snmp_port      || 161;
+  const timeout   = (adapter.timeout_seconds || 5) * 1000;
+  const retries   = adapter.retry_count    || 2;
+  const version   = adapter.snmp_version   || "v2c";
+
+  if (version === "v3") {
+    const level = adapter.snmp_v3_security_level || "authNoPriv";
+    const user = {
+      name:  adapter.snmp_v3_username || "admin",
+      level: snmp.SecurityLevel[level] ?? snmp.SecurityLevel.authNoPriv,
+    };
+    if (adapter.snmp_v3_auth_key) {
+      const proto = (adapter.snmp_v3_auth_protocol || "sha").toLowerCase();
+      user.authProtocol = snmp.AuthProtocols[proto] ?? snmp.AuthProtocols.sha;
+      user.authKey      = adapter.snmp_v3_auth_key;
+    }
+    if (adapter.snmp_v3_priv_key) {
+      const proto = (adapter.snmp_v3_priv_protocol || "aes").toLowerCase();
+      user.privProtocol = snmp.PrivProtocols[proto] ?? snmp.PrivProtocols.aes;
+      user.privKey      = adapter.snmp_v3_priv_key;
+    }
+    return snmp.createV3Session(ip, user, { port, timeout, retries });
+  }
+
   const community = adapter.snmp_community || "public";
-  const snmp_port = adapter.snmp_port || 161;
-  const timeout = (adapter.timeout_seconds || 5) * 1000;  // convert to ms
-  const retryCount = adapter.retry_count || 2;
+  const snmpVersion = version === "v1" ? snmp.Version1 : snmp.Version2c;
 
   return snmp.createSession(ip, community, {
-    port: snmp_port,
+    port,
     timeout,
-    retries: retryCount,
-    version: snmp.Version2c,
+    retries,
+    version: snmpVersion,
   });
 }
 
@@ -291,13 +309,9 @@ class Ntcip1202Adapter {
   }
 
   async getPreemptionStatus() {
-    // HINT: GET OID.unitPreemptState (scalar, no instance suffix)
-    // Decode bits 0–7 as preemption inputs 1–8
-    // For per-channel detail, prefer getPreemptChannelStatus(preemptNum) below
+    try {
       const result = await snmpGet(this._session, [OID.unitPreemptState]);
-      const raw = result[OID.unitPreemptState]; //integer bitmask, bits 0-7
-
-      // Bit N-1 corresponds to preempt input N (1-indexed)
+      const raw = result[OID.unitPreemptState];
       const inputs = {};
       for (let n = 1; n <= 8; n++) {
         inputs[n] = !!(raw & (1 << (n - 1)));
@@ -305,11 +319,12 @@ class Ntcip1202Adapter {
       return {
         raw,
         inputs,
-        active: Object.keys(inputs)
-          .filter((n) => inputs[n])
-          .map(Number),
+        active: Object.keys(inputs).filter((n) => inputs[n]).map(Number),
       };
-
+    } catch {
+      // OID not supported by this controller firmware — return safe default
+      return { raw: 0, inputs: {}, active: [], source: "unavailable" };
+    }
   }
   // Asserts a preemption request on a specific signal channel — this is what you call to give a train/emergency vehicle a green light. 
   // It tries the modern per-channel NTCIP command first, then falls back to the older bitmask register for controllers with outdated
@@ -439,6 +454,79 @@ class Ntcip1202Adapter {
     };
   }
 
+  async getAllPhaseStatuses(phases = [1, 2, 3, 4, 5, 6, 7, 8]) {
+    // Fetch each phase OID independently — SNMPv1 rejects the entire multi-OID
+    // GET PDU when any instance is missing (NoSuchName), so batching all 8 would
+    // return [] whenever the controller has fewer than 8 configured phases.
+    const settled = await Promise.all(
+      phases.map(n => snmpGetOne(this._session, OID.phaseStatus + "." + n)
+        .then(raw => ({ n, raw })))
+    );
+
+    const results = [];
+    for (const { n, raw } of settled) {
+      if (raw == null) continue;
+
+      const flags = {
+        walk:     !!(raw & PHASE_BIT.WALK),
+        pedClear: !!(raw & PHASE_BIT.PED_CLEAR),
+        minGreen: !!(raw & PHASE_BIT.MIN_GREEN),
+        green:    !!(raw & PHASE_BIT.GREEN),
+        yellow:   !!(raw & PHASE_BIT.YELLOW),
+        redClear: !!(raw & PHASE_BIT.RED_CLEAR),
+        red:      !!(raw & PHASE_BIT.RED),
+        next:     !!(raw & PHASE_BIT.NEXT),
+      };
+
+      let label = "RED";
+      if (flags.walk)          label = "WALK";
+      else if (flags.pedClear) label = "PED_CLEAR";
+      else if (flags.green)    label = "GREEN";
+      else if (flags.yellow)   label = "YELLOW";
+
+      results.push({ signalGroup: n, raw, flags, label });
+    }
+    return results;
+  }
+
+  async setTimingParameters(signalGroup, params) {
+    const toTenths = v => Math.round(v * 10);
+
+    const fieldMap = [
+      ["minGreen_s",     OID.phaseMinGreen],
+      ["maxGreen_s",     OID.phaseMaxGreen],
+      ["walk_s",         OID.phaseWalk],
+      ["pedClear_s",     OID.phasePedestrianClear],
+      ["yellowChange_s", OID.phaseYellowChange],
+      ["redClearance_s", OID.phaseRedClearance],
+    ];
+
+    // Send one SET per field — SNMPv1 rejects the entire multi-varbind PDU if
+    // any single OID is missing or read-only (NoSuchName), so batching all
+    // fields together would silently drop every write whenever one field fails.
+    const results = await Promise.allSettled(
+      fieldMap
+        .filter(([key]) => params[key] != null)
+        .map(([key, baseOid]) =>
+          snmpSet(this._session, [{
+            oid:   baseOid + "." + signalGroup,
+            type:  snmp.ObjectType.Integer,
+            value: toTenths(params[key]),
+          }]).then(() => ({ key, ok: true }))
+            .catch(err => ({ key, ok: false, detail: err.message }))
+        )
+    );
+
+    const failures = results
+      .map(r => r.value)
+      .filter(r => !r.ok);
+
+    if (failures.length) {
+      const detail = failures.map(f => `${f.key}: ${f.detail}`).join("; ");
+      throw new Error(`Some timing fields could not be written: ${detail}`);
+    }
+  }
+
   close() {
     // Frees the underlying SNMP UDP socket — call when done with this adapter
     // to avoid dangling open handles that block process exit.
@@ -498,7 +586,12 @@ class SiemensM60Adapter extends Ntcip1202Adapter {
       const raw = result[SIEMENS_OID.sepacPreemptStatus];
       return { raw, active: raw > 0 ? [raw] : [], source: "siemens_sepac" };
     } catch {
-      return super.getPreemptionStatus();
+      // SEPAC OID not available on this firmware — try standard NTCIP, then give up gracefully
+      try {
+        return await super.getPreemptionStatus();
+      } catch {
+        return { raw: 0, active: [], source: "unavailable" };
+      }
     }
   }
 }

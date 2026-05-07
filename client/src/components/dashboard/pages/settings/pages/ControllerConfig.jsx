@@ -41,10 +41,39 @@ const STATUS_DOT = {
   maintenance: "bg-yellow-500",
 };
 
+const SNMP_VERSIONS = [
+  { value: "v2c", label: "SNMPv2c (community string)" },
+  { value: "v3",  label: "SNMPv3 (username / password)" },
+  { value: "v1",  label: "SNMPv1 (legacy)" },
+];
+
+const V3_SECURITY_LEVELS = [
+  { value: "authNoPriv",   label: "Auth, No Privacy (authNoPriv)" },
+  { value: "authPriv",     label: "Auth + Privacy (authPriv)" },
+  { value: "noAuthNoPriv", label: "No Auth, No Privacy" },
+];
+
+const V3_AUTH_PROTOCOLS = [
+  { value: "sha",   label: "SHA-1" },
+  { value: "sha256",label: "SHA-256" },
+  { value: "md5",   label: "MD5" },
+  { value: "sha384",label: "SHA-384" },
+  { value: "sha512",label: "SHA-512" },
+];
+
+const V3_PRIV_PROTOCOLS = [
+  { value: "aes",    label: "AES-128" },
+  { value: "aes256b",label: "AES-256 (Blumenthal)" },
+  { value: "des",    label: "DES (legacy)" },
+];
+
 const EMPTY_FORM = {
   label: "", intersectionId: "", ipAddress: "", adapterType: "ntcip1202",
-  snmpPort: "161", snmpCommunity: "public",
+  snmpVersion: "v2c", snmpPort: "161", snmpCommunity: "public",
   timeoutSeconds: "5", retryCount: "2", connectionStatus: "active",
+  snmpV3SecurityLevel: "authNoPriv", snmpV3Username: "",
+  snmpV3AuthProtocol: "sha", snmpV3AuthKey: "",
+  snmpV3PrivProtocol: "aes", snmpV3PrivKey: "",
 };
 
 const TIMING_FIELDS = [
@@ -98,15 +127,22 @@ function AdapterFormDialog({ open, onClose, editTarget, onSaved, intersections }
     if (!open) return;
     if (editTarget) {
       setForm({
-        label:           editTarget.label          ?? "",
-        intersectionId:  String(editTarget.intersectionId ?? ""),
-        ipAddress:       editTarget.ipAddress      ?? "",
-        adapterType:     editTarget.adapterType    ?? "ntcip1202",
-        snmpPort:        String(editTarget.snmpPort ?? 161),
-        snmpCommunity:   editTarget.snmpCommunity  ?? "public",
-        timeoutSeconds:  String(editTarget.timeoutSeconds ?? 5),
-        retryCount:      String(editTarget.retryCount ?? 2),
-        connectionStatus: editTarget.connectionStatus ?? "active",
+        label:              editTarget.label             ?? "",
+        intersectionId:     String(editTarget.intersectionId ?? ""),
+        ipAddress:          editTarget.ipAddress         ?? "",
+        adapterType:        editTarget.adapterType       ?? "ntcip1202",
+        snmpVersion:        editTarget.snmpVersion       ?? "v2c",
+        snmpPort:           String(editTarget.snmpPort   ?? 161),
+        snmpCommunity:      editTarget.snmpCommunity     ?? "public",
+        timeoutSeconds:     String(editTarget.timeoutSeconds ?? 5),
+        retryCount:         String(editTarget.retryCount ?? 2),
+        connectionStatus:   editTarget.connectionStatus  ?? "active",
+        snmpV3SecurityLevel: editTarget.snmpV3SecurityLevel ?? "authNoPriv",
+        snmpV3Username:     editTarget.snmpV3Username    ?? "",
+        snmpV3AuthProtocol: editTarget.snmpV3AuthProtocol ?? "sha",
+        snmpV3AuthKey:      "",
+        snmpV3PrivProtocol: editTarget.snmpV3PrivProtocol ?? "aes",
+        snmpV3PrivKey:      "",
       });
     } else {
       setForm(EMPTY_FORM);
@@ -120,16 +156,26 @@ function AdapterFormDialog({ open, onClose, editTarget, onSaved, intersections }
     setSaving(true);
     setFormError(null);
     try {
+      const isV3 = form.snmpVersion === "v3";
       const payload = {
         label:            form.label || form.ipAddress,
-        intersectionId:   Number(form.intersectionId),
+        ...(editTarget ? {} : { intersectionId: Number(form.intersectionId) }),
         ipAddress:        form.ipAddress,
         adapterType:      form.adapterType,
+        snmpVersion:      form.snmpVersion,
         snmpPort:         Number(form.snmpPort),
-        snmpCommunity:    form.snmpCommunity,
+        snmpCommunity:    isV3 ? undefined : form.snmpCommunity,
         timeoutSeconds:   Number(form.timeoutSeconds),
         retryCount:       Number(form.retryCount),
         connectionStatus: form.connectionStatus,
+        ...(isV3 && {
+          snmpV3SecurityLevel: form.snmpV3SecurityLevel,
+          snmpV3Username:      form.snmpV3Username,
+          snmpV3AuthProtocol:  form.snmpV3AuthProtocol,
+          ...(form.snmpV3AuthKey   && { snmpV3AuthKey:   form.snmpV3AuthKey }),
+          snmpV3PrivProtocol:  form.snmpV3PrivProtocol,
+          ...(form.snmpV3PrivKey   && { snmpV3PrivKey:   form.snmpV3PrivKey }),
+        }),
       };
       await onSaved(editTarget?.id ?? null, payload);
       onClose();
@@ -184,12 +230,83 @@ function AdapterFormDialog({ open, onClose, editTarget, onSaved, intersections }
             </Select>
           </Field>
 
+          <Field label="SNMP Version">
+            <Select value={form.snmpVersion} onValueChange={set("snmpVersion")}>
+              <SelectTrigger className="bg-neutral-800 border-neutral-700 text-neutral-200 text-sm h-[34px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="bg-neutral-800 border-neutral-700">
+                {SNMP_VERSIONS.map((v) => (
+                  <SelectItem key={v.value} value={v.value} className="text-neutral-200">{v.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+
           <Field label="SNMP Port">
             <TextInput value={form.snmpPort} onChange={set("snmpPort")} type="number" placeholder="161" />
           </Field>
-          <Field label="SNMP Community">
-            <TextInput value={form.snmpCommunity} onChange={set("snmpCommunity")} placeholder="public" />
-          </Field>
+
+          {form.snmpVersion !== "v3" ? (
+            <Field label="SNMP Community">
+              <TextInput value={form.snmpCommunity} onChange={set("snmpCommunity")} placeholder="public (read) / private (write)" />
+            </Field>
+          ) : (
+            <Field label="Security Level">
+              <Select value={form.snmpV3SecurityLevel} onValueChange={set("snmpV3SecurityLevel")}>
+                <SelectTrigger className="bg-neutral-800 border-neutral-700 text-neutral-200 text-sm h-[34px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-neutral-800 border-neutral-700">
+                  {V3_SECURITY_LEVELS.map((l) => (
+                    <SelectItem key={l.value} value={l.value} className="text-neutral-200">{l.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+          )}
+
+          {form.snmpVersion === "v3" && (
+            <>
+              <Field label="Username *">
+                <TextInput value={form.snmpV3Username} onChange={set("snmpV3Username")} placeholder="snmpuser" />
+              </Field>
+              <Field label="Auth Protocol">
+                <Select value={form.snmpV3AuthProtocol} onValueChange={set("snmpV3AuthProtocol")}>
+                  <SelectTrigger className="bg-neutral-800 border-neutral-700 text-neutral-200 text-sm h-[34px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-neutral-800 border-neutral-700">
+                    {V3_AUTH_PROTOCOLS.map((p) => (
+                      <SelectItem key={p.value} value={p.value} className="text-neutral-200">{p.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+              <Field label={editTarget ? "Auth Key (leave blank to keep)" : "Auth Key (password)"}>
+                <TextInput value={form.snmpV3AuthKey} onChange={set("snmpV3AuthKey")} type="password" placeholder="min 8 characters" />
+              </Field>
+              {form.snmpV3SecurityLevel === "authPriv" && (
+                <>
+                  <Field label="Privacy Protocol">
+                    <Select value={form.snmpV3PrivProtocol} onValueChange={set("snmpV3PrivProtocol")}>
+                      <SelectTrigger className="bg-neutral-800 border-neutral-700 text-neutral-200 text-sm h-[34px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-neutral-800 border-neutral-700">
+                        {V3_PRIV_PROTOCOLS.map((p) => (
+                          <SelectItem key={p.value} value={p.value} className="text-neutral-200">{p.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                  <Field label={editTarget ? "Priv Key (leave blank to keep)" : "Privacy Key"}>
+                    <TextInput value={form.snmpV3PrivKey} onChange={set("snmpV3PrivKey")} type="password" placeholder="min 8 characters" />
+                  </Field>
+                </>
+              )}
+            </>
+          )}
 
           <Field label="Timeout (s)">
             <TextInput value={form.timeoutSeconds} onChange={set("timeoutSeconds")} type="number" placeholder="5" />

@@ -33,6 +33,11 @@ function normalizeAdapter(row) {
     lastSeenAt: row.last_seen_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    snmpVersion: row.snmp_version ?? "v2c",
+    snmpV3SecurityLevel: row.snmp_v3_security_level ?? null,
+    snmpV3Username: row.snmp_v3_username ?? null,
+    snmpV3AuthProtocol: row.snmp_v3_auth_protocol ?? null,
+    snmpV3PrivProtocol: row.snmp_v3_priv_protocol ?? null,
   };
 }
 
@@ -73,18 +78,33 @@ function normalizeCommandLog(row) {
 
 function normalizePhaseStatus(row) {
   if (!row) return null;
+  // API returns flags as a nested object; fall back to flat shape for forward compat
+  const f = row.flags ?? row;
   return {
     signalGroup: row.signalGroup ?? null,
-    raw: row.raw ?? null,
-    walk: Boolean(row.walk),
-    pedClear: Boolean(row.pedClear),
-    minGreen: Boolean(row.minGreen),
-    green: Boolean(row.green),
-    yellow: Boolean(row.yellow),
-    redClear: Boolean(row.redClear),
-    red: Boolean(row.red),
-    label: row.label ?? null,
-    source: row.source ?? null,
+    raw:      row.raw ?? null,
+    walk:     Boolean(f.walk),
+    pedClear: Boolean(f.pedClear),
+    minGreen: Boolean(f.minGreen),
+    green:    Boolean(f.green),
+    yellow:   Boolean(f.yellow),
+    redClear: Boolean(f.redClear),
+    red:      Boolean(f.red),
+    label:    row.label ?? null,
+    source:   row.source ?? null,
+  };
+}
+
+function normalizeLiveTiming(row) {
+  if (!row) return null;
+  return {
+    signalGroup:    row.signalGroup    ?? null,
+    minGreen_s:     row.minGreen_s     ?? null,
+    maxGreen_s:     row.maxGreen_s     ?? null,
+    walk_s:         row.walk_s         ?? null,
+    pedClear_s:     row.pedClear_s     ?? null,
+    yellowChange_s: row.yellowChange_s ?? null,
+    redClearance_s: row.redClearance_s ?? null,
   };
 }
 
@@ -111,10 +131,17 @@ function buildAdapterBody(payload) {
     withValue(body, "retry_count", toFiniteNumberOrNull(payload.retryCount));
   }
 
-  withValue(body, "snmp_community", payload?.snmpCommunity);
-  withValue(body, "adapter_type", payload?.adapterType);
-  withValue(body, "firmware_version", payload?.firmwareVersion);
-  withValue(body, "supported_oids", payload?.supportedOids);
+  withValue(body, "snmp_community",          payload?.snmpCommunity);
+  withValue(body, "adapter_type",            payload?.adapterType);
+  withValue(body, "firmware_version",        payload?.firmwareVersion);
+  withValue(body, "supported_oids",          payload?.supportedOids);
+  withValue(body, "snmp_version",            payload?.snmpVersion);
+  withValue(body, "snmp_v3_security_level",  payload?.snmpV3SecurityLevel);
+  withValue(body, "snmp_v3_username",        payload?.snmpV3Username);
+  withValue(body, "snmp_v3_auth_protocol",   payload?.snmpV3AuthProtocol);
+  withValue(body, "snmp_v3_auth_key",        payload?.snmpV3AuthKey);
+  withValue(body, "snmp_v3_priv_protocol",   payload?.snmpV3PrivProtocol);
+  withValue(body, "snmp_v3_priv_key",        payload?.snmpV3PrivKey);
 
   return body;
 }
@@ -279,14 +306,46 @@ export async function fetchLivePhaseStatus(adapterId, signalGroup) {
  * Live timing parameters from the controller for one signal group.
  * @param {string|number} adapterId
  * @param {number} signalGroup
- * @returns {Promise<Object>}  timing values in seconds
+ * @returns {Promise<Object>}  { minGreen_s, maxGreen_s, walk_s, pedClear_s, yellowChange_s, redClearance_s }
  */
 export async function fetchLiveTimingParameters(adapterId, signalGroup) {
   const res  = await fetch(`${API_URL}/api/controllers/${adapterId}/timings/${signalGroup}`);
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || `Timing read failed (${res.status})`);
 
-  return normalizeTimingConstraints(data);
+  return normalizeLiveTiming(data);
+}
+
+/**
+ * Live status for all phases on a controller (single SNMP request).
+ * @param {string|number} adapterId
+ * @returns {Promise<Array>}  array of normalised phase status objects
+ */
+export async function fetchAllPhaseStatuses(adapterId) {
+  const res  = await fetch(`${API_URL}/api/controllers/${adapterId}/phases`);
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || `Phase bulk read failed (${res.status})`);
+
+  return Array.isArray(data) ? data.map(normalizePhaseStatus) : [];
+}
+
+/**
+ * Write timing parameters to the controller via SNMP SET.
+ * @param {string|number} adapterId
+ * @param {number} signalGroup
+ * @param {Object} params  { minGreen_s?, maxGreen_s?, walk_s?, pedClear_s?, yellowChange_s?, redClearance_s? }
+ * @returns {Promise<Object>}  updated timing values read back from controller
+ */
+export async function updateTimingParameters(adapterId, signalGroup, params) {
+  const res = await fetch(`${API_URL}/api/controllers/${adapterId}/timings/${signalGroup}`, {
+    method:  "PUT",
+    headers: { "Content-Type": "application/json" },
+    body:    JSON.stringify(params),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || `Timing write failed (${res.status})`);
+
+  return normalizeLiveTiming(data);
 }
 
 // ── Timing Constraints CRUD ───────────────────────────────────────────────────

@@ -27,7 +27,7 @@ export function ControllerDetailPanel({ adapter, onClose, onProbed }) {
   const [selectedGroup, setSelectedGroup] = useState(1);
   const [probing,       setProbing]       = useState(false);
 
-  const { phaseData, timingData, loading: phaseLoading, error: phaseError } =
+  const { phaseData, allPhaseData, timingData, loading: phaseLoading, error: phaseError } =
     usePhasePolling(adapter?.id, selectedGroup);
 
   const statusColorClass = STATUS_COLOR[adapter.connectionStatus] ?? "text-neutral-400";
@@ -120,11 +120,17 @@ export function ControllerDetailPanel({ adapter, onClose, onProbed }) {
           <TabsContent value="phases" className="flex-1 px-4 pb-4 mt-3 space-y-4">
             <PhaseStatePanel
               phaseData={phaseData}
+              allPhaseData={allPhaseData}
               selectedGroup={selectedGroup}
               onGroupChange={setSelectedGroup}
               loading={phaseLoading}
             />
-            <TimingParametersTable timingData={timingData} loading={phaseLoading} />
+            <TimingParametersTable
+              adapterId={adapter.id}
+              signalGroup={selectedGroup}
+              timingData={timingData}
+              loading={phaseLoading}
+            />
           </TabsContent>
 
           <TabsContent value="preemption" className="flex-1 px-4 pb-4 mt-3">
