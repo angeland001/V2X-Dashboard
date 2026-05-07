@@ -1,12 +1,11 @@
 import React, { useState } from "react";
-import { X, Wifi, Cpu, Terminal, ClipboardList, Activity } from "lucide-react";
+import { X, Wifi, Cpu, ClipboardList, Activity } from "lucide-react";
 import { Button } from "../../../ui/shadcn/button";
 import { Badge } from "../../../ui/shadcn/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../../ui/shadcn/tabs";
-import { PhaseStatePanel }      from "./PhaseStatePanel";
+import { PhaseStatePanel }       from "./PhaseStatePanel";
 import { TimingParametersTable } from "./TimingParametersTable";
 import { PreemptionControlPanel } from "./PreemptionControlPanel";
-import { TelnetTerminal }        from "./TelnetTerminal";
 import { AuditLogTable }         from "./AuditLogTable";
 import { usePhasePolling }       from "../../../../hooks/controllers/usePhasePolling";
 
@@ -32,7 +31,6 @@ export function ControllerDetailPanel({ adapter, onClose, onProbed }) {
     usePhasePolling(adapter?.id, selectedGroup);
 
   const statusColorClass = STATUS_COLOR[adapter.connectionStatus] ?? "text-neutral-400";
-  const hasTelnet        = adapter.adapterType === "siemens_m60";
 
   const handleProbe = async () => {
     if (!onProbed) return;
@@ -113,12 +111,6 @@ export function ControllerDetailPanel({ adapter, onClose, onProbed }) {
               <Cpu className="h-3 w-3" />
               Preemption
             </TabsTrigger>
-            {hasTelnet && (
-              <TabsTrigger value="telnet" className="gap-1.5 data-[state=active]:bg-neutral-700 text-xs">
-                <Terminal className="h-3 w-3" />
-                Telnet
-              </TabsTrigger>
-            )}
             <TabsTrigger value="audit" className="gap-1.5 data-[state=active]:bg-neutral-700 text-xs">
               <ClipboardList className="h-3 w-3" />
               Audit
@@ -138,12 +130,6 @@ export function ControllerDetailPanel({ adapter, onClose, onProbed }) {
           <TabsContent value="preemption" className="flex-1 px-4 pb-4 mt-3">
             <PreemptionControlPanel adapter={adapter} />
           </TabsContent>
-
-          {hasTelnet && (
-            <TabsContent value="telnet" className="flex-1 px-4 pb-4 mt-3">
-              <TelnetTerminal adapter={adapter} />
-            </TabsContent>
-          )}
 
           <TabsContent value="audit" className="flex-1 px-4 pb-4 mt-3">
             <AuditLogTable adapterId={adapter.id} />

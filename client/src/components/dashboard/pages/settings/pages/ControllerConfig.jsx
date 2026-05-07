@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { Plus, Pencil, Trash2, Wifi, Eye, EyeOff, RefreshCw, Save } from "lucide-react";
+import { Plus, Pencil, Trash2, Wifi, RefreshCw, Save } from "lucide-react";
 import { Button }    from "../../../../ui/shadcn/button";
 import { Badge }     from "../../../../ui/shadcn/badge";
 import { Skeleton }  from "../../../../ui/shadcn/skeleton";
@@ -35,12 +35,6 @@ const ADAPTER_TYPES = [
   { value: "generic_snmp",    label: "Generic SNMP" },
 ];
 
-const CONNECTION_MODES = [
-  { value: "snmp",   label: "SNMP only" },
-  { value: "telnet", label: "Telnet only" },
-  { value: "both",   label: "SNMP + Telnet" },
-];
-
 const STATUS_DOT = {
   active:      "bg-green-500",
   offline:     "bg-red-500",
@@ -49,8 +43,7 @@ const STATUS_DOT = {
 
 const EMPTY_FORM = {
   label: "", intersectionId: "", ipAddress: "", adapterType: "ntcip1202",
-  snmpPort: "161", snmpCommunity: "public", connectionMode: "snmp",
-  telnetPort: "23", telnetUsername: "", telnetPassword: "",
+  snmpPort: "161", snmpCommunity: "public",
   timeoutSeconds: "5", retryCount: "2", connectionStatus: "active",
 };
 
@@ -98,7 +91,6 @@ function TextInput({ value, onChange, placeholder, type = "text", disabled }) {
 
 function AdapterFormDialog({ open, onClose, editTarget, onSaved, intersections }) {
   const [form,      setForm]      = useState(EMPTY_FORM);
-  const [showPass,  setShowPass]  = useState(false);
   const [saving,    setSaving]    = useState(false);
   const [formError, setFormError] = useState(null);
 
@@ -112,10 +104,6 @@ function AdapterFormDialog({ open, onClose, editTarget, onSaved, intersections }
         adapterType:     editTarget.adapterType    ?? "ntcip1202",
         snmpPort:        String(editTarget.snmpPort ?? 161),
         snmpCommunity:   editTarget.snmpCommunity  ?? "public",
-        connectionMode:  editTarget.connectionMode ?? "snmp",
-        telnetPort:      String(editTarget.telnetPort ?? 23),
-        telnetUsername:  editTarget.telnetUsername  ?? "",
-        telnetPassword:  "",
         timeoutSeconds:  String(editTarget.timeoutSeconds ?? 5),
         retryCount:      String(editTarget.retryCount ?? 2),
         connectionStatus: editTarget.connectionStatus ?? "active",
@@ -124,7 +112,6 @@ function AdapterFormDialog({ open, onClose, editTarget, onSaved, intersections }
       setForm(EMPTY_FORM);
     }
     setFormError(null);
-    setShowPass(false);
   }, [open, editTarget]);
 
   const set = (key) => (val) => setForm((prev) => ({ ...prev, [key]: val }));
@@ -140,10 +127,6 @@ function AdapterFormDialog({ open, onClose, editTarget, onSaved, intersections }
         adapterType:      form.adapterType,
         snmpPort:         Number(form.snmpPort),
         snmpCommunity:    form.snmpCommunity,
-        connectionMode:   form.connectionMode,
-        telnetPort:       Number(form.telnetPort),
-        telnetUsername:   form.telnetUsername || undefined,
-        telnetPassword:   form.telnetPassword || undefined,
         timeoutSeconds:   Number(form.timeoutSeconds),
         retryCount:       Number(form.retryCount),
         connectionStatus: form.connectionStatus,
@@ -206,43 +189,6 @@ function AdapterFormDialog({ open, onClose, editTarget, onSaved, intersections }
           </Field>
           <Field label="SNMP Community">
             <TextInput value={form.snmpCommunity} onChange={set("snmpCommunity")} placeholder="public" />
-          </Field>
-
-          <Field label="Connection Mode">
-            <Select value={form.connectionMode} onValueChange={set("connectionMode")}>
-              <SelectTrigger className="bg-neutral-800 border-neutral-700 text-neutral-200 text-sm h-[34px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="bg-neutral-800 border-neutral-700">
-                {CONNECTION_MODES.map((m) => (
-                  <SelectItem key={m.value} value={m.value} className="text-neutral-200">{m.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </Field>
-          <Field label="Telnet Port">
-            <TextInput value={form.telnetPort} onChange={set("telnetPort")} type="number" placeholder="23" />
-          </Field>
-
-          <Field label="Telnet Username">
-            <TextInput value={form.telnetUsername} onChange={set("telnetUsername")} placeholder="admin" />
-          </Field>
-          <Field label={editTarget ? "Telnet Password (blank = unchanged)" : "Telnet Password"}>
-            <div className="relative">
-              <TextInput
-                value={form.telnetPassword}
-                onChange={set("telnetPassword")}
-                type={showPass ? "text" : "password"}
-                placeholder={editTarget ? "••••••••" : "Enter password"}
-              />
-              <button
-                type="button"
-                onClick={() => setShowPass((v) => !v)}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-neutral-300"
-              >
-                {showPass ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-              </button>
-            </div>
           </Field>
 
           <Field label="Timeout (s)">

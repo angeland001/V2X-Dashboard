@@ -25,7 +25,6 @@
  */
 
 const snmp = require("net-snmp");
-const { TelnetClient } = require("./telnetClient");
 
 // ── NTCIP 1202 Object Identifiers ────────────────────────────────────────────
 // Canonical OIDs from NTCIP 1202 v02.19 (NEMA).
@@ -157,22 +156,24 @@ function buildSnmpSession(adapter) {
 function snmpGet(session, oids) {
   return new Promise((resolve, reject) => {
     session.get(oids, (err, varbinds) => {
-      if (err) {
-        console.log("SNMP GET error:", err);
-        reject(err);
-      } else {
-        const result = {};
-        varbinds.forEach(varbind => {
-          if (snmp.isVarbindError(varbind)) {
-            reject(snmp.varbindError(varbind));
-            return;
-          }
-          result[varbind.oid] = varbind.value;
-        });
-        resolve(result);
+      if (err) return reject(err);
+      const result = {};
+      for (const varbind of varbinds) {
+        if (snmp.isVarbindError(varbind)) return reject(snmp.varbindError(varbind));
+        result[varbind.oid] = varbind.value;
       }
+      resolve(result);
     });
   });
+}
+
+async function snmpGetOne(session, oid) {
+  try {
+    const result = await snmpGet(session, [oid]);
+    return result[oid] ?? null;
+  } catch {
+    return null;
+  }
 }
 
 function snmpSet(session, varbinds) {
@@ -262,30 +263,31 @@ class Ntcip1202Adapter {
   // Purpose: Reads all 6 timing intervals for a specific signal phase from the controller in a single SNMP round-trip. 
   // These values define how long each light interval lasts (green, yellow, walk, etc.) and are used to validate timing plans or display configuration in the UI
   async getTimingParameters(signalGroup) {
-    // HINT: fetch all 6 phase timing OIDs with one snmpGet call (array of instance OIDs)
+    const s = this._session;
+    const sg = signalGroup;
 
-    const oids = [
-      OID.phaseMinGreen + "." + signalGroup,
-      OID.phaseMaxGreen + "." + signalGroup,
-      OID.phaseWalk + "." + signalGroup,
-      OID.phasePedestrianClear + "." + signalGroup,
-      OID.phaseYellowChange + "." + signalGroup,
-      OID.phaseRedClearance + "." + signalGroup,
-    ];
+    // Fetch each OID independently so a missing object returns null instead of
+    // failing the whole request (SNMPv1 rejects the entire PDU on NoSuchName).
+    const [minGreen, maxGreen, walk, pedClear, yellowChange, redClearance] =
+      await Promise.all([
+        snmpGetOne(s, OID.phaseMinGreen        + "." + sg),
+        snmpGetOne(s, OID.phaseMaxGreen        + "." + sg),
+        snmpGetOne(s, OID.phaseWalk            + "." + sg),
+        snmpGetOne(s, OID.phasePedestrianClear + "." + sg),
+        snmpGetOne(s, OID.phaseYellowChange    + "." + sg),
+        snmpGetOne(s, OID.phaseRedClearance    + "." + sg),
+      ]);
 
-    // One network call fetches all 6 at once
-    const result = await snmpGet(this._session, oids);
-
-    // All raw values are tenths-of-second; divide by 10 before returning
+    const tenths = v => v != null ? v / 10 : null;
     return {
       signalGroup,
-      minGreen_s: result[oids[0]] / 10,
-      maxGreen_s: result[oids[1]] / 10,
-      walk_s: result[oids[2]] / 10,
-      pedClear_s: result[oids[3]] / 10,
-      yellowChange_s: result[oids[4]] / 10,
-      redClearance_s: result[oids[5]] / 10,
-    }
+      minGreen_s:    tenths(minGreen),
+      maxGreen_s:    tenths(maxGreen),
+      walk_s:        tenths(walk),
+      pedClear_s:    tenths(pedClear),
+      yellowChange_s: tenths(yellowChange),
+      redClearance_s: tenths(redClearance),
+    };
   }
 
   async getPreemptionStatus() {
@@ -312,7 +314,7 @@ class Ntcip1202Adapter {
   // Asserts a preemption request on a specific signal channel — this is what you call to give a train/emergency vehicle a green light. 
   // It tries the modern per-channel NTCIP command first, then falls back to the older bitmask register for controllers with outdated
   // firmware.        
-  async sendPreemptionCall(signalGroup, options = {}) {
+  async sendPreemptionCall(signalGroup) {
     // Preferred path: SET OID.preemptControlState + "." + signalGroup
     //   to PREEMPT_CONTROL.FORCE_ON (type = snmp.ObjectType.Integer)
     // Legacy fallback: read unitPreemptInput, OR in bit (signalGroup - 1),
@@ -461,13 +463,10 @@ const SIEMENS_OID = {
 
 class SiemensM60Adapter extends Ntcip1202Adapter {
   async getPhaseStatus(signalGroup) {
-    // SEPAC exposes a single "active phase" scalar rather than a bitmask table.
-    // If this OID isn't present (non-SEPAC M60), fall back to the standard NTCIP path.
+    // Try SEPAC OID first; if not present fall back to standard NTCIP bitmask.
     try {
       const result = await snmpGet(this._session, [SIEMENS_OID.sepacActivePhase]);
       const activePhase = result[SIEMENS_OID.sepacActivePhase];
-
-      // SEPAC tells us exactly which phase is green; everything else is red.
       const isGreen = activePhase === signalGroup;
       return {
         signalGroup,
@@ -476,84 +475,30 @@ class SiemensM60Adapter extends Ntcip1202Adapter {
         label: isGreen ? "GREEN" : "RED",
         source: "siemens_sepac",
       };
-    } catch (err) {
+    } catch {
       return super.getPhaseStatus(signalGroup);
     }
   }
 
-  async sendPreemptionCall(signalGroup, options = {}) {
-    // SEPAC uses a single integer register: write the channel number to request preempt.
-    // On failure (OID absent), fall back to the standard NTCIP two-path logic.
+  async sendPreemptionCall(signalGroup) {
     try {
       await snmpSet(this._session, [{
         oid:   SIEMENS_OID.sepacPreemptRequest,
         type:  snmp.ObjectType.Integer,
         value: signalGroup,
       }]);
-    } catch (err) {
-      return super.sendPreemptionCall(signalGroup, options);
+    } catch {
+      return super.sendPreemptionCall(signalGroup);
     }
   }
 
   async getPreemptionStatus() {
-    // SEPAC status register returns the active channel number, or 0 if none.
-    // On failure fall back to the standard NTCIP bitmask approach.
     try {
       const result = await snmpGet(this._session, [SIEMENS_OID.sepacPreemptStatus]);
       const raw = result[SIEMENS_OID.sepacPreemptStatus];
-      return {
-        raw,
-        active: raw > 0 ? [raw] : [],   // SEPAC only supports one active preempt at a time
-        source: "siemens_sepac",
-      };
-    } catch (err) {
+      return { raw, active: raw > 0 ? [raw] : [], source: "siemens_sepac" };
+    } catch {
       return super.getPreemptionStatus();
-    }
-  }
-
-  /**
-   * Test Telnet connectivity using credentials stored in the adapter row.
-   * Opens a session, logs in, then closes immediately.
-   *
-   * @param {string} username
-   * @param {string} password
-   * @returns {Promise<{ success: true, latencyMs: number }>}
-   */
-  async testTelnetConnection(username, password) {
-    const host    = this._adapter.ip_address;
-    const port    = this._adapter.telnet_port ?? 23;
-    const t0      = Date.now();
-    const client  = new TelnetClient(host, port);
-    try {
-      await client.connect();
-      await client.login(username, password);
-      return { success: true, latencyMs: Date.now() - t0 };
-    } finally {
-      client.close();
-    }
-  }
-
-  /**
-   * Open a Telnet session, run a single command, close the session, return output.
-   * Each call is stateless — the session is not reused across requests.
-   *
-   * @param {string} username
-   * @param {string} password
-   * @param {string} command
-   * @returns {Promise<{ output: string, latencyMs: number }>}
-   */
-  async sendTelnetCommand(username, password, command) {
-    const host    = this._adapter.ip_address;
-    const port    = this._adapter.telnet_port ?? 23;
-    const t0      = Date.now();
-    const client  = new TelnetClient(host, port);
-    try {
-      await client.connect();
-      await client.login(username, password);
-      const output = await client.sendCommand(command);
-      return { output, latencyMs: Date.now() - t0 };
-    } finally {
-      client.close();
     }
   }
 }
@@ -568,7 +513,7 @@ const ECONOLITE_OID = {
 };
 
 class EconoliteAriesAdapter extends Ntcip1202Adapter {
-  async sendPreemptionCall(signalGroup, options = {}) {
+  async sendPreemptionCall(signalGroup) {
     // Econolite ARIES/Cobalt uses a proprietary preempt input register instead of
     // the NTCIP preemptControlState table — write the channel number directly to it.
     // On failure, fall back to the standard NTCIP two-path logic.
@@ -579,7 +524,7 @@ class EconoliteAriesAdapter extends Ntcip1202Adapter {
         value: signalGroup,
       }]);
     } catch (err) {
-      return super.sendPreemptionCall(signalGroup, options);
+      return super.sendPreemptionCall(signalGroup);
     }
   }
 }

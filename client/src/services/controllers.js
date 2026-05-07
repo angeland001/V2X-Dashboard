@@ -33,9 +33,6 @@ function normalizeAdapter(row) {
     lastSeenAt: row.last_seen_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
-    telnetPort: row.telnet_port ?? 23,
-    telnetUsername: row.telnet_username ?? null,
-    connectionMode: row.connection_mode ?? "snmp",
   };
 }
 
@@ -118,16 +115,6 @@ function buildAdapterBody(payload) {
   withValue(body, "adapter_type", payload?.adapterType);
   withValue(body, "firmware_version", payload?.firmwareVersion);
   withValue(body, "supported_oids", payload?.supportedOids);
-  withValue(body, "telnet_username", payload?.telnetUsername);
-  withValue(body, "connection_mode", payload?.connectionMode);
-
-  if (payload?.telnetPort !== undefined) {
-    withValue(body, "telnet_port", toFiniteNumberOrNull(payload.telnetPort));
-  }
-  // telnet_password is write-only: only include it when explicitly provided and non-empty
-  if (payload?.telnetPassword && typeof payload.telnetPassword === "string" && payload.telnetPassword.trim()) {
-    body.telnet_password = payload.telnetPassword;
-  }
 
   return body;
 }
@@ -257,36 +244,6 @@ export async function probeControllerAdapter(id) {
 
   // Server returns { probed, controllerType, supported, adapter: updatedRow }
   return normalizeAdapter(data.adapter ?? data);
-}
-
-/**
- * Test Telnet connectivity for a siemens_m60 adapter.
- * Credentials are loaded server-side from the adapter row.
- * @param {string|number} adapterId
- * @returns {Promise<{ success: true, latencyMs: number }>}
- */
-export async function testTelnetConnection(adapterId) {
-  const res  = await fetch(`${API_URL}/api/controllers/${adapterId}/telnet/test`, { method: "POST" });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || `Telnet test failed (${res.status})`);
-  return data;
-}
-
-/**
- * Send a raw command over Telnet to a siemens_m60 adapter.
- * @param {string|number} adapterId
- * @param {string} command
- * @returns {Promise<{ output: string, latencyMs: number }>}
- */
-export async function sendTelnetCommand(adapterId, command) {
-  const res = await fetch(`${API_URL}/api/controllers/${adapterId}/telnet/command`, {
-    method:  "POST",
-    headers: { "Content-Type": "application/json" },
-    body:    JSON.stringify({ command }),
-  });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || `Command failed (${res.status})`);
-  return data;
 }
 
 /**
