@@ -27,7 +27,7 @@ export function ControllerDetailPanel({ adapter, onClose, onProbed }) {
   const [selectedGroup, setSelectedGroup] = useState(1);
   const [probing,       setProbing]       = useState(false);
 
-  const { phaseData, allPhaseData, timingData, loading: phaseLoading, error: phaseError } =
+  const { timingData, loading: phaseLoading } =
     usePhasePolling(adapter?.id, selectedGroup);
 
   const statusColorClass = STATUS_COLOR[adapter.connectionStatus] ?? "text-neutral-400";
@@ -92,13 +92,6 @@ export function ControllerDetailPanel({ adapter, onClose, onProbed }) {
         </div>
       </div>
 
-      {/* Phase error banner */}
-      {phaseError && (
-        <div className="mx-4 mt-2 text-xs bg-red-900/30 text-red-400 border border-red-800/40 rounded px-3 py-1.5 flex-shrink-0">
-          Phase data unavailable: {phaseError}
-        </div>
-      )}
-
       {/* Tabs */}
       <div className="flex-1 overflow-y-auto">
         <Tabs defaultValue="phases" className="flex flex-col h-full">
@@ -118,13 +111,7 @@ export function ControllerDetailPanel({ adapter, onClose, onProbed }) {
           </TabsList>
 
           <TabsContent value="phases" className="flex-1 px-4 pb-4 mt-3 space-y-4">
-            <PhaseStatePanel
-              phaseData={phaseData}
-              allPhaseData={allPhaseData}
-              selectedGroup={selectedGroup}
-              onGroupChange={setSelectedGroup}
-              loading={phaseLoading}
-            />
+            <PhaseStatePanel />
             <TimingParametersTable
               adapterId={adapter.id}
               signalGroup={selectedGroup}
