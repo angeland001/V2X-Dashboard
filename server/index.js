@@ -19,9 +19,11 @@ const laneConnectionRoutes = require("./routes/intersectionroutes/lane_connectio
 const spatZoneRoutes = require("./routes/spat_zones"); // adjust path if needed
 const preemptionZoneRoutes = require("./routes/preemption_zones"); // adjust path if needed
 const preemptionZoneConfigsRoutes = require("./routes/preemption_zone_configs_plural"); // adjust path if needed
+const vssRoutes = require("./routes/api/vss");
 
 const db = require("./database/postgis");
 const sdsmPoller = require("./services/sdsmPoller");
+const vssPoller  = require("./services/vssPoller");
 
 const app = express();
 
@@ -46,6 +48,7 @@ app.use("/api/lane-connections", laneConnectionRoutes);
 app.use("/api/spat-zones", spatZoneRoutes);
 app.use("/api/preemption-zones", preemptionZoneRoutes);
 app.use("/api/preemption-zone-configs", preemptionZoneConfigsRoutes);
+app.use("/api/vss", vssRoutes);
 
 // Health check endpoint
 app.get("/health", (req, res) => {
@@ -73,6 +76,8 @@ app.listen(PORT, () => {
 
   // Start ingesting live SDSM data into the database
   sdsmPoller.start();
+  // Start ingesting VSS events (configure server/config/vss.js first)
+  vssPoller.start();
   console.log(`Auth API: http://localhost:${PORT}/api/auth`);
   console.log(`User API: http://localhost:${PORT}/api/users`);
   console.log(`SDSM API: http://localhost:${PORT}/api/sdsm`);
@@ -88,4 +93,5 @@ app.listen(PORT, () => {
   console.log(
     `Preemption Zone Configs API: http://localhost:${PORT}/api/preemption-zone-configs`,
   );
+  console.log(`VSS API: http://localhost:${PORT}/api/vss`);
 });
