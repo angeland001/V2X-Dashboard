@@ -1,3 +1,5 @@
+import { toFiniteNumberOrNull, withValue } from "../lib/utils";
+
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:3001";
 
 function coordsNear(a, b, eps = 1e-9) {
@@ -67,18 +69,6 @@ function normalizeZone(zone) {
     createdAt: zone.created_at,
     updatedAt: zone.updated_at,
   };
-}
-
-function toFiniteNumberOrNull(value) {
-  if (value == null || value === "") return null;
-  const n = Number(value);
-  return Number.isFinite(n) ? n : null;
-}
-
-function withValue(body, key, value) {
-  if (value !== undefined) {
-    body[key] = value;
-  }
 }
 
 function buildRequestBody(payload) {
