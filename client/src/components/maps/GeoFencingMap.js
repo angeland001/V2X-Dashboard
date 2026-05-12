@@ -2355,13 +2355,6 @@ function GeoFencingMap({ editorMode = "intersection" }) {
     }
   };
 
-  const updateConnectionSignalGroup = async () => {
-    // The API only has POST/DELETE, so we delete and recreate isn't ideal.
-    // For signal_group edits we just show the panel — but the current API doesn't have PUT.
-    // We'll skip this for now since signal_group can be set at creation time.
-    setConfigPanel(null);
-  };
-
   const cancelDraw = () => {
     setDrawMode(null);
     setDrawPoints([]);

@@ -2,7 +2,6 @@ import React, { useState } from 'react'
 import { BarChart2 } from 'lucide-react'
 import { Separator } from '@/components/ui/shadcn/separator'
 import { Checkbox } from '@/components/ui/shadcn/checkbox'
-import { ToggleButton } from '@/components/ui/ToggleButton'
 import { SettingsPageWrapper, ToggleRow } from '../components'
 import {
   Card,

@@ -14,13 +14,42 @@ router.get("/", async (req, res) => {
       SELECT id AS db_id, name, description,
              ST_AsGeoJSON(ref_point)::json AS ref_point,
              region_id, intersection_id, msg_issue_revision,
-             status, created_by, created_at, updated_at
+             status, cuip_slug, created_by, created_at, updated_at
       FROM intersections
       ORDER BY created_at DESC
     `);
     res.json(result.rows.map(serializeIntersectionRow));
   } catch (err) {
     console.error("Error fetching intersections:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── GET intersection by CUIP slug + its linked controller ──────
+// Must be registered before /:id so Express doesn't treat "by-slug" as an ID.
+router.get("/by-slug/:slug", async (req, res) => {
+  try {
+    const result = await db.query(
+      `SELECT i.id AS db_id, i.name, i.description,
+              ST_AsGeoJSON(i.ref_point)::json AS ref_point,
+              i.region_id, i.intersection_id, i.msg_issue_revision,
+              i.status, i.cuip_slug, i.created_by, i.created_at, i.updated_at,
+              row_to_json(ca.*) AS controller
+       FROM intersections i
+       LEFT JOIN controller_adapters ca ON ca.intersection_id = i.intersection_id
+       WHERE i.cuip_slug = $1
+       LIMIT 1`,
+      [req.params.slug]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: `No intersection with cuip_slug '${req.params.slug}'` });
+    }
+
+    const row = result.rows[0];
+    res.json({ ...serializeIntersectionRow(row), controller: row.controller || null });
+  } catch (err) {
+    console.error("Error fetching intersection by slug:", err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -47,7 +76,7 @@ router.get("/:id", async (req, res) => {
 // ─── CREATE intersection ─────────────────────────────────────────
 router.post("/", async (req, res) => {
   try {
-    const { name, description, ref_point, region_id, intersection_id, created_by } = req.body;
+    const { name, description, ref_point, region_id, intersection_id, cuip_slug, created_by } = req.body;
     const normalizedName = normalizeIntersectionName(name);
     const canonicalIntersectionId = parseCanonicalIntersectionId(intersection_id);
 
@@ -66,13 +95,13 @@ router.post("/", async (req, res) => {
     }
 
     const result = await db.query(
-      `INSERT INTO intersections (name, description, ref_point, region_id, intersection_id, created_by)
-       VALUES ($1, $2, ST_SetSRID(ST_GeomFromGeoJSON($3), 4326), $4, $5, $6)
+      `INSERT INTO intersections (name, description, ref_point, region_id, intersection_id, cuip_slug, created_by)
+       VALUES ($1, $2, ST_SetSRID(ST_GeomFromGeoJSON($3), 4326), $4, $5, $6, $7)
        RETURNING id AS db_id, name, description,
                  ST_AsGeoJSON(ref_point)::json AS ref_point,
                  region_id, intersection_id, msg_issue_revision,
-                 status, created_by, created_at, updated_at`,
-      [normalizedName, description || null, JSON.stringify(ref_point), region_id || 0, canonicalIntersectionId, created_by || null]
+                 status, cuip_slug, created_by, created_at, updated_at`,
+      [normalizedName, description || null, JSON.stringify(ref_point), region_id || 0, canonicalIntersectionId, cuip_slug || null, created_by || null]
     );
     res.status(201).json(serializeIntersectionRow(result.rows[0]));
   } catch (err) {
@@ -85,7 +114,7 @@ router.post("/", async (req, res) => {
 router.put("/:id", async (req, res) => {
   try {
     const canonicalIntersectionId = parseCanonicalIntersectionId(req.params.id);
-    const { name, description, ref_point, region_id, intersection_id, status } = req.body;
+    const { name, description, ref_point, region_id, intersection_id, status, cuip_slug } = req.body;
 
     if (canonicalIntersectionId == null) {
       return res.status(400).json({ error: "intersection_id must be a number" });
@@ -122,6 +151,7 @@ router.put("/:id", async (req, res) => {
     if (ref_point !== undefined) { sets.push(`ref_point = ST_SetSRID(ST_GeomFromGeoJSON($${idx++}), 4326)`); vals.push(JSON.stringify(ref_point)); }
     if (region_id !== undefined) { sets.push(`region_id = $${idx++}`); vals.push(region_id); }
     if (status !== undefined) { sets.push(`status = $${idx++}`); vals.push(status); }
+    if (cuip_slug !== undefined) { sets.push(`cuip_slug = $${idx++}`); vals.push(cuip_slug || null); }
 
     if (sets.length === 0) {
       return res.status(400).json({ error: "No fields to update" });
@@ -133,7 +163,7 @@ router.put("/:id", async (req, res) => {
        RETURNING id AS db_id, name, description,
                  ST_AsGeoJSON(ref_point)::json AS ref_point,
                  region_id, intersection_id, msg_issue_revision,
-                 status, created_by, created_at, updated_at`,
+                 status, cuip_slug, created_by, created_at, updated_at`,
       vals
     );
 

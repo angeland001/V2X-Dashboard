@@ -22,12 +22,12 @@ const EmptyIcon = React.forwardRef(({ className, ...props }, ref) => (
 ))
 EmptyIcon.displayName = "EmptyIcon"
 
-const EmptyTitle = React.forwardRef(({ className, ...props }, ref) => (
+const EmptyTitle = React.forwardRef(({ className, children, ...props }, ref) => (
   <h3
     ref={ref}
     className={cn("mt-4 text-lg font-semibold", className)}
     {...props}
-  />
+  >{children}</h3>
 ))
 EmptyTitle.displayName = "EmptyTitle"
 

@@ -102,32 +102,7 @@ const LoginForm = memo(({ onSubmit, errorMessage }) => {
           <span className="error-message" id="passwordError"></span>
         </div>
 
-        <div className="form-options">
-          <label className="checkbox-container">
-            <input
-              type="checkbox"
-              id="remember"
-              name="remember"
-              checked={rememberMe}
-              onChange={(e) => setRememberMe(e.target.checked)}
-            />
-            <span className="checkmark">
-              <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
-                <path
-                  d="M1 4l2.5 2.5L9 1"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </span>
-            Remember me
-          </label>
-          <a href="#" className="forgot-link">
-            Forgot password?
-          </a>
-        </div>
+       
 
         {errorMessage && (
           <div style={{ color: '#ef4444', fontSize: '0.875rem', marginTop: '8px', marginBottom: '8px' }}>

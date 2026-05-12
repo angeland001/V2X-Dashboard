@@ -19,7 +19,6 @@ export function TrafficOverview() {
     intersections,
     selectedIntersection,
     setSelectedIntersection,
-    days,
     setDays,
     dailyData,
     summaryScope,

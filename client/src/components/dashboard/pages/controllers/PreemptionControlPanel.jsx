@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Zap, X, RefreshCw } from "lucide-react";
 import { Button } from "../../../ui/shadcn/button";
-import { Badge } from "../../../ui/shadcn/badge";
 import {
   AlertDialog,
   AlertDialogAction,

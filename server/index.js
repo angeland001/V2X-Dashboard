@@ -22,6 +22,7 @@ const preemptionZoneConfigsRoutes = require("./routes/preemption_zone_configs_pl
 const vssRoutes = require("./routes/api/vss");
 const controllerRoutes            = require("./routes/api/trafficcontroller/controllers");
 const preemptionCommandRoutes     = require("./routes/api/preemption/preemption_commands");
+const { router: streamIngestRoutes } = require("./routes/api/stream_ingest");
 
 const db = require("./database/postgis");
 const sdsmPoller = require("./services/sdsmPoller");
@@ -53,6 +54,7 @@ app.use("/api/preemption-zone-configs", preemptionZoneConfigsRoutes);
 app.use("/api/vss", vssRoutes);
 app.use("/api/controllers", controllerRoutes);
 app.use("/api/preemption-commands", preemptionCommandRoutes);
+app.use("/api/stream-ingest", streamIngestRoutes);
 
 // Health check endpoint
 app.get("/health", (req, res) => {

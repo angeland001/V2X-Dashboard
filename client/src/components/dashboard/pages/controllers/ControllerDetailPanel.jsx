@@ -24,7 +24,7 @@ const ADAPTER_TYPE_LABEL = {
 };
 
 export function ControllerDetailPanel({ adapter, onClose, onProbed }) {
-  const [selectedGroup, setSelectedGroup] = useState(1);
+  const selectedGroup = 1;
   const [probing,       setProbing]       = useState(false);
 
   const { timingData, loading: phaseLoading } =
@@ -111,7 +111,7 @@ export function ControllerDetailPanel({ adapter, onClose, onProbed }) {
           </TabsList>
 
           <TabsContent value="phases" className="flex-1 px-4 pb-4 mt-3 space-y-4">
-            <PhaseStatePanel />
+            <PhaseStatePanel cuipSlug={adapter.cuipSlug} />
             <TimingParametersTable
               adapterId={adapter.id}
               signalGroup={selectedGroup}

@@ -20,6 +20,7 @@ function normalizeAdapter(row) {
     id: row.id,
     intersectionId: row.intersection_id,
     intersectionName: row.intersection_name,
+    cuipSlug: row.intersection_cuip_slug ?? null,
     label: row.label,
     ipAddress: row.ip_address,
     snmpPort: row.snmp_port,
