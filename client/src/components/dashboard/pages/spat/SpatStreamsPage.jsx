@@ -14,6 +14,7 @@ const CUIP_SLUGS = [
   "MLK_Market",
   "MLK_Peeples",
   "MLK_Pine",
+  "Lab_Device",
 ];
 
 export function SpatStreamsPage() {

@@ -13,20 +13,26 @@ const STATUS_COLOR = {
 };
 
 function makeMarkerEl(color) {
-  const el = document.createElement("div");
-  el.style.cssText = [
+  const wrapper = document.createElement("div");
+  wrapper.style.cssText = `width:14px;height:14px;cursor:pointer`;
+
+  const dot = document.createElement("div");
+  dot.style.cssText = [
     `width: 14px`,
     `height: 14px`,
     `border-radius: 50%`,
     `background-color: ${color}`,
     `border: 2px solid white`,
     `box-shadow: 0 0 6px rgba(0,0,0,0.6)`,
-    `cursor: pointer`,
     `transition: transform 0.15s`,
   ].join(";");
-  el.addEventListener("mouseenter", () => { el.style.transform = "scale(1.4)"; });
-  el.addEventListener("mouseleave", () => { el.style.transform = "scale(1)"; });
-  return el;
+
+  // Scale the inner dot on hover so Mapbox's positioning transform on the wrapper is untouched
+  wrapper.addEventListener("mouseenter", () => { dot.style.transform = "scale(1.4)"; });
+  wrapper.addEventListener("mouseleave", () => { dot.style.transform = "scale(1)"; });
+
+  wrapper.appendChild(dot);
+  return wrapper;
 }
 
 export function ControllersMap({ controllers, onSelectController }) {
@@ -70,6 +76,22 @@ export function ControllersMap({ controllers, onSelectController }) {
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [controllers]);
+
+  // Strip Mapbox's default popup chrome for our custom popup class
+  useEffect(() => {
+    const style = document.createElement("style");
+    style.textContent = `
+      .mapbox-controller-popup .mapboxgl-popup-content {
+        background: transparent;
+        padding: 0;
+        box-shadow: none;
+        border-radius: 0;
+      }
+      .mapbox-controller-popup .mapboxgl-popup-tip { display: none; }
+    `;
+    document.head.appendChild(style);
+    return () => document.head.removeChild(style);
+  }, []);
 
   // Initialize map once
   useEffect(() => {
