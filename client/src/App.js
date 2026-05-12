@@ -19,6 +19,8 @@ import { UserProfiles } from "./components/dashboard/pages/settings/pages/UserPr
 import { DataAnalytics } from "./components/dashboard/pages/settings/pages/DataAnalytics";
 import { SecurityPrivacy } from "./components/dashboard/pages/settings/pages/Security&Privacy";
 import { Support } from "./components/dashboard/pages/settings/pages/Support";
+import VSSEventsPage from "./components/dashboard/pages/vss/VSSEventsPage";
+import VSSEventsMap from "./components/maps/VSSEventsMap";
 import { ControllerConfig } from "./components/dashboard/pages/settings/pages/ControllerConfig";
 import { ControllersPage } from "./components/dashboard/pages/controllers/ControllersPage";
 
@@ -42,6 +44,7 @@ export default function App() {
             <Route path="lanes" element={<LanesPage />} />
             <Route path="crosswalks" element={<CrosswalksPage />} />
             <Route path="analytics" element={<AnalyticsPage />} />
+            <Route path="vss" element={<VSSEventsPage />} />
             <Route path="controllers" element={<ControllersPage />} />
             <Route path="settings" element={<SettingsLayout />}>
               <Route
@@ -94,6 +97,14 @@ export default function App() {
               element={
                 <DashboardLayout>
                   <SDSMEventsMap />
+                </DashboardLayout>
+              }
+            />
+            <Route
+              path="/vss-events"
+              element={
+                <DashboardLayout>
+                  <VSSEventsMap />
                 </DashboardLayout>
               }
             />

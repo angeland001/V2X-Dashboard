@@ -29,6 +29,7 @@ import {
   MoreHorizontal,
   FileText,
   Waypoints,
+  Video,
   Cpu,
 } from "lucide-react";
 import {
@@ -219,6 +220,24 @@ function AppSidebar() {
                           isActive={isActive("/sdsm-events")}
                         >
                           <span className="normal-case">SDSM Events</span>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                      <SidebarMenuSubItem>
+                        <SidebarMenuSubButton
+                          onClick={() => navigate("/dashboard/vss")}
+                          isActive={isActive("/dashboard/vss")}
+                        >
+                          <Video className="h-3 w-3 mr-1 inline-block" />
+                          <span className="normal-case">Video Analytics</span>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                      <SidebarMenuSubItem>
+                        <SidebarMenuSubButton
+                          onClick={() => navigate("/vss-events")}
+                          isActive={isActive("/vss-events")}
+                        >
+                          <Video className="h-3 w-3 mr-1 inline-block" />
+                          <span className="normal-case">VSS Live Map</span>
                         </SidebarMenuSubButton>
                       </SidebarMenuSubItem>
                     </SidebarMenuSub>
