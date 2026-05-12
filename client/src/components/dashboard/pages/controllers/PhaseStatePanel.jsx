@@ -36,8 +36,7 @@ export function PhaseStatePanel() {
       {/* Explanation notice */}
       <div className="mb-3 rounded-lg border border-amber-900/30 bg-amber-950/10 px-3 py-2.5 text-xs text-neutral-500 leading-relaxed">
         Live phase status is not available. The M60 SNMP agent returns static
-        configuration OIDs — real-time signal state requires a serial/NEMA TS2
-        integration or alternate hardware interface.
+        configuration OIDs — Use the SPAT destination IP addressing found in TC for live phase status access TBA
       </div>
 
       {/* 4×2 static placeholder grid */}
