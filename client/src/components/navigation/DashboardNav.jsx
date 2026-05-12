@@ -16,21 +16,6 @@ import {
 
 
 
-function ListItem({ title, children, href, ...props }) {
-  return (
-    <li {...props}>
-      <NavigationMenuLink asChild>
-        <Link to={href}>
-          <div className="text-sm font-medium leading-none">{title}</div>
-          <p className="text-sm leading-snug text-muted-foreground line-clamp-2">
-            {children}
-          </p>
-        </Link>
-      </NavigationMenuLink>
-    </li>
-  )
-}
-
 export function DashboardNav() {
   const isMobile = useIsMobile()
   

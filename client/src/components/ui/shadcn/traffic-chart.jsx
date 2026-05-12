@@ -25,7 +25,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/shadcn/dropdown-menu"
 import { Button } from "@/components/ui/shadcn/button"
-import { ButtonGroup } from "@/components/ui/shadcn/button-group"
 import MagicCard from "@/components/ui/MagicBento/MagicCard"
 
 const chartConfig = {

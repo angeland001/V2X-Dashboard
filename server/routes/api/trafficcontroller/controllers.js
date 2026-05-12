@@ -134,7 +134,8 @@ function baseSelect() {
     SELECT
       ca.id,
       ca.intersection_id,
-      i.name  AS intersection_name,
+      i.name       AS intersection_name,
+      i.cuip_slug  AS intersection_cuip_slug,
       ca.label,
       ca.ip_address,
       ca.snmp_port,

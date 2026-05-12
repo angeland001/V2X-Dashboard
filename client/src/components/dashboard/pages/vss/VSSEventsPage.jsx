@@ -29,7 +29,6 @@ export function VSSEventsPage() {
         dailyData,
         scope,
         setScope,
-        days,
         setDays,
         loading,
         error,

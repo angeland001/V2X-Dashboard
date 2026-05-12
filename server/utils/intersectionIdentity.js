@@ -15,6 +15,7 @@ function serializeIntersectionRow(row) {
     intersection_id: row.intersection_id,
     msg_issue_revision: row.msg_issue_revision,
     status: row.status,
+    cuip_slug: row.cuip_slug ?? null,
     created_by: row.created_by,
     created_at: row.created_at,
     updated_at: row.updated_at,
@@ -32,6 +33,7 @@ async function fetchIntersectionByCanonicalId(queryRunner, canonicalIntersection
        intersection_id,
        msg_issue_revision,
        status,
+       cuip_slug,
        created_by,
        created_at,
        updated_at

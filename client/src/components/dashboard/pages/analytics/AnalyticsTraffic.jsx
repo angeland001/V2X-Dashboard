@@ -2,8 +2,8 @@ import React, { useRef, useEffect } from "react"
 import mapboxgl from "mapbox-gl"
 import "mapbox-gl/dist/mapbox-gl.css"
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, Area, AreaChart, RadialBarChart, RadialBar, PolarGrid,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid,
+  Area, AreaChart, RadialBarChart, RadialBar, PolarGrid,
 } from "recharts"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/shadcn/card"
 import MagicCard from "@/components/ui/MagicBento/MagicCard"
@@ -11,8 +11,6 @@ import {
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
-  ChartLegend,
-  ChartLegendContent,
 } from "@/components/ui/shadcn/chart"
 
 

@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from "react"
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, Legend, Label, Sector, LabelList
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer,
+  PieChart, Pie, Cell, Label, Sector, LabelList
 } from "recharts"
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/shadcn/card"
 import MagicCard from "@/components/ui/MagicBento/MagicCard"
@@ -140,25 +140,6 @@ const incidentTypes = [
       { month: "Apr", value: 20 },
     ],
   },
-]
-
-// Defect Type Distribution pie data
-const defectTypeData = [
-  { name: "Potholes", value: 35, fill: "#b30000" },
-  { name: "Cracks", value: 25, fill: "#d7301f" },
-  { name: "Surface Wear", value: 20, fill: "#ef6548" },
-  { name: "Drainage", value: 12, fill: "#fc8d59" },
-  { name: "Signage", value: 8, fill: "#fdbb84" },
-]
-
-// Defects by Location stacked bar chart data
-const defectsByLocation = [
-  { location: "Highway A", potholes: 12, cracks: 8, surface: 5, drainage: 3, signage: 2 },
-  { location: "Highway B", potholes: 8, cracks: 10, surface: 7, drainage: 4, signage: 1 },
-  { location: "Downtown", potholes: 15, cracks: 6, surface: 8, drainage: 2, signage: 3 },
-  { location: "Suburb N", potholes: 5, cracks: 12, surface: 4, drainage: 6, signage: 2 },
-  { location: "Suburb S", potholes: 7, cracks: 4, surface: 9, drainage: 1, signage: 4 },
-  { location: "Industrial", potholes: 10, cracks: 9, surface: 3, drainage: 5, signage: 1 },
 ]
 
 // Defect reports table data
