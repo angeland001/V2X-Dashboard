@@ -20,6 +20,8 @@ const spatZoneRoutes = require("./routes/spat_zones"); // adjust path if needed
 const preemptionZoneRoutes = require("./routes/preemption_zones"); // adjust path if needed
 const preemptionZoneConfigsRoutes = require("./routes/preemption_zone_configs_plural"); // adjust path if needed
 const vssRoutes = require("./routes/api/vss");
+const controllerRoutes            = require("./routes/api/trafficcontroller/controllers");
+const preemptionCommandRoutes     = require("./routes/api/preemption/preemption_commands");
 
 const db = require("./database/postgis");
 const sdsmPoller = require("./services/sdsmPoller");
@@ -49,6 +51,8 @@ app.use("/api/spat-zones", spatZoneRoutes);
 app.use("/api/preemption-zones", preemptionZoneRoutes);
 app.use("/api/preemption-zone-configs", preemptionZoneConfigsRoutes);
 app.use("/api/vss", vssRoutes);
+app.use("/api/controllers", controllerRoutes);
+app.use("/api/preemption-commands", preemptionCommandRoutes);
 
 // Health check endpoint
 app.get("/health", (req, res) => {
@@ -94,4 +98,7 @@ app.listen(PORT, () => {
     `Preemption Zone Configs API: http://localhost:${PORT}/api/preemption-zone-configs`,
   );
   console.log(`VSS API: http://localhost:${PORT}/api/vss`);
+  console.log(`Preemption Zone Configs API: http://localhost:${PORT}/api/preemption-zone-configs`);
+  console.log(`Controllers API: http://localhost:${PORT}/api/controllers`);
+  console.log(`Preemption Commands API: http://localhost:${PORT}/api/preemption-commands`);
 });

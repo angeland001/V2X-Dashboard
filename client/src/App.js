@@ -21,6 +21,8 @@ import { SecurityPrivacy } from "./components/dashboard/pages/settings/pages/Sec
 import { Support } from "./components/dashboard/pages/settings/pages/Support";
 import VSSEventsPage from "./components/dashboard/pages/vss/VSSEventsPage";
 import VSSEventsMap from "./components/maps/VSSEventsMap";
+import { ControllerConfig } from "./components/dashboard/pages/settings/pages/ControllerConfig";
+import { ControllersPage } from "./components/dashboard/pages/controllers/ControllersPage";
 
 export default function App() {
   return (
@@ -43,6 +45,7 @@ export default function App() {
             <Route path="crosswalks" element={<CrosswalksPage />} />
             <Route path="analytics" element={<AnalyticsPage />} />
             <Route path="vss" element={<VSSEventsPage />} />
+            <Route path="controllers" element={<ControllersPage />} />
             <Route path="settings" element={<SettingsLayout />}>
               <Route
                 path="dashboard-visualization"
@@ -53,6 +56,7 @@ export default function App() {
               <Route path="data" element={<DataAnalytics />} />
               <Route path="security" element={<SecurityPrivacy />} />
               <Route path="support" element={<Support />} />
+              <Route path="controllers" element={<ControllerConfig />} />
             </Route>
           </Route>
 
