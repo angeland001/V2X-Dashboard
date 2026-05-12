@@ -96,14 +96,8 @@ export function PhaseStatePanel({ cuipSlug }) {
             No stream
           </Badge>
         </div>
-        <div className="rounded-lg border border-neutral-800 bg-neutral-900/40 px-3 py-3 text-xs text-neutral-500 leading-relaxed">
-          Assign a <span className="font-mono text-neutral-400">cuip_slug</span> to this
-          controller's intersection to enable live SPaT signal phase data.
-          <br />
-          <span className="text-neutral-600 mt-1 block">
-            Example: <span className="font-mono">PUT /api/intersections/{"{id}"}</span> with{" "}
-            <span className="font-mono">{`{ "cuip_slug": "MLK_Georgia" }`}</span>
-          </span>
+        <div className="rounded-lg border border-neutral-800 bg-neutral-900/40 px-3 py-3 text-xs text-neutral-500">
+          Select a CUIP stream above to enable live SPaT signal phase data.
         </div>
       </div>
     );

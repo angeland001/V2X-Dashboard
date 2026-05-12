@@ -23,6 +23,7 @@ import VSSEventsPage from "./components/dashboard/pages/vss/VSSEventsPage";
 import VSSEventsMap from "./components/maps/VSSEventsMap";
 import { ControllerConfig } from "./components/dashboard/pages/settings/pages/ControllerConfig";
 import { ControllersPage } from "./components/dashboard/pages/controllers/ControllersPage";
+import { SpatStreamsPage } from "./components/dashboard/pages/spat/SpatStreamsPage";
 
 export default function App() {
   return (
@@ -46,6 +47,7 @@ export default function App() {
             <Route path="analytics" element={<AnalyticsPage />} />
             <Route path="vss" element={<VSSEventsPage />} />
             <Route path="controllers" element={<ControllersPage />} />
+            <Route path="spat-streams" element={<SpatStreamsPage />} />
             <Route path="settings" element={<SettingsLayout />}>
               <Route
                 path="dashboard-visualization"

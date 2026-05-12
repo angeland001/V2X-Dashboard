@@ -56,9 +56,10 @@ const OID = {
 
   // ── Unit-level preemption (NTCIP 1202 §3 / object group 1 — legacy) ──────
   // These are bitmask registers: bit N-1 = preempt input N.
+  // unitControl is a single-instance table; the instance index is always ".1".
   // Prefer the preemptTable OIDs below for per-channel control on modern firmware.
-  unitPreemptState:         "1.3.6.1.4.1.1206.4.2.1.1.1.1.11",  // read-only
-  unitPreemptInput:         "1.3.6.1.4.1.1206.4.2.1.1.1.1.12",  // writable bitmask
+  unitPreemptState:         "1.3.6.1.4.1.1206.4.2.1.1.1.1.11.1",  // read-only
+  unitPreemptInput:         "1.3.6.1.4.1.1206.4.2.1.1.1.1.12.1",  // writable bitmask
 
   // ── Preempt group (NTCIP 1202 §6) — preferred per-channel interface ───────
 
@@ -330,39 +331,40 @@ class Ntcip1202Adapter {
   // It tries the modern per-channel NTCIP command first, then falls back to the older bitmask register for controllers with outdated
   // firmware.        
   async sendPreemptionCall(signalGroup) {
-    // Preferred path: SET OID.preemptControlState + "." + signalGroup
-    //   to PREEMPT_CONTROL.FORCE_ON (type = snmp.ObjectType.Integer)
-    // Legacy fallback: read unitPreemptInput, OR in bit (signalGroup - 1),
-    //   SET unitPreemptInput — only if preemptControlState SET fails (SNMP noSuchObject)
+    // Preferred path: SET preemptControlState (NTCIP 1202 §6.3, per-channel command table)
+    //   OID = preemptControlState + "." + preemptChannel
+    //   value = PREEMPT_CONTROL.FORCE_ON (2)
+    // Legacy fallback: read+modify-write unitPreemptInput bitmask (§3 unit-level register)
+    //   OID = unitPreemptInput (single-instance table, instance ".1" included in constant)
 
     const controlOid = OID.preemptControlState + "." + signalGroup;
     try {
-      //preferred path - modern NTCIP 1202 6.3 per channel command
       await snmpSet(this._session, [{
-        oid: controlOid,
-        type: snmp.ObjectType.Integer,
-        value: PREEMPT_CONTROL.FORCE_ON // = 2
-      }])
+        oid:   controlOid,
+        type:  snmp.ObjectType.Integer,
+        value: PREEMPT_CONTROL.FORCE_ON,
+      }]);
+      return;
+    } catch {
+      // preemptControlState not supported — try legacy unit-level bitmask
     }
-    catch (err){
-      //// Legacy fallback — only if controller doesn't support preemptControlState
-      // (older firmware returns noSuchObject for that OID)
 
-      // Read current bitmask
-      const result = await snmpGet(this._session, [OID.unitPreemptInput]);
+    try {
+      const result  = await snmpGet(this._session, [OID.unitPreemptInput]);
       const current = result[OID.unitPreemptInput];
-
-      // Or in the bit for this channel (bit N-1 for channel N)
-      const updated = current | (1 << (signalGroup - 1))
-
-      // write the updated bitmask back to the controller to trigger the preempt`
+      const updated = current | (1 << (signalGroup - 1));
       await snmpSet(this._session, [{
-        oid: OID.unitPreemptInput,
-        type: snmp.ObjectType.Integer,
-        value: updated
-      }])
-
-    }  
+        oid:   OID.unitPreemptInput,
+        type:  snmp.ObjectType.Integer,
+        value: updated,
+      }]);
+    } catch {
+      throw new Error(
+        `Controller does not support SNMP preemption control ` +
+        `(tried preemptControlState and unitPreemptInput — neither OID is accessible). ` +
+        `Check adapter_type, SNMP community write access, and firmware version.`
+      );
+    }
   }
 
   async clearPreemptionCall(signalGroup) {
@@ -370,25 +372,30 @@ class Ntcip1202Adapter {
     // Same two-path strategy: modern per-channel command first, bitmask fallback second.
     const controlOid = OID.preemptControlState + "." + signalGroup;
     try {
-      // Preferred path — tell the controller to exit preempt on this channel
       await snmpSet(this._session, [{
         oid:   controlOid,
         type:  snmp.ObjectType.Integer,
-        value: PREEMPT_CONTROL.FORCE_OFF,  // = 3
+        value: PREEMPT_CONTROL.FORCE_OFF,
       }]);
-    } catch (err) {
-      // Legacy fallback — read the bitmask, clear only this channel's bit, write back
-      const result = await snmpGet(this._session, [OID.unitPreemptInput]);
+      return;
+    } catch {
+      // preemptControlState not supported — try legacy unit-level bitmask
+    }
+
+    try {
+      const result  = await snmpGet(this._session, [OID.unitPreemptInput]);
       const current = result[OID.unitPreemptInput];
-
-      // AND with the bitwise complement to zero out only bit (signalGroup - 1)
       const updated = current & ~(1 << (signalGroup - 1));
-
       await snmpSet(this._session, [{
         oid:   OID.unitPreemptInput,
         type:  snmp.ObjectType.Integer,
         value: updated,
       }]);
+    } catch {
+      throw new Error(
+        `Controller does not support SNMP preemption clear ` +
+        `(tried preemptControlState and unitPreemptInput — neither OID is accessible).`
+      );
     }
   }
 
