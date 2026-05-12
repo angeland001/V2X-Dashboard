@@ -30,6 +30,11 @@ export function ControllersPage() {
     setSelectedAdapter((prev) => (prev?.id === adapterId ? updated : prev));
   }, [probe]);
 
+  const handleAdapterUpdated = useCallback((updatedAdapter) => {
+    setSelectedAdapter(updatedAdapter);
+    refresh();
+  }, [refresh]);
+
   const handleClose = useCallback(() => setSelectedAdapter(null), []);
 
   return (
@@ -121,6 +126,7 @@ export function ControllersPage() {
               adapter={selectedAdapter}
               onClose={handleClose}
               onProbed={handleProbed}
+              onUpdated={handleAdapterUpdated}
             />
           ) : (
             <ControllersMap

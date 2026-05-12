@@ -1,12 +1,12 @@
 import React, { useState } from "react";
-import { X, Wifi, Cpu, ClipboardList, Activity } from "lucide-react";
+import { X, Wifi, Cpu, ClipboardList, Activity, Settings2 } from "lucide-react";
 import { Button } from "../../../ui/shadcn/button";
 import { Badge } from "../../../ui/shadcn/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../../ui/shadcn/tabs";
-import { PhaseStatePanel }       from "./PhaseStatePanel";
 import { TimingParametersTable } from "./TimingParametersTable";
 import { PreemptionControlPanel } from "./PreemptionControlPanel";
 import { AuditLogTable }         from "./AuditLogTable";
+import { AdapterSettingsForm }   from "./AdapterSettingsForm";
 import { usePhasePolling }       from "../../../../hooks/controllers/usePhasePolling";
 
 const STATUS_COLOR = {
@@ -23,8 +23,8 @@ const ADAPTER_TYPE_LABEL = {
   generic_snmp:    "Generic SNMP",
 };
 
-export function ControllerDetailPanel({ adapter, onClose, onProbed }) {
-  const selectedGroup = 1;
+export function ControllerDetailPanel({ adapter, onClose, onProbed, onUpdated }) {
+  const [selectedGroup, setSelectedGroup] = useState(1);
   const [probing,       setProbing]       = useState(false);
 
   const { timingData, loading: phaseLoading } =
@@ -108,10 +108,29 @@ export function ControllerDetailPanel({ adapter, onClose, onProbed }) {
               <ClipboardList className="h-3 w-3" />
               Audit
             </TabsTrigger>
+            <TabsTrigger value="settings" className="gap-1.5 data-[state=active]:bg-neutral-700 text-xs">
+              <Settings2 className="h-3 w-3" />
+              Settings
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="phases" className="flex-1 px-4 pb-4 mt-3 space-y-4">
-            <PhaseStatePanel cuipSlug={adapter.cuipSlug} />
+            <div className="flex items-center gap-1">
+              <span className="text-xs text-neutral-500 mr-1">Phase</span>
+              {[1,2,3,4,5,6,7,8].map((n) => (
+                <button
+                  key={n}
+                  onClick={() => setSelectedGroup(n)}
+                  className={`h-6 w-6 rounded text-xs font-mono transition-colors ${
+                    selectedGroup === n
+                      ? "bg-neutral-700 text-neutral-100"
+                      : "bg-neutral-800 text-neutral-500 hover:bg-neutral-700/60 hover:text-neutral-300"
+                  }`}
+                >
+                  {n}
+                </button>
+              ))}
+            </div>
             <TimingParametersTable
               adapterId={adapter.id}
               signalGroup={selectedGroup}
@@ -126,6 +145,14 @@ export function ControllerDetailPanel({ adapter, onClose, onProbed }) {
 
           <TabsContent value="audit" className="flex-1 px-4 pb-4 mt-3">
             <AuditLogTable adapterId={adapter.id} />
+          </TabsContent>
+
+          <TabsContent value="settings" className="flex-1 px-4 pb-4 mt-3">
+            <AdapterSettingsForm
+              adapter={adapter}
+              onSaved={onUpdated}
+              onProbed={handleProbe}
+            />
           </TabsContent>
         </Tabs>
       </div>

@@ -31,6 +31,7 @@ import {
   Waypoints,
   Video,
   Cpu,
+  Radio,
 } from "lucide-react";
 import {
   Collapsible,
@@ -199,6 +200,17 @@ function AppSidebar() {
                 >
                   <Cpu className="w-4 h-4" />
                   <span className="normal-case">Traffic Controllers</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  onClick={() => navigate("/dashboard/spat-streams")}
+                  isActive={isActive("/dashboard/spat-streams")}
+                  tooltip="SPaT Streams"
+                >
+                  <Radio className="w-4 h-4" />
+                  <span className="normal-case">SPaT Streams</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
 

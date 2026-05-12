@@ -20,6 +20,7 @@ import {
   SelectValue,
 } from "../../../ui/shadcn/select";
 import { fetchPreemptionZoneConfigs } from "../../../../services/preemptionZoneConfigs";
+import { TimingConstraintsSection }   from "./TimingConstraintsSection";
 import {
   triggerPreemption,
   clearPreemption,
@@ -270,6 +271,11 @@ export function PreemptionControlPanel({ adapter }) {
           </div>
         </div>
       )}
+
+      {/* Timing constraints — safety bounds per zone config */}
+      <div className="border-t border-neutral-800 pt-4 mt-2">
+        <TimingConstraintsSection zoneConfigId={selectedZoneId} />
+      </div>
     </div>
   );
 }
