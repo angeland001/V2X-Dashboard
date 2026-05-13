@@ -121,7 +121,7 @@ export function ControllerDetailPanel({ adapter, onClose, onProbed, onUpdated })
                 <button
                   key={n}
                   onClick={() => setSelectedGroup(n)}
-                  className={`h-6 w-6 rounded text-xs font-mono transition-colors ${
+                  className={`h-6 w-6 rounded text-xs font-mono transition-colors flex items-center justify-center ${
                     selectedGroup === n
                       ? "bg-neutral-700 text-neutral-100"
                       : "bg-neutral-800 text-neutral-500 hover:bg-neutral-700/60 hover:text-neutral-300"

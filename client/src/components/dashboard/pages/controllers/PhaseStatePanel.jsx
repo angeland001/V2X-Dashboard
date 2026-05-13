@@ -1,35 +1,9 @@
 import React from "react";
 import { Badge } from "../../../ui/shadcn/badge";
 import { useSpatData } from "../../../../hooks/controllers/useSpatData";
+import { getPhaseInfo } from "../../../../lib/spatUtils";
 
 const PHASES = [1, 2, 3, 4, 5, 6, 7, 8];
-
-// ── Signal state derivation ───────────────────────────────────────────────────
-
-function getPhaseInfo(n, spatData) {
-  if (!spatData) return { signal: "inactive", countdown: null, ped: null };
-
-  const reds    = spatData.phaseStatusGroupReds    ?? [];
-  const yellows = spatData.phaseStatusGroupYellows ?? [];
-  const greens  = spatData.phaseStatusGroupGreens  ?? [];
-  const walks      = spatData.phaseStatusGroupWalks      ?? [];
-  const pedClears  = spatData.phaseStatusGroupPedClears  ?? [];
-  const dontWalks  = spatData.phaseStatusGroupDontWalks  ?? [];
-
-  let signal = "inactive";
-  if (greens.includes(n))  signal = "green";
-  else if (yellows.includes(n)) signal = "yellow";
-  else if (reds.includes(n))    signal = "red";
-
-  const countdown = spatData[`spatVehMinTimeToChange${n}`] || null;
-
-  let ped = null;
-  if (walks.includes(n))     ped = "walk";
-  else if (pedClears.includes(n))  ped = "clear";
-  else if (dontWalks.includes(n))  ped = "dontWalk";
-
-  return { signal, countdown, ped };
-}
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
@@ -48,8 +22,8 @@ const PED_LABEL = { walk: "WALK", clear: "CLR", dontWalk: "DNW" };
 const PED_COLOR = { walk: "text-green-400", clear: "text-yellow-400", dontWalk: "text-red-400" };
 
 function PhaseCard({ n, spatData }) {
-  const { signal, countdown, ped } = getPhaseInfo(n, spatData);
-  const inactive = signal === "inactive";
+  const { signal, countdown, ped, protectedArrow } = getPhaseInfo(n, spatData);
+  const inactive = signal === "inactive" && protectedArrow === "inactive";
 
   return (
     <div
@@ -57,18 +31,33 @@ function PhaseCard({ n, spatData }) {
         inactive ? "opacity-30 bg-neutral-900/50" : "bg-neutral-900/90"
       }`}
     >
-      <span className="text-[10px] font-bold text-neutral-400">P{n}</span>
+      <div className="flex items-center justify-center h-5 w-5 rounded bg-neutral-800 border border-neutral-700">
+        <span className="text-[10px] font-bold text-neutral-400">P{n}</span>
+      </div>
 
-      {/* Signal head */}
-      <div className="flex flex-col items-center gap-[5px] px-1.5 py-1.5 rounded-lg bg-neutral-950 border border-neutral-800/40">
-        <Bulb color="red"    active={signal === "red"} />
-        <Bulb color="yellow" active={signal === "yellow"} />
-        <Bulb color="green"  active={signal === "green"} />
+      {/* Signal heads */}
+      <div className="flex gap-1">
+        {/* Vehicle signal */}
+        <div className="flex flex-col items-center gap-[5px] px-1.5 py-1.5 rounded-lg bg-neutral-950 border border-neutral-800/40">
+          <Bulb color="red"    active={signal === "red"} />
+          <Bulb color="yellow" active={signal === "yellow"} />
+          <Bulb color="green"  active={signal === "green"} />
+        </div>
+
+        {/* Protected arrow signal (if applicable) */}
+        {protectedArrow !== "inactive" && (
+          <div className="flex flex-col items-center gap-[5px] px-1.5 py-1.5 rounded-lg bg-neutral-950 border border-neutral-800/40">
+            <Bulb color="red"    active={protectedArrow === "red"} />
+            <Bulb color="yellow" active={protectedArrow === "yellow"} />
+            <Bulb color="green"  active={protectedArrow === "green"} />
+            <span className="text-[6px] font-bold text-neutral-400">↙</span>
+          </div>
+        )}
       </div>
 
       {/* Countdown */}
       <span className="text-[9px] font-mono font-bold leading-none text-neutral-500 min-h-[10px]">
-        {countdown != null ? `${countdown}s` : ""}
+        {countdown != null ? `${(countdown / 10).toFixed(1)}s` : ""}
       </span>
 
       {/* Ped indicator */}

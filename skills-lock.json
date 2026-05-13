@@ -1,6 +1,18 @@
 {
   "version": 1,
   "skills": {
+    "3d-visualizer": {
+      "source": "daffy0208/ai-dev-standards",
+      "sourceType": "github",
+      "skillPath": "skills/3d-visualizer/SKILL.md",
+      "computedHash": "b40dd41e60b3d96671deecfc1695e9f30dfce5c7d5c1622d0366a04fecfcd2f1"
+    },
+    "3d-web-experience": {
+      "source": "sickn33/antigravity-awesome-skills",
+      "sourceType": "github",
+      "skillPath": "skills/3d-web-experience/SKILL.md",
+      "computedHash": "abf349a30764951de0ff17fe6e4b0d3a5332d3682b3b97109d7a23f813406d1a"
+    },
     "shadcn": {
       "source": "shadcn/ui",
       "sourceType": "github",
