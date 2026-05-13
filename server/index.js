@@ -23,6 +23,7 @@ const vssRoutes = require("./routes/api/vss");
 const controllerRoutes            = require("./routes/api/trafficcontroller/controllers");
 const preemptionCommandRoutes     = require("./routes/api/preemption/preemption_commands");
 const { router: streamIngestRoutes } = require("./routes/api/stream_ingest");
+const cameraRoutes = require("./routes/api/cameras");
 
 const db = require("./database/postgis");
 const sdsmPoller = require("./services/sdsmPoller");
@@ -55,6 +56,7 @@ app.use("/api/vss", vssRoutes);
 app.use("/api/controllers", controllerRoutes);
 app.use("/api/preemption-commands", preemptionCommandRoutes);
 app.use("/api/stream-ingest", streamIngestRoutes);
+app.use("/api/cameras", cameraRoutes);
 
 // Health check endpoint
 app.get("/health", (req, res) => {
@@ -103,4 +105,5 @@ app.listen(PORT, () => {
   console.log(`Preemption Zone Configs API: http://localhost:${PORT}/api/preemption-zone-configs`);
   console.log(`Controllers API: http://localhost:${PORT}/api/controllers`);
   console.log(`Preemption Commands API: http://localhost:${PORT}/api/preemption-commands`);
+  console.log(`Cameras API: http://localhost:${PORT}/api/cameras`);
 });

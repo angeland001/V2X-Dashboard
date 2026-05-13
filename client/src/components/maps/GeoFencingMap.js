@@ -230,8 +230,7 @@ function GeoFencingMap({ editorMode = "intersection" }) {
   const [activeIntersection, setActiveIntersection] = useState(null);
   const [showNewIntersection, setShowNewIntersection] = useState(false);
   const [newIntName, setNewIntName] = useState("");
-  const [newIntId, setNewIntId] = useState("");
-  const [placingIntersection, setPlacingIntersection] = useState(null); // { name, intersection_id }
+  const [placingIntersection, setPlacingIntersection] = useState(null); // { name }
 
   const [lanes, setLanes] = useState([]);
   const [crosswalks, setCrosswalks] = useState([]);
@@ -2364,14 +2363,12 @@ function GeoFencingMap({ editorMode = "intersection" }) {
 
   // ── Create intersection ───────────────────────────────────────
   const beginPlacingIntersection = () => {
-    if (!newIntName.trim() || !newIntId) return;
+    if (!newIntName.trim()) return;
     setPlacingIntersection({
       name: newIntName.trim(),
-      intersection_id: parseInt(newIntId),
     });
     setShowNewIntersection(false);
     setNewIntName("");
-    setNewIntId("");
     showMessage(
       "Pan the map to position the intersection reference point, then click Confirm.",
     );
@@ -2390,7 +2387,6 @@ function GeoFencingMap({ editorMode = "intersection" }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: placingIntersection.name,
-          intersection_id: placingIntersection.intersection_id,
           ref_point: refPoint,
         }),
       });
@@ -3299,18 +3295,6 @@ function GeoFencingMap({ editorMode = "intersection" }) {
                 autoFocus
               />
             </div>
-            <div>
-              <label className="block mb-1 text-xs text-zinc-400">
-                Intersection ID (integer)
-              </label>
-              <Input
-                type="number"
-                value={newIntId}
-                onChange={(e) => setNewIntId(e.target.value)}
-                placeholder="e.g. 1001"
-                className="text-sm text-white bg-zinc-800 border-zinc-700"
-              />
-            </div>
           </div>
           <AlertDialogFooter>
             <AlertDialogCancel className="text-white bg-zinc-800 border-zinc-700 hover:bg-zinc-700">
@@ -3319,7 +3303,7 @@ function GeoFencingMap({ editorMode = "intersection" }) {
             <AlertDialogAction
               onClick={beginPlacingIntersection}
               className="text-white bg-blue-600 hover:bg-blue-700"
-              disabled={!newIntName.trim() || !newIntId}
+              disabled={!newIntName.trim()}
             >
               Create
             </AlertDialogAction>

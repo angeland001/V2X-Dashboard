@@ -24,65 +24,36 @@ function getLabelFromSlug(slug) {
   return slug;
 }
 
-function getSignalState(spatData) {
-  if (!spatData) return { state: "inactive", label: "—" };
-  const greens = spatData.phaseStatusGroupGreens ?? [];
-  const yellows = spatData.phaseStatusGroupYellows ?? [];
-  const reds = spatData.phaseStatusGroupReds ?? [];
-
-  if (greens.length > 0) return { state: "green", label: "🟢" };
-  if (yellows.length > 0) return { state: "yellow", label: "🟡" };
-  if (reds.length > 0) return { state: "red", label: "🔴" };
-  return { state: "inactive", label: "⚪" };
-}
-
-const SIGNAL_GLOW = {
-  red: "shadow-[0_0_8px_2px_rgba(239,68,68,0.5)] bg-red-600",
-  yellow: "shadow-[0_0_8px_2px_rgba(250,204,21,0.5)] bg-yellow-500",
-  green: "shadow-[0_0_8px_2px_rgba(34,197,94,0.5)] bg-green-600",
-  inactive: "bg-neutral-700",
-};
-
 function SignalGridCard({ cuipSlug, selected, onSelect }) {
-  const { spatData, receivedAt } = useSpatData(cuipSlug);
-  const signal = getSignalState(spatData);
+  const { receivedAt } = useSpatData(cuipSlug);
   const ageMs = receivedAt ? Date.now() - new Date(receivedAt).getTime() : null;
-  const isStale = ageMs == null || ageMs > 5000;
+  const isActive = ageMs != null && ageMs <= 5000;
 
   return (
     <button
       onClick={() => onSelect(cuipSlug)}
-      className={`flex flex-col gap-3 p-3 rounded-lg border transition-all duration-200 ${
+      className={`flex flex-col justify-between gap-2 p-3 rounded-lg border transition-all duration-200 ${
         selected
           ? "border-teal-500 bg-teal-900/20"
           : "border-neutral-700 bg-neutral-900/50 hover:bg-neutral-800/70 hover:border-neutral-600"
       }`}
     >
-      {/* Intersection name */}
-      <span className="text-xs font-semibold text-neutral-200">
+      <span className="text-xs font-semibold text-neutral-200 text-left">
         {getLabelFromSlug(cuipSlug)}
       </span>
 
-      {/* Signal indicator - large colored dot */}
-      <div className="flex items-center gap-2">
-        <div
-          className={`w-5 h-5 rounded-full transition-all duration-200 flex-shrink-0 ${
-            SIGNAL_GLOW[signal.state]
-          } ${isStale ? "opacity-40" : ""}`}
-        />
-        <span className="text-sm font-semibold text-neutral-300">{signal.label}</span>
-      </div>
-
-      {/* Live/Stale badge */}
-      <div>
+      <div className="flex items-center gap-1.5">
         <span
-          className={`text-[10px] font-bold rounded px-2 py-1 inline-block ${
-            isStale
-              ? "bg-amber-900/40 text-amber-400"
-              : "bg-green-900/40 text-green-400"
+          className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+            isActive ? "bg-green-500" : "bg-neutral-600"
+          }`}
+        />
+        <span
+          className={`text-[10px] font-semibold ${
+            isActive ? "text-green-400" : "text-neutral-500"
           }`}
         >
-          {isStale ? "Waiting" : "Live"}
+          {isActive ? "Active" : "Waiting"}
         </span>
       </div>
     </button>

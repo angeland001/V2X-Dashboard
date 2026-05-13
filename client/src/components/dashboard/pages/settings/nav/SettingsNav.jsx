@@ -9,6 +9,8 @@ import {
   HelpCircle,
   ChevronRight,
   Radio,
+  Camera,
+  MapPin,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -44,10 +46,22 @@ const settingsNav = [
     href: '/dashboard/settings/security',
   },
   {
+    label: 'Intersections',
+    description: 'Create and manage traffic intersections',
+    icon: MapPin,
+    href: '/dashboard/settings/intersections',
+  },
+  {
     label: 'Controller Configuration',
     description: 'NTCIP adapters, timing constraints, preemption',
     icon: Radio,
     href: '/dashboard/settings/controllers',
+  },
+  {
+    label: 'Camera Configuration',
+    description: 'Assign IP cameras to intersections',
+    icon: Camera,
+    href: '/dashboard/settings/cameras',
   },
   {
     label: 'Support & Help',

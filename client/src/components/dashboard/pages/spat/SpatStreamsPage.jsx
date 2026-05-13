@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { PhaseStatePanel } from "../controllers/PhaseStatePanel";
 import { SpatMapView } from "./SpatMapView";
 import { SpatOverviewGrid } from "./SpatOverviewGrid";
+import { CameraFeedPanel } from "./CameraFeedPanel";
 
 const CUIP_SLUGS = [
   "MLK_Broad",
@@ -85,7 +86,7 @@ export function SpatStreamsPage() {
                     onClick={() => setShow3D(v => !v)}
                     className="text-xs px-2 py-1 rounded bg-neutral-800 hover:bg-neutral-700 text-neutral-300 transition-colors"
                   >
-                    {show3D ? "Hide 3D" : "Show 3D"}
+                    {show3D ? "Hide Camera" : "Show Camera"}
                   </button>
                   <button
                     onClick={() => setSelectedSlug(null)}
@@ -96,12 +97,7 @@ export function SpatStreamsPage() {
                 </div>
               </div>
               {show3D && (
-                <div className="h-[260px] flex-shrink-0 border-b border-neutral-800 bg-neutral-900 flex items-center justify-center">
-                  <div className="text-center text-muted-foreground text-sm">
-                    <p>3D Intersection View</p>
-                    <p className="text-xs mt-1">Coming soon</p>
-                  </div>
-                </div>
+                <CameraFeedPanel cuipSlug={selectedSlug} />
               )}
               <div className="flex-1 overflow-y-auto p-4">
                 <PhaseStatePanel cuipSlug={selectedSlug} />

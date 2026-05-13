@@ -22,6 +22,8 @@ import { Support } from "./components/dashboard/pages/settings/pages/Support";
 import VSSEventsPage from "./components/dashboard/pages/vss/VSSEventsPage";
 import VSSEventsMap from "./components/maps/VSSEventsMap";
 import { ControllerConfig } from "./components/dashboard/pages/settings/pages/ControllerConfig";
+import { CameraConfig } from "./components/dashboard/pages/settings/pages/CameraConfig";
+import { IntersectionConfig } from "./components/dashboard/pages/settings/pages/IntersectionConfig";
 import { ControllersPage } from "./components/dashboard/pages/controllers/ControllersPage";
 import { SpatStreamsPage } from "./components/dashboard/pages/spat/SpatStreamsPage";
 
@@ -58,7 +60,9 @@ export default function App() {
               <Route path="data" element={<DataAnalytics />} />
               <Route path="security" element={<SecurityPrivacy />} />
               <Route path="support" element={<Support />} />
+              <Route path="intersections" element={<IntersectionConfig />} />
               <Route path="controllers" element={<ControllerConfig />} />
+              <Route path="cameras" element={<CameraConfig />} />
             </Route>
           </Route>
 
