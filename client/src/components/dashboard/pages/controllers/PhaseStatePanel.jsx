@@ -91,7 +91,7 @@ function PhaseCard({ n, spatData }) {
 
       {/* Countdown */}
       <span className="text-[9px] font-mono font-bold leading-none text-neutral-500 min-h-[10px]">
-        {countdown != null ? `${countdown}s` : ""}
+        {countdown != null ? `${(countdown / 10).toFixed(1)}s` : ""}
       </span>
 
       {/* Ped indicator */}
