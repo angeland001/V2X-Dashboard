@@ -36,6 +36,7 @@ const DEFAULT_ZOOM = 14;
 export function SpatMapView({ selectedSlug, onSelect }) {
   const containerRef = useRef(null);
   const [markerElements, setMarkerElements] = useState({});
+  const [mapLoaded, setMapLoaded] = useState(false);
   const mapInstanceRef = useRef(null);
 
   // Initialize map and markers
@@ -70,6 +71,7 @@ export function SpatMapView({ selectedSlug, onSelect }) {
       });
       // Update state to trigger portal rendering
       setMarkerElements(markers);
+      setMapLoaded(true);
     });
 
     return () => {
@@ -77,6 +79,22 @@ export function SpatMapView({ selectedSlug, onSelect }) {
       mapInstanceRef.current = null;
     };
   }, []);
+
+  // FlyTo when a slug is selected
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map || !mapLoaded || !selectedSlug) return;
+    const coords = INTERSECTION_COORDS[selectedSlug];
+    if (!coords) return;
+    map.easeTo({
+      center: coords,
+      zoom: 17.5,
+      pitch: 58,
+      bearing: -20,
+      duration: 1200,
+      essential: true,
+    });
+  }, [selectedSlug, mapLoaded]);
 
   return (
     <div className="relative w-full h-full">

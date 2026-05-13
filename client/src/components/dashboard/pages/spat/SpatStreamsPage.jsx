@@ -42,6 +42,7 @@ function useActiveLiveCount() {
 
 export function SpatStreamsPage() {
   const [selectedSlug, setSelectedSlug] = useState(null);
+  const [show3D, setShow3D] = useState(true);
   const counts = useActiveLiveCount();
 
   return (
@@ -75,17 +76,33 @@ export function SpatStreamsPage() {
         {/* Right panel - either overview grid or detail view */}
         <div className="w-[400px] flex-shrink-0 border-l border-neutral-800 bg-neutral-950 flex flex-col overflow-hidden">
           {selectedSlug ? (
-            // Detail view: full PhaseStatePanel with back button
+            // Detail view: 3D view + PhaseStatePanel with back button
             <>
               <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-800 flex-shrink-0">
                 <span className="text-sm font-mono text-neutral-300">{selectedSlug}</span>
-                <button
-                  onClick={() => setSelectedSlug(null)}
-                  className="text-xs px-2 py-1 rounded bg-neutral-800 hover:bg-neutral-700 text-neutral-300 transition-colors"
-                >
-                  ← Back
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setShow3D(v => !v)}
+                    className="text-xs px-2 py-1 rounded bg-neutral-800 hover:bg-neutral-700 text-neutral-300 transition-colors"
+                  >
+                    {show3D ? "Hide 3D" : "Show 3D"}
+                  </button>
+                  <button
+                    onClick={() => setSelectedSlug(null)}
+                    className="text-xs px-2 py-1 rounded bg-neutral-800 hover:bg-neutral-700 text-neutral-300 transition-colors"
+                  >
+                    ← Back
+                  </button>
+                </div>
               </div>
+              {show3D && (
+                <div className="h-[260px] flex-shrink-0 border-b border-neutral-800 bg-neutral-900 flex items-center justify-center">
+                  <div className="text-center text-muted-foreground text-sm">
+                    <p>3D Intersection View</p>
+                    <p className="text-xs mt-1">Coming soon</p>
+                  </div>
+                </div>
+              )}
               <div className="flex-1 overflow-y-auto p-4">
                 <PhaseStatePanel cuipSlug={selectedSlug} />
               </div>

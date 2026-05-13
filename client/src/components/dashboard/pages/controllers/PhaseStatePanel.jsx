@@ -1,43 +1,9 @@
 import React from "react";
 import { Badge } from "../../../ui/shadcn/badge";
 import { useSpatData } from "../../../../hooks/controllers/useSpatData";
+import { getPhaseInfo } from "../../../../lib/spatUtils";
 
 const PHASES = [1, 2, 3, 4, 5, 6, 7, 8];
-
-// ── Signal state derivation ───────────────────────────────────────────────────
-
-function getPhaseInfo(n, spatData) {
-  if (!spatData) return { signal: "inactive", countdown: null, ped: null, protectedArrow: false };
-
-  const reds    = spatData.phaseStatusGroupReds    ?? [];
-  const yellows = spatData.phaseStatusGroupYellows ?? [];
-  const greens  = spatData.phaseStatusGroupGreens  ?? [];
-  const walks      = spatData.phaseStatusGroupWalks      ?? [];
-  const pedClears  = spatData.phaseStatusGroupPedClears  ?? [];
-  const dontWalks  = spatData.phaseStatusGroupDontWalks  ?? [];
-  const overlapReds = spatData.overlapStatusGroupReds ?? [];
-  const overlapYellows = spatData.overlapStatusGroupYellows ?? [];
-  const overlapGreens = spatData.overlapStatusGroupGreens ?? [];
-
-  let signal = "inactive";
-  if (greens.includes(n))  signal = "green";
-  else if (yellows.includes(n)) signal = "yellow";
-  else if (reds.includes(n))    signal = "red";
-
-  let protectedArrow = "inactive";
-  if (overlapGreens.includes(n)) protectedArrow = "green";
-  else if (overlapYellows.includes(n)) protectedArrow = "yellow";
-  else if (overlapReds.includes(n)) protectedArrow = "red";
-
-  const countdown = spatData[`spatVehMinTimeToChange${n}`] || null;
-
-  let ped = null;
-  if (walks.includes(n))     ped = "walk";
-  else if (pedClears.includes(n))  ped = "clear";
-  else if (dontWalks.includes(n))  ped = "dontWalk";
-
-  return { signal, countdown, ped, protectedArrow };
-}
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
