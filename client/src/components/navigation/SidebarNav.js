@@ -228,14 +228,6 @@ function AppSidebar() {
                     <SidebarMenuSub>
                       <SidebarMenuSubItem>
                         <SidebarMenuSubButton
-                          onClick={() => navigate("/sdsm-events")}
-                          isActive={isActive("/sdsm-events")}
-                        >
-                          <span className="normal-case">SDSM Events</span>
-                        </SidebarMenuSubButton>
-                      </SidebarMenuSubItem>
-                      <SidebarMenuSubItem>
-                        <SidebarMenuSubButton
                           onClick={() => navigate("/dashboard/vss")}
                           isActive={isActive("/dashboard/vss")}
                         >

@@ -10,7 +10,6 @@ console.log("POSTGIS_PORT:", process.env.POSTGIS_PORT);
 
 const authRoutes = require("./routes/authroutes/auth");
 const userRoutes = require("./routes/authroutes/users");
-const sdsmRoutes = require("./routes/api/sdsm");
 const tomtomRoutes = require("./routes/api/tomtom");
 const intersectionRoutes = require("./routes/intersectionroutes/intersections");
 const laneRoutes = require("./routes/intersectionroutes/lanes");
@@ -26,7 +25,6 @@ const { router: streamIngestRoutes } = require("./routes/api/stream_ingest");
 const cameraRoutes = require("./routes/api/cameras");
 
 const db = require("./database/postgis");
-const sdsmPoller = require("./services/sdsmPoller");
 const vssPoller  = require("./services/vssPoller");
 
 const app = express();
@@ -41,8 +39,6 @@ app.use(express.json());
 app.use("/api/auth", authRoutes);
 // Mount user routes
 app.use("/api/users", userRoutes);
-// Mount SDSM and TOMTOM routes
-app.use("/api/sdsm", sdsmRoutes);
 app.use("/api/tomtom", tomtomRoutes);
 // Mount V2X MapData routes
 app.use("/api/intersections", intersectionRoutes);
@@ -82,13 +78,10 @@ const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 
-  // Start ingesting live SDSM data into the database
-  sdsmPoller.start();
   // Start ingesting VSS events (configure server/config/vss.js first)
   vssPoller.start();
   console.log(`Auth API: http://localhost:${PORT}/api/auth`);
   console.log(`User API: http://localhost:${PORT}/api/users`);
-  console.log(`SDSM API: http://localhost:${PORT}/api/sdsm`);
   console.log(`TomTom API: http://localhost:${PORT}/api/tomtom`);
   console.log(`Intersections API: http://localhost:${PORT}/api/intersections`);
   console.log(`Lanes API: http://localhost:${PORT}/api/lanes`);

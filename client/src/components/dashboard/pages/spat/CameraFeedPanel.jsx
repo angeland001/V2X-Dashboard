@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useCameraFeed } from '../../../../hooks/cameras/useCameraFeed';
 
@@ -13,6 +13,13 @@ export function CameraFeedPanel({ cuipSlug }) {
     useCameraFeed(cuipSlug);
   const [imgError, setImgError] = useState(false);
   const imgRef = useRef(null);
+
+  // Abort the MJPEG request immediately when the component unmounts
+  useEffect(() => {
+    return () => {
+      if (imgRef.current) imgRef.current.src = '';
+    };
+  }, []);
 
   const handleImgError = useCallback(() => setImgError(true), []);
 

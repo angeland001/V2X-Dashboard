@@ -26,11 +26,6 @@ export function DashboardNav() {
         <NavigationMenu viewport={isMobile}>
           <NavigationMenuList className="flex-wrap">
           <NavigationMenuItem>
-            <Link to="/dashboard">
-              <NavigationMenuTrigger>SDSM</NavigationMenuTrigger>
-            </Link>
-          </NavigationMenuItem>
-          <NavigationMenuItem>
             <Link to="/dashboard/geofences/zones">
             <NavigationMenuTrigger>Geofences</NavigationMenuTrigger>
             </Link>

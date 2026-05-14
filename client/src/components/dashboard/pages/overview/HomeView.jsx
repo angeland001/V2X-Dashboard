@@ -1,11 +1,9 @@
 import React, { useState, useEffect } from "react"
-import { TrafficOverview } from "@/components/dashboard/pages/sdsm/SDSM"
 
 export function HomeView() {
   const [user, setUser] = useState(null);
 
   useEffect(() => {
-    // Get user from localStorage
     const storedUser = localStorage.getItem('user');
     if (storedUser) {
       try {
@@ -19,7 +17,6 @@ export function HomeView() {
 
   const getUserDisplayName = () => {
     if (!user) return 'User';
-    // Prefer first name if available, otherwise use username
     return user.first_name || user.username || 'User';
   };
 
@@ -28,11 +25,9 @@ export function HomeView() {
       <div>
         <h1 className="text-3xl font-bold text-foreground">Welcome Back, {getUserDisplayName()}.</h1>
         <p className="text-muted-foreground mt-2">
-          Monitor pedestrian and vehicle traffic patterns across key locations
+          Monitor and manage V2X infrastructure across key locations
         </p>
       </div>
-
-      <TrafficOverview />
     </div>
   )
 }

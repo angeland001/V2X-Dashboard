@@ -12,7 +12,7 @@ import { Label } from '@/components/ui/label'
 import { SettingsPageWrapper, SectionHeader, ToggleRow } from '../components'
 
 export function DashboardVisualization() {
-  const [defaultDashboard, setDefaultDashboard] = useState('sdsm')
+  const [defaultDashboard, setDefaultDashboard] = useState('analytics')
   const [theme, setTheme] = useState('dark')
   const [gridView, setGridView] = useState(true)
   const [compactView, setCompactView] = useState(false)
@@ -35,7 +35,6 @@ export function DashboardVisualization() {
             <SelectValue />
           </SelectTrigger>
           <SelectContent className="w-48 bg-neutral-800 border-neutral-700 text-neutral-200">
-            <SelectItem value="sdsm">SDSM</SelectItem>
             <SelectItem value="analytics">Traffic Analytics</SelectItem>
             <SelectItem value="geofences">Geofences</SelectItem>
             

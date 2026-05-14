@@ -1,6 +1,7 @@
 const express = require('express');
 const http = require('http');
 const crypto = require('crypto');
+const { pipeline } = require('stream');
 const db = require('../../../database/postgis');
 const authenticate = require('../../../middleware/authenticate');
 
@@ -95,12 +96,12 @@ function cameraGet(hostname, port, path, onSuccess, onError) {
 
 /**
  * GET /api/cameras
- * List all cameras with intersection name joined
+ * List all cameras with intersection name and cuip_slug joined
  */
 router.get('/', authenticate, async (req, res) => {
   try {
     const result = await db.query(
-      `SELECT c.*, i.name as intersection_name
+      `SELECT c.*, i.name as intersection_name, i.cuip_slug as intersection_slug
        FROM cameras c
        LEFT JOIN intersections i ON i.intersection_id = c.intersection_id
        ORDER BY c.created_at DESC`
@@ -124,7 +125,7 @@ router.get('/', authenticate, async (req, res) => {
 router.get('/by-slug/:slug', authenticate, async (req, res) => {
   try {
     const result = await db.query(
-      `SELECT c.*, i.name as intersection_name
+      `SELECT c.*, i.name as intersection_name, i.cuip_slug as intersection_slug
        FROM cameras c
        JOIN intersections i ON i.intersection_id = c.intersection_id
        WHERE i.cuip_slug = $1
@@ -143,7 +144,7 @@ router.get('/by-slug/:slug', authenticate, async (req, res) => {
 router.get('/by-intersection/:intersection_id', authenticate, async (req, res) => {
   try {
     const result = await db.query(
-      `SELECT c.*, i.name as intersection_name
+      `SELECT c.*, i.name as intersection_name, i.cuip_slug as intersection_slug
        FROM cameras c
        LEFT JOIN intersections i ON i.intersection_id = c.intersection_id
        WHERE c.intersection_id = $1
@@ -166,7 +167,7 @@ router.get('/by-intersection/:intersection_id', authenticate, async (req, res) =
 router.get('/:id', authenticate, async (req, res) => {
   try {
     const result = await db.query(
-      `SELECT c.*, i.name as intersection_name
+      `SELECT c.*, i.name as intersection_name, i.cuip_slug as intersection_slug
        FROM cameras c
        LEFT JOIN intersections i ON i.intersection_id = c.intersection_id
        WHERE c.id = $1`,
@@ -287,8 +288,18 @@ router.get('/:id/stream', authenticate, async (req, res) => {
         res.setHeader('Content-Type', cameraRes.headers['content-type'] || 'multipart/x-mixed-replace');
         res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
         res.setHeader('Connection', 'keep-alive');
-        cameraRes.pipe(res);
-        req.on('close', () => cameraReq.destroy());
+
+        req.on('close', () => {
+          cameraRes.destroy();
+          cameraReq.destroy();
+          res.destroy();
+        });
+
+        pipeline(cameraRes, res, (err) => {
+          if (err && err.code !== 'ERR_STREAM_PREMATURE_CLOSE' && err.code !== 'ERR_STREAM_DESTROYED') {
+            console.error(`[camera-stream] pipeline error: ${err.code}`);
+          }
+        });
       },
       (statusCode, message) => {
         console.error(`[camera-stream] failed: ${statusCode} ${message}`);
@@ -318,8 +329,18 @@ router.get('/:id/snapshot', authenticate, async (req, res) => {
       (cameraRes, cameraReq) => {
         res.setHeader('Content-Type', cameraRes.headers['content-type'] || 'image/jpeg');
         res.setHeader('Cache-Control', 'no-cache');
-        cameraRes.pipe(res);
-        req.on('close', () => cameraReq.destroy());
+
+        req.on('close', () => {
+          cameraRes.destroy();
+          cameraReq.destroy();
+          res.destroy();
+        });
+
+        pipeline(cameraRes, res, (err) => {
+          if (err && err.code !== 'ERR_STREAM_PREMATURE_CLOSE' && err.code !== 'ERR_STREAM_DESTROYED') {
+            console.error(`[camera-snapshot] pipeline error: ${err.code}`);
+          }
+        });
       },
       (statusCode, message) => {
         if (!res.headersSent) res.status(502).json({ error: message });

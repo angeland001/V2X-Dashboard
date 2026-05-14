@@ -4,7 +4,6 @@ import { SettingsProvider } from "./contexts/SettingsContext";
 import Login from "./auth/Login";
 import DashboardLayout from "./components/navigation/SidebarNav";
 import GeoFencingMap from "./components/maps/GeoFencingMap";
-import SDSMEventsMap from "./components/maps/SDSMEvents";
 import Dashboard from "./components/dashboard/dashboard";
 import HomeView from "./components/dashboard/pages/overview/HomeView";
 import GeofenceZones from "./components/dashboard/pages/geofences/GeofenceZones";
@@ -95,14 +94,6 @@ export default function App() {
               element={
                 <DashboardLayout>
                   <GeoFencingMap editorMode="preemption" />
-                </DashboardLayout>
-              }
-            />
-            <Route
-              path="/sdsm-events"
-              element={
-                <DashboardLayout>
-                  <SDSMEventsMap />
                 </DashboardLayout>
               }
             />

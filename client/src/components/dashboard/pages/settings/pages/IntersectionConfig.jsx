@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Plus, Pencil, Trash2, MapPin } from 'lucide-react';
+import { Pencil, Trash2, MapPin } from 'lucide-react';
 import { Button } from '../../../../ui/shadcn/button';
 import { Badge } from '../../../../ui/shadcn/badge';
 import { Skeleton } from '../../../../ui/shadcn/skeleton';
@@ -72,27 +72,16 @@ export function IntersectionConfig() {
     fetchIntersections();
   }, []);
 
-  const openDialog = (intersection = null) => {
-    if (intersection) {
-      const coords = intersection.ref_point?.coordinates || [0, 0];
-      setFormData({
-        name: intersection.name,
-        description: intersection.description || '',
-        latitude: coords[1].toString(),
-        longitude: coords[0].toString(),
-        cuipSlug: intersection.cuip_slug || '',
-      });
-      setEditingId(intersection.intersection_id);
-    } else {
-      setFormData({
-        name: '',
-        description: '',
-        latitude: '',
-        longitude: '',
-        cuipSlug: '',
-      });
-      setEditingId(null);
-    }
+  const openDialog = (intersection) => {
+    const coords = intersection.ref_point?.coordinates || [0, 0];
+    setFormData({
+      name: intersection.name,
+      description: intersection.description || '',
+      latitude: coords[1].toString(),
+      longitude: coords[0].toString(),
+      cuipSlug: intersection.cuip_slug || '',
+    });
+    setEditingId(intersection.intersection_id);
     setIsDialogOpen(true);
   };
 
@@ -121,13 +110,8 @@ export function IntersectionConfig() {
         cuip_slug: formData.cuipSlug || null,
       };
 
-      const method = editingId ? 'PUT' : 'POST';
-      const url = editingId
-        ? `${API_URL}/api/intersections/${editingId}`
-        : `${API_URL}/api/intersections`;
-
-      const res = await fetch(url, {
-        method,
+      const res = await fetch(`${API_URL}/api/intersections/${editingId}`, {
+        method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           ...getAuthHeader(),
@@ -142,13 +126,9 @@ export function IntersectionConfig() {
 
       const saved = await res.json();
 
-      if (editingId) {
-        setIntersections((prev) =>
-          prev.map((i) => (i.intersection_id === editingId ? saved : i))
-        );
-      } else {
-        setIntersections((prev) => [saved, ...prev]);
-      }
+      setIntersections((prev) =>
+        prev.map((i) => (i.intersection_id === editingId ? saved : i))
+      );
 
       setIsDialogOpen(false);
     } catch (err) {
@@ -183,17 +163,11 @@ export function IntersectionConfig() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-semibold text-foreground mb-2">Intersections</h2>
-          <p className="text-sm text-muted-foreground">
-            Manage traffic intersections. IDs are auto-generated.
-          </p>
-        </div>
-        <Button onClick={() => openDialog()} className="gap-2">
-          <Plus className="w-4 h-4" />
-          New Intersection
-        </Button>
+      <div>
+        <h2 className="text-lg font-semibold text-foreground mb-2">Intersections</h2>
+        <p className="text-sm text-muted-foreground">
+          Manage traffic intersections.
+        </p>
       </div>
 
       {error && (
@@ -270,7 +244,7 @@ export function IntersectionConfig() {
 
         {intersections.length === 0 && !error && (
           <div className="text-center p-8 text-muted-foreground">
-            No intersections yet. Click "New Intersection" to create one.
+            No intersections found.
           </div>
         )}
       </div>
@@ -279,7 +253,7 @@ export function IntersectionConfig() {
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>{editingId ? 'Edit Intersection' : 'Create Intersection'}</DialogTitle>
+            <DialogTitle>Edit Intersection</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4">
@@ -363,7 +337,7 @@ export function IntersectionConfig() {
               Cancel
             </Button>
             <Button onClick={handleSave}>
-              {editingId ? 'Update' : 'Create'} Intersection
+              Update Intersection
             </Button>
           </DialogFooter>
         </DialogContent>
